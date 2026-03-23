@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m venv .venv)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(PYTHONPATH=. pytest tests/unit/ -v)",
+      "Bash(PYTHONPATH=. pytest tests/bdd/ -v)",
+      "Bash(PYTHONPATH=. pytest tests/bdd/steps/ -v)",
+      "Bash(PYTHONPATH=. python -c \"import tests.bdd.steps.rotation_steps\")",
+      "Bash(python -c \"import pytest_bdd; print\\(pytest_bdd.__version__\\)\")",
+      "Bash(pip show:*)"
+    ]
+  }
+}

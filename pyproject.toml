@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools-scm"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "football-rotation"
+version = "0.1.0"
+description = "Youth football squad rotation manager"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-bdd>=7.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+api = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "sqlmodel>=0.0.19",
+    "pydantic-settings>=2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*", "tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: fast, isolated tests — no DB or server",
+    "integration: tests that hit DB or FastAPI test client",
+    "bdd: Gherkin BDD scenarios via pytest-bdd",
+]
+bdd_features_base_dir = "tests/bdd/features"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+exclude = ["tests/", "frontend/"]
