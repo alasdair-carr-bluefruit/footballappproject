@@ -10,6 +10,7 @@ Usage:
 """
 from __future__ import annotations
 
+import random
 from collections import defaultdict
 
 from backend.algorithm.gk_selector import select_gk_for_slots
@@ -150,12 +151,15 @@ def _select_outfield(candidates: list, targets: dict, slot_counts: dict, remaini
     """Select 4 outfield players for a regular (quarter-start) slot.
 
     Sort: fewest slots played first, then most outfield budget remaining.
+    Players with identical priority are shuffled so results vary each run.
     """
     def sort_key(p: Player) -> tuple:
         outfield_budget = targets.get(p, 0) - slot_counts[p] - remaining_gk.get(id(p), 0)
         return (slot_counts[p], -outfield_budget)
 
-    return sorted(candidates, key=sort_key)[:4]
+    shuffled = list(candidates)
+    random.shuffle(shuffled)  # shuffle first so equal-priority players vary each run
+    return sorted(shuffled, key=sort_key)[:4]
 
 
 def _select_outfield_mid_quarter(
@@ -179,12 +183,13 @@ def _select_outfield_mid_quarter(
     def budget(p: Player) -> int:
         return targets.get(p, 0) - slot_counts[p] - remaining_gk.get(id(p), 0)
 
-    carried_candidates = sorted(prev_outfield, key=lambda p: -budget(p))
+    # Sort prev outfield by budget descending — most remaining time = stay on
+    shuffled_prev = list(prev_outfield)
+    random.shuffle(shuffled_prev)
+    carried_candidates = sorted(shuffled_prev, key=lambda p: -budget(p))
 
-    # Carry 2 players that still have budget (or just the first 2 if all exhausted)
-    carry_over = [p for p in carried_candidates[:3] if budget(p) > 0]
-    if len(carry_over) < 2:
-        carry_over = carried_candidates[:2]
+    # Carry players who still have budget remaining (never force-carry over target)
+    carry_over = [p for p in carried_candidates if budget(p) > 0][:3]
 
     prev_ids = {id(p) for p in prev_slot.players}
     carried_ids = {id(p) for p in carry_over}
@@ -200,6 +205,7 @@ def _select_outfield_mid_quarter(
         and (gk_player is None or id(p) != id(gk_player))
         and budget(p) > 0
     ]
+    random.shuffle(bench_candidates)
 
     def bench_sort_key(p: Player) -> tuple:
         return (slot_counts[p], -budget(p))
@@ -208,11 +214,21 @@ def _select_outfield_mid_quarter(
     slots_needed = 4 - len(carry_over)
     new_players = bench_sorted[:slots_needed]
 
-    # If still short, pull more from prev_outfield (carry more than 2)
     result = carry_over + new_players
+
+    # If still short (rare — budget exhaustion), pull remaining within-budget players
+    # from anywhere, then as a last resort accept over-budget (validator will flag)
     if len(result) < 4:
-        extras = [p for p in prev_outfield if id(p) not in {id(x) for x in result}]
-        result += extras[:4 - len(result)]
+        result_ids = {id(p) for p in result}
+        if gk_player is not None:
+            result_ids.add(id(gk_player))
+        extras_in_budget = [
+            p for p in all_players
+            if id(p) not in result_ids
+            and p.gk_status != GKTier.SPECIALIST
+            and budget(p) > 0
+        ]
+        result += extras_in_budget[:4 - len(result)]
 
     return result
 
@@ -254,9 +270,17 @@ def _assign_outfield_positions(
 
 
 def _pick_for_position(pos_label: str, candidates: list, position_sets: dict) -> Player:
-    """Pick the best candidate for a position, minimising new positions introduced."""
+    """Pick the best candidate for a position.
+
+    Priority:
+    1. Players who already play this position (no new position type introduced)
+    2. Players who have fewer than 2 position types (can absorb a new one)
+    3. Anyone remaining (validator will flag if >2 positions result)
+    """
     norm_label = "MID" if pos_label in ("MID1", "MID2") else pos_label
     already_plays = [p for p in candidates if norm_label in position_sets[p]]
-    new_position = [p for p in candidates if norm_label not in position_sets[p]]
-    pool = already_plays if already_plays else new_position
+    if already_plays:
+        return min(already_plays, key=lambda p: len(position_sets[p]))
+    can_absorb = [p for p in candidates if len(position_sets[p]) < 2]
+    pool = can_absorb if can_absorb else candidates
     return min(pool, key=lambda p: len(position_sets[p]))

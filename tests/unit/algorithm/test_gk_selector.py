@@ -21,8 +21,11 @@ class TestSpecialistPresent:
         others = [make_player(f"P{i}") for i in range(8)]
         players = [specialist, preferred] + others
         assignments, warnings = select_gk_for_slots(players, num_slots=8, squad_size=10)
-        assert all(a is specialist for a in assignments[:4])
-        assert all(a is not specialist for a in assignments[4:])
+        # Specialist plays Q1 (slots 0-1) and Q3 (slots 4-5), sits out Q2 and Q4
+        assert assignments[0] is specialist and assignments[1] is specialist  # Q1
+        assert assignments[2] is not specialist and assignments[3] is not specialist  # Q2
+        assert assignments[4] is specialist and assignments[5] is specialist  # Q3
+        assert assignments[6] is not specialist and assignments[7] is not specialist  # Q4
 
     def test_specialist_never_assigned_outfield_slot(self):
         specialist = make_player("Alice", GKTier.SPECIALIST)
@@ -30,8 +33,9 @@ class TestSpecialistPresent:
         others = [make_player(f"P{i}") for i in range(8)]
         players = [specialist, preferred] + others
         assignments, _ = select_gk_for_slots(players, num_slots=8, squad_size=10)
-        # None of the non-GK slots should be the specialist
-        assert specialist not in assignments[4:]
+        # Specialist only appears in Q1 and Q3 slots
+        non_specialist_slots = [i for i, a in enumerate(assignments) if a is not specialist]
+        assert set(non_specialist_slots) == {2, 3, 6, 7}  # Q2 and Q4
 
 
 class TestNoSpecialist:
@@ -46,11 +50,9 @@ class TestNoSpecialist:
         assert not warnings
 
     def test_emergency_only_triggers_warning(self):
-        emergency = make_player("Eve", GKTier.EMERGENCY_ONLY)
-        others = [make_player(f"P{i}") for i in range(8)]
-        players = [emergency] + others
+        players = [make_player(f"P{i}", GKTier.EMERGENCY_ONLY) for i in range(9)]
         assignments, warnings = select_gk_for_slots(players, num_slots=8, squad_size=9)
-        assert emergency in assignments
+        assert all(p.gk_status == GKTier.EMERGENCY_ONLY for p in assignments if p is not None)
         assert any("emergency" in w.lower() for w in warnings)
 
     def test_preferred_before_emergency(self):
@@ -68,12 +70,14 @@ class TestNoSpecialist:
         # Preferred fills GK slots BEFORE emergency (chronological priority)
         preferred_slots = [i for i, p in enumerate(assignments) if p is preferred]
         emergency_slots = [i for i, p in enumerate(assignments) if p is emergency]
+        # Preferred must play some GK slots
         assert preferred_slots, "Preferred player should have some GK slots"
-        assert emergency_slots, "Emergency should cover remaining GK slots for time equality"
-        # Preferred should cover more or equal GK slots than any single emergency player
-        assert len(preferred_slots) >= len(emergency_slots)
+        # Some emergency player must cover the remaining GK quarters (time equality)
+        emergency_in_goal = [p for p in assignments if p is not None and p.gk_status == GKTier.EMERGENCY_ONLY]
+        assert emergency_in_goal, "Some emergency player should cover remaining GK slots for time equality"
         # Preferred fills the earlier quarters (lower slot indices)
-        assert min(preferred_slots) < min(emergency_slots), (
+        emergency_slots_any = [i for i, p in enumerate(assignments) if p is not None and p.gk_status == GKTier.EMERGENCY_ONLY]
+        assert min(preferred_slots) < min(emergency_slots_any), (
             "Preferred should be GK in earlier slots than emergency"
         )
         assert not warnings

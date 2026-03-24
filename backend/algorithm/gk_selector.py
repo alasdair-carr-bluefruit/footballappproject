@@ -17,6 +17,8 @@ Time budget:
 """
 from __future__ import annotations
 
+import random
+
 from backend.models.player import GKTier, Player
 
 
@@ -48,15 +50,19 @@ def select_gk_for_slots(
             # Specialist plays every quarter
             gk_per_quarter = [specialist] * num_quarters
         else:
-            # Specialist plays Q1 and Q2 (first half of the match)
+            # Specialist plays Q1 and Q3 (alternating quarters).
+            # Non-specialist GKs cover Q2 and Q4 — spreads GK experience more evenly.
             other_players = [p for p in players if p is not specialist]
             gk_pool = _ranked_gk_pool(other_players, warnings)
-            gk_per_quarter = [specialist, specialist]
             q_counts: dict = {}
-            for _ in range(num_quarters - 2):
-                gk = _pick_gk_for_quarter(gk_pool, q_counts, max_gk_quarters)
-                gk_per_quarter.append(gk)
-                q_counts[id(gk)] = q_counts.get(id(gk), 0) + 1
+            gk_per_quarter = []
+            for q in range(num_quarters):
+                if q % 2 == 0:  # Q1, Q3
+                    gk_per_quarter.append(specialist)
+                else:           # Q2, Q4
+                    gk = _pick_gk_for_quarter(gk_pool, q_counts, max_gk_quarters)
+                    gk_per_quarter.append(gk)
+                    q_counts[id(gk)] = q_counts.get(id(gk), 0) + 1
     else:
         gk_pool = _ranked_gk_pool(players, warnings)
         if not gk_pool:
@@ -78,13 +84,32 @@ def select_gk_for_slots(
 def _pick_gk_for_quarter(gk_pool: list, q_counts: dict, max_quarters: int) -> Player:
     """Pick the best-tier GK who still has budget remaining.
 
-    Falls back to least-used player if all have exhausted their budget.
+    Within a tier, picks the least-used player (random tiebreak so the same
+    player isn't always chosen first). Falls back to least-used overall if all
+    players have exhausted their budget.
     """
-    for p in gk_pool:  # gk_pool is ordered best-tier-first
+    # Walk tier-by-tier; within each tier pick the least-used eligible player
+    seen_tier = None
+    tier_candidates: list = []
+    for p in gk_pool:
+        tier = p.gk_status
+        if tier != seen_tier:
+            # Entering a new tier — check if previous tier had eligible candidates
+            if tier_candidates:
+                break
+            seen_tier = tier
+            tier_candidates = []
         if q_counts.get(id(p), 0) < max_quarters:
-            return p
-    # All exhausted budget — pick least-used overall
-    return min(gk_pool, key=lambda p: q_counts.get(id(p), 0))
+            tier_candidates.append(p)
+
+    if not tier_candidates:
+        # All exhausted — pick least-used overall (random tiebreak)
+        min_count = min(q_counts.get(id(p), 0) for p in gk_pool)
+        tier_candidates = [p for p in gk_pool if q_counts.get(id(p), 0) == min_count]
+
+    # Among candidates, pick least-used; shuffle first so ties are broken randomly
+    random.shuffle(tier_candidates)
+    return min(tier_candidates, key=lambda p: q_counts.get(id(p), 0))
 
 
 def _ranked_gk_pool(players: list, warnings: list) -> list:
