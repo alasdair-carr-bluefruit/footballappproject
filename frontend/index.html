@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#162e16" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Squad Rotation</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="match-title" id="match-title"></div>
+      <div class="slot-label"  id="slot-label"></div>
+      <div class="slot-counter" id="slot-counter"></div>
+      <div class="progress-dots">
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+      </div>
+    </header>
+
+    <!-- Pitch -->
+    <div class="pitch-wrapper">
+      <div class="pitch" id="pitch"></div>
+    </div>
+
+    <!-- Report (shown after full time) -->
+    <section class="report-section" id="report-section" style="display:none">
+      <ul class="report-list" id="report-list"></ul>
+    </section>
+
+    <!-- Bench -->
+    <section class="bench-section">
+      <div class="bench-title">Bench</div>
+      <ul class="bench-list" id="bench-list"></ul>
+    </section>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="btn btn-prev" id="btn-prev">◀ Back</button>
+      <button class="btn btn-next" id="btn-next">Next half ▶</button>
+    </div>
+
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
