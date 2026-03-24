@@ -62,17 +62,20 @@ Acceptance: Integration tests green. Data persists across sessions.
 
 ---
 
-## v0.6 — Player History & Manual Override
-**Goal:** Coach can track development and override plans.
+## v0.6 — Player History, Manual Override & Mid-Match Re-Calculation
+**Goal:** Coach can track development, override plans, and handle mid-match changes.
 
 New:
 - Position history tracking per player per match + cumulative
 - Minutes played counter
 - Per-player summary view
 - Manual override with rule-violation warnings
+- Mid-match player removal: mark a player unavailable from a given slot onward, re-generate remaining slots
+- Player reinstatement: restore a removed player and re-calculate again
 - `tests/bdd/features/squad_management.feature`
+- `tests/bdd/features/mid_match_recalculation.feature`
 
-Acceptance: History BDD scenarios pass. Override warnings shown correctly.
+Acceptance: History BDD scenarios pass. Override warnings shown correctly. Mid-match re-calculation produces a valid plan for remaining slots.
 
 ---
 

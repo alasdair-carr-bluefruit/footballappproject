@@ -14,6 +14,7 @@ import random
 from collections import defaultdict
 
 from backend.algorithm.gk_selector import select_gk_for_slots
+from backend.algorithm.skill_balancer import balance_skills
 from backend.algorithm.time_balancer import compute_target_slots
 from backend.algorithm.validator import validate
 from backend.models.match import Match, Squad
@@ -65,7 +66,10 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
     plan = _build_slots(players, gk_assignments, targets, future_gk, num_slots)
     plan.warnings.extend(warnings)
 
-    # Step 4: Validate
+    # Step 4: Skill balance optimisation (soft preference)
+    plan = balance_skills(plan)
+
+    # Step 5: Validate
     violations = validate(plan, players)
     if violations:
         plan.warnings.extend(["VIOLATION: " + v for v in violations])

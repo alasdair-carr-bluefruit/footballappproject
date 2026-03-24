@@ -170,6 +170,31 @@ Each player has the following attributes:
 
 ---
 
+## 8a. Mid-Match Player Removal & Re-Calculation
+
+A coach may need to temporarily remove a player from the rotation during a match (e.g. injury, disciplinary, or the player needs a break). The system should support this without requiring a full re-plan from scratch.
+
+### Functional Requirements
+
+- FR-30: Coach can mark a player as unavailable mid-match, specifying from which slot onward they are removed
+- FR-31: System re-calculates the remaining slots of the rotation using only the still-available players
+- FR-32: Slots already played are locked and not recalculated
+- FR-33: The re-calculated plan respects all existing hard constraints (GK tiers, DEF restriction, sub limits, playing time equality) over the remaining slots
+- FR-34: If a GK specialist is removed, the system falls back to the normal GK tier priority for remaining slots
+- FR-35: Coach can reinstate a removed player at any future slot (e.g. player recovers), triggering another re-calculation
+
+### Behaviour Rules
+
+- Playing time equality is recalculated over the **remaining slots only** — past slots are fixed
+- The validator should warn (but not block) if true equality is no longer achievable given the reduced squad
+- If the removed player was assigned GK in a future slot, a new GK is assigned from the next available tier
+
+### Phase
+
+This feature is scoped for **v0.6** alongside manual override, as it requires the same "partial plan" infrastructure.
+
+---
+
 ## 9. BDD Acceptance Scenarios
 
 ```gherkin
@@ -246,5 +271,5 @@ Feature: Team balance
 | **v0.3** | Skill balancing across quarters (soft preference) |
 | **v0.4** | Simple web UI — pitch visualisation with player positions and incoming subs highlighted |
 | **v0.5** | Player history and position tracking |
-| **v0.6** | Manual override with rule validation warnings |
+| **v0.6** | Manual override with rule validation warnings; mid-match player removal and re-calculation |
 | **v1.0** | Persistent storage, stable for real match use |
