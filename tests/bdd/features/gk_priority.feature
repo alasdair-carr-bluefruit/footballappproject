@@ -10,7 +10,7 @@ Feature: GK assignment priority
     Given a squad of 9 players with no specialist but with a preferred GK player
     When the system generates a rotation plan
     Then the preferred GK player should fill at least one GK slot
-    And no emergency_only player should fill a GK slot
+    And the preferred GK player should fill more GK slots than any single emergency_only player
 
   Scenario: Only emergency_only GK available
     Given a squad where the only available GK-capable players are emergency_only

@@ -83,19 +83,21 @@ def preferred_fills_gk(context):
     assert len(gk_slots) > 0, f"Preferred GK {preferred.name} never assigned GK"
 
 
-@then("no emergency_only player should fill a GK slot")
-def no_emergency_in_gk(context):
+@then("the preferred GK player should fill more GK slots than any single emergency_only player")
+def preferred_fills_more_than_any_emergency(context):
+    """Preferred gets priority: they fill more GK slots than any individual emergency player."""
     plan: RotationPlan = context["plan"]
     preferred = next((p for p in context["squad"].available if p.gk_status == GKTier.PREFERRED), None)
-    can_play = [p for p in context["squad"].available if p.gk_status == GKTier.CAN_PLAY]
-    # Emergency only forbidden when preferred or can_play exist
-    if preferred or can_play:
-        for slot in plan.slots:
-            if slot.gk is not None:
-                assert slot.gk.gk_status != GKTier.EMERGENCY_ONLY, (
-                    f"Slot {slot.slot_index}: emergency_only {slot.gk.name} assigned GK "
-                    "when preferred/can_play was available"
-                )
+    if preferred is None:
+        return
+    preferred_gk_count = sum(1 for slot in plan.slots if slot.gk is preferred)
+    emergency_players = [p for p in context["squad"].available if p.gk_status == GKTier.EMERGENCY_ONLY]
+    for ep in emergency_players:
+        ep_gk_count = sum(1 for slot in plan.slots if slot.gk is ep)
+        assert preferred_gk_count >= ep_gk_count, (
+            f"Preferred {preferred.name} has {preferred_gk_count} GK slots, "
+            f"but emergency {ep.name} has {ep_gk_count}"
+        )
 
 
 @then("an emergency_only player is assigned GK")

@@ -10,7 +10,10 @@
       "Bash(PYTHONPATH=. pytest tests/bdd/steps/ -v)",
       "Bash(PYTHONPATH=. python -c \"import tests.bdd.steps.rotation_steps\")",
       "Bash(python -c \"import pytest_bdd; print\\(pytest_bdd.__version__\\)\")",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(PYTHONPATH=. pytest tests/bdd/ -v --collect-only)",
+      "Bash(PYTHONPATH=. pytest tests/bdd/steps/rotation_steps.py -v)",
+      "Bash(PYTHONPATH=. pytest tests/ -v)"
     ]
   }
 }
