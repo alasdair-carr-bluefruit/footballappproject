@@ -464,3 +464,312 @@ html, body {
 }
 .btn-next:disabled { background: var(--btn-disabled); color: rgba(255,255,255,0.4); cursor: default; }
 .btn-next:not(:disabled):active { background: #388e3c; }
+
+/* ── Screen management ────────────────────────────────────────────── */
+
+.screen { display: flex; flex-direction: column; min-height: 100dvh; }
+.screen[hidden] { display: none; }
+
+/* ── Home screen ──────────────────────────────────────────────────── */
+
+.header-home {
+  padding: 20px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.app-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.home-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--btn-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
+.btn-primary:active { background: #388e3c; }
+
+.btn-secondary {
+  background: rgba(255,255,255,0.12);
+  color: var(--text-light);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
+.btn-secondary:active { background: rgba(255,255,255,0.2); }
+
+.btn-full { width: 100%; }
+
+.match-list {
+  list-style: none;
+  padding: 8px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.match-item {
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.match-item-main {
+  flex: 1;
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.match-item-main:active { background: rgba(255,255,255,0.06); }
+
+.match-item-date {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.match-item-opponent {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.match-badge {
+  font-size: 11px;
+  background: rgba(255,200,0,0.2);
+  color: #ffd700;
+  border-radius: 4px;
+  padding: 1px 6px;
+  align-self: flex-start;
+}
+
+.match-delete {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.match-delete:active { color: #e74c3c; }
+
+.empty-state {
+  color: var(--text-dim);
+  text-align: center;
+  padding: 32px 16px;
+  font-size: 14px;
+  list-style: none;
+}
+
+.loading { color: var(--text-dim); padding: 24px 16px; list-style: none; font-size: 14px; }
+
+/* ── Sub-screen header ────────────────────────────────────────────── */
+
+.header-sub {
+  padding: 16px 16px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.header-sub h2 { font-size: 18px; font-weight: 700; }
+
+.btn-back {
+  background: none;
+  border: none;
+  color: var(--btn-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+
+/* ── New match form ───────────────────────────────────────────────── */
+
+.form-card {
+  background: rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 20px 16px;
+  margin: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.form-card input,
+.form-card select {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: var(--text-light);
+  width: 100%;
+  -webkit-appearance: none;
+}
+
+.form-card input:focus,
+.form-card select:focus {
+  outline: none;
+  border-color: var(--btn-primary);
+}
+
+.form-card input[type="number"] { width: 80px; }
+
+.label-inline {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px !important;
+  color: var(--text-light) !important;
+  font-size: 15px !important;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ── Squad screen ─────────────────────────────────────────────────── */
+
+.player-list {
+  list-style: none;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.player-item {
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  gap: 12px;
+}
+
+.player-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.player-item-name { font-size: 16px; font-weight: 600; }
+
+.player-item-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.badge-gk        { background: #1565c0; color: #fff; }
+.badge-gkpref    { background: #1976d2; color: #fff; }
+.badge-gkcan     { background: rgba(255,255,255,0.15); color: var(--text-light); }
+.badge-emergency { background: #b71c1c; color: #fff; }
+.badge-def       { background: #e65100; color: #fff; }
+
+.player-item-actions { display: flex; gap: 6px; }
+
+.btn-sm {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-light);
+  font-size: 13px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.btn-sm:active { background: rgba(255,255,255,0.2); }
+
+.btn-danger { color: #e74c3c; }
+.btn-danger:active { background: rgba(231,76,60,0.15); }
+
+.squad-footer {
+  padding: 12px 16px 24px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ── Player form overlay ──────────────────────────────────────────── */
+
+.form-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: flex-end;
+  z-index: 100;
+  padding: 16px;
+}
+
+.form-overlay .form-card {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: #1e4d1e;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+.form-overlay h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* ── Pitch header extension ───────────────────────────────────────── */
+
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.header-top .match-title { font-size: 13px; }
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  color: var(--text-dim);
+}
+

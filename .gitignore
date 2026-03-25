@@ -13,8 +13,8 @@ build/
 .pytest_cache/
 
 # Database
-backend/db/*.db
-backend/db/*.db-journal
+*.db
+*.db-journal
 
 # OS
 .DS_Store
