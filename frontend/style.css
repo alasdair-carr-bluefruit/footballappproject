@@ -647,13 +647,6 @@ html, body {
 
 .form-card input[type="number"] { width: 80px; }
 
-.label-inline {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 10px !important;
-  color: var(--text-light) !important;
-  font-size: 15px !important;
-}
 
 .form-actions {
   display: flex;
@@ -727,6 +720,54 @@ html, body {
   border-top: 1px solid rgba(255,255,255,0.08);
 }
 
+/* ── DEF Restricted toggle ────────────────────────────────────────── */
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.toggle-text {
+  font-size: 15px;
+  color: var(--text-light);
+  flex: 1;
+}
+
+.toggle-hint { font-size: 12px; color: var(--text-dim); display: block; margin-top: 2px; }
+
+.toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.toggle-wrap { flex-shrink: 0; }
+
+.toggle-track {
+  display: block;
+  width: 48px;
+  height: 28px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 14px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-thumb {
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.toggle-input:checked + .toggle-track { background: var(--btn-primary); }
+.toggle-input:checked + .toggle-track .toggle-thumb { transform: translateX(20px); }
+
 /* ── Player form overlay ──────────────────────────────────────────── */
 
 .form-overlay {
@@ -738,6 +779,8 @@ html, body {
   z-index: 100;
   padding: 16px;
 }
+
+.form-overlay[hidden] { display: none; }
 
 .form-overlay .form-card {
   width: 100%;

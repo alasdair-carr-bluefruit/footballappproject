@@ -74,9 +74,12 @@
             <option value="emergency_only">Emergency Only</option>
           </select>
         </label>
-        <label class="label-inline">
-          <input type="checkbox" id="input-def-restricted" />
-          DEF Restricted (never plays DEF)
+        <label class="toggle-row">
+          <span class="toggle-text">DEF Restricted <span class="toggle-hint">(never plays DEF)</span></span>
+          <span class="toggle-wrap">
+            <input type="checkbox" id="input-def-restricted" class="toggle-input" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </span>
         </label>
         <label>
           Skill Rating (1–5)

@@ -175,7 +175,12 @@ document.getElementById("btn-squad-back").addEventListener("click", loadHome);
 document.getElementById("btn-add-player").addEventListener("click", () => openPlayerForm());
 document.getElementById("btn-cancel-player").addEventListener("click", closePlayerForm);
 
-document.getElementById("player-form").addEventListener("submit", async e => {
+// Close when tapping the dark backdrop outside the form card
+document.getElementById("player-form").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closePlayerForm();
+});
+
+document.querySelector("#player-form form").addEventListener("submit", async e => {
   e.preventDefault();
   const data = {
     name:           document.getElementById("input-name").value.trim(),
@@ -185,8 +190,11 @@ document.getElementById("player-form").addEventListener("submit", async e => {
   };
   if (!data.name) return;
 
-  if (editingPlayerId !== null) {
-    await api.updatePlayer(editingPlayerId, data).catch(err => alert(err.message));
+  const id = editingPlayerId;
+  closePlayerForm(); // close immediately — prevents double-save
+
+  if (id !== null) {
+    await api.updatePlayer(id, data).catch(err => alert(err.message));
   } else {
     await api.addPlayer(data).catch(err => alert(err.message));
   }
