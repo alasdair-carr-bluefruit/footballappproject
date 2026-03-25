@@ -321,17 +321,27 @@ function render() {
     dot.classList.toggle("done", i < currentSlot);
   });
 
-  // Build replacement map for bench labels
+  // Build replacement map: incoming player → outgoing player they replace.
+  // First try exact position match; pair any leftovers by iteration order.
   const replacementMap = new Map();
   if (nextSlot) {
-    ["DEF", "MID1", "MID2", "FWD"].forEach(pos => {
+    const unpairedOut = new Set(outgoing);
+    ["GK", "DEF", "MID1", "MID2", "FWD"].forEach(pos => {
       const cur = slot.lineup[pos]?.name;
       const nxt = nextSlot.lineup[pos]?.name;
-      if (nxt && cur && nxt !== cur && incoming.has(nxt)) replacementMap.set(nxt, cur);
+      if (nxt && cur && incoming.has(nxt) && outgoing.has(cur)) {
+        replacementMap.set(nxt, cur);
+        unpairedOut.delete(cur);
+      }
     });
-    const curGk = slot.lineup.GK?.name;
-    const nxtGk = nextSlot.lineup.GK?.name;
-    if (nxtGk && curGk && nxtGk !== curGk && incoming.has(nxtGk)) replacementMap.set(nxtGk, curGk);
+    // Pair any remaining incoming with remaining outgoing
+    const leftoverOut = [...unpairedOut];
+    let i = 0;
+    incoming.forEach(inName => {
+      if (!replacementMap.has(inName) && leftoverOut[i]) {
+        replacementMap.set(inName, leftoverOut[i++]);
+      }
+    });
   }
 
   // Pitch
@@ -374,10 +384,7 @@ function render() {
 
     const initials = p.name.slice(0, 3).toUpperCase();
     const replacing = replacementMap.get(p.name);
-    // Only say "On for X" if X is actually going to the bench, not just changing position
-    const subLabel = incoming.has(p.name)
-      ? `<span class="bench-arrow">↑ ${replacing && outgoing.has(replacing) ? `On for ${replacing}` : "On"}</span>`
-      : "";
+    const subLabel = replacing ? `<span class="bench-arrow">↑ On for ${replacing}</span>` : "";
 
     li.innerHTML = `
       <span class="bench-avatar">${initials}</span>
@@ -390,9 +397,9 @@ function render() {
   // Buttons
   document.getElementById("btn-prev").disabled = currentSlot === 0;
   const btnNext = document.getElementById("btn-next");
+  btnNext.disabled = false;
   if (currentSlot === matchData.slots.length - 1) {
     btnNext.textContent = "Full time ▶";
-    btnNext.disabled = false;
   } else if (currentSlot % 2 === 0) {
     btnNext.textContent = "Next half ▶";
   } else {
