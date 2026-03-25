@@ -157,6 +157,7 @@ SlotAssignment
 - "Mid-quarter" means the transition from slot 0→1, 2→3, 4→5, 6→7.
 - Position codes: `GK`, `DEF`, `MID`, `FWD`
 - Formation is **1-2-1**: 1 DEF, 2 MID, 1 FWD outfield
+- Keep commit messages to terse one line comments
 
 ---
 
