@@ -53,6 +53,15 @@ async function loadHome() {
   });
 }
 
+function enterPitchView(data) {
+  matchData = data;
+  currentSlot = 0;
+  showingReport = false;
+  Object.keys(goalCounts).forEach(k => delete goalCounts[k]);
+  showScreen("screen-pitch");
+  render();
+}
+
 async function openMatch(matchId) {
   const data = await api.getMatch(matchId).catch(err => { alert(err.message); return null; });
   if (!data) return;
@@ -63,15 +72,10 @@ async function openMatch(matchId) {
       return null;
     });
     if (!generated) return;
-    matchData = generated;
+    enterPitchView(generated);
   } else {
-    matchData = data;
+    enterPitchView(data);
   }
-
-  currentSlot = 0;
-  showingReport = false;
-  showScreen("screen-pitch");
-  render();
 }
 
 document.getElementById("btn-go-new-match").addEventListener("click", () => {
@@ -99,11 +103,7 @@ document.getElementById("new-match-form").addEventListener("submit", async e => 
   try {
     const match = await api.createMatch({ date, opponent });
     const data = await api.generateRotation(match.id);
-    matchData = data;
-    currentSlot = 0;
-    showingReport = false;
-    showScreen("screen-pitch");
-    render();
+    enterPitchView(data);
   } catch (err) {
     alert("Error: " + err.message);
     btn.disabled = false;
@@ -348,7 +348,7 @@ function render() {
       rowEl.classList.add("mid-row");
       ["MID1", "MID2"].forEach(pos => {
         const name = slot.lineup[pos]?.name ?? "?";
-        rowEl.appendChild(playerCircle(name, "MID", incoming.has(name), false));
+        rowEl.appendChild(playerCircle(name, "MID", incoming.has(name), outgoing.has(name)));
       });
     } else {
       const name = slot.lineup[row.key]?.name ?? "?";
