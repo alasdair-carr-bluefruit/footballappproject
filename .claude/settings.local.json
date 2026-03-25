@@ -13,7 +13,17 @@
       "Bash(pip show:*)",
       "Bash(PYTHONPATH=. pytest tests/bdd/ -v --collect-only)",
       "Bash(PYTHONPATH=. pytest tests/bdd/steps/rotation_steps.py -v)",
-      "Bash(PYTHONPATH=. pytest tests/ -v)"
+      "Bash(PYTHONPATH=. pytest tests/ -v)",
+      "Bash(PYTHONPATH=. python3 demo.py)",
+      "Bash(PYTHONPATH=. pytest tests/ -q)",
+      "Bash(PYTHONPATH=. pytest tests/ -q --count=20)",
+      "Bash(python -m pytest tests/ -x -q)",
+      "Bash(python -m pytest tests/ -q)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/)",
+      "Bash(gh pr:*)",
+      "Bash(brew --prefix gh)",
+      "Read(//opt/homebrew/Cellar/gh/2.88.1/bin/**)",
+      "Bash(/opt/homebrew/bin/gh pr:*)"
     ]
   }
 }
