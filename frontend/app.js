@@ -59,6 +59,11 @@ function enterPitchView(data) {
   showingReport = false;
   Object.keys(goalCounts).forEach(k => delete goalCounts[k]);
   showScreen("screen-pitch");
+  // Reset any inline styles left over from a previous report view
+  document.querySelector(".pitch-wrapper").style.display = "";
+  document.querySelector(".bench-section").style.display = "";
+  document.getElementById("report-section").style.display = "none";
+  document.querySelector(".progress-dots").style.display = "";
   render();
 }
 
@@ -369,7 +374,10 @@ function render() {
 
     const initials = p.name.slice(0, 3).toUpperCase();
     const replacing = replacementMap.get(p.name);
-    const subLabel = replacing ? `<span class="bench-arrow">↑ On for ${replacing}</span>` : "";
+    // Only say "On for X" if X is actually going to the bench, not just changing position
+    const subLabel = incoming.has(p.name)
+      ? `<span class="bench-arrow">↑ ${replacing && outgoing.has(replacing) ? `On for ${replacing}` : "On"}</span>`
+      : "";
 
     li.innerHTML = `
       <span class="bench-avatar">${initials}</span>
