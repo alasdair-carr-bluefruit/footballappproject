@@ -69,11 +69,46 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
     # Step 4: Skill balance optimisation (soft preference)
     plan = balance_skills(plan)
 
+    # Step 4b: Restore position consistency — carried players should keep their H1 position
+    plan = _align_mid_quarter_positions(plan)
+
     # Step 5: Validate
     violations = validate(plan, players)
     if violations:
         plan.warnings.extend(["VIOLATION: " + v for v in violations])
 
+    return plan
+
+
+def _align_mid_quarter_positions(plan: RotationPlan) -> RotationPlan:
+    """Swap outfield positions within H2 slots so carried players keep their H1 position.
+
+    Only swaps position *labels* within a slot — never changes which players
+    are on the pitch — so sub limits and playing-time constraints are unaffected.
+    DEF-restriction is explicitly checked before any swap.
+    """
+    for quarter in range(len(plan.slots) // 2):
+        h1 = plan.slots[quarter * 2]
+        h2 = plan.slots[quarter * 2 + 1]
+        for pos in OUTFIELD_POSITIONS:
+            h1_player = h1.lineup.get(pos)
+            if h1_player is None:
+                continue
+            # Find where this player ended up in H2
+            h2_pos = next(
+                (p for p, pl in h2.lineup.items() if pl is h1_player and p != Position.GK),
+                None,
+            )
+            if h2_pos is None or h2_pos == pos:
+                continue  # went to bench, or already correct
+            # Swap with whoever occupies `pos` in H2
+            h2_occupant = h2.lineup.get(pos)
+            if h2_occupant is None:
+                continue
+            if pos == Position.DEF and h2_occupant.def_restricted:
+                continue  # cannot move DEF-restricted player into DEF
+            h2.lineup[pos] = h1_player
+            h2.lineup[h2_pos] = h2_occupant
     return plan
 
 

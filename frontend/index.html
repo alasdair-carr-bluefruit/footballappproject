@@ -11,11 +11,96 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app">
+<div class="app">
 
-    <!-- Header -->
+  <!-- ── Screen: Home ─────────────────────────────────────────────────────── -->
+  <div id="screen-home" class="screen">
+    <header class="header header-home">
+      <h1 class="app-title">Squad Rotation</h1>
+      <div class="home-actions">
+        <button class="btn btn-primary" id="btn-go-new-match">+ New Match</button>
+        <button class="btn btn-secondary" id="btn-go-squad">Edit Squad</button>
+      </div>
+    </header>
+    <ul class="match-list" id="match-list"></ul>
+  </div>
+
+  <!-- ── Screen: New Match ────────────────────────────────────────────────── -->
+  <div id="screen-new-match" class="screen" hidden>
+    <header class="header header-sub">
+      <button class="btn-back" id="btn-new-match-back">◀ Matches</button>
+      <h2>New Match</h2>
+    </header>
+    <form class="form-card" id="new-match-form">
+      <label>
+        Opponent
+        <input type="text" id="opponent-input" placeholder="e.g. Rovers FC" autocomplete="off" />
+      </label>
+      <label>
+        Date
+        <input type="date" id="match-date" />
+      </label>
+      <button class="btn btn-primary btn-full" type="submit" id="btn-generate">
+        Generate Rotation ▶
+      </button>
+    </form>
+  </div>
+
+  <!-- ── Screen: Squad ────────────────────────────────────────────────────── -->
+  <div id="screen-squad" class="screen" hidden>
+    <header class="header header-sub">
+      <button class="btn-back" id="btn-squad-back">◀ Matches</button>
+      <h2>Squad</h2>
+    </header>
+    <ul class="player-list" id="player-list"></ul>
+    <div class="squad-footer">
+      <button class="btn btn-primary btn-full" id="btn-add-player">+ Add Player</button>
+    </div>
+
+    <!-- Add / Edit player form -->
+    <div class="form-overlay" id="player-form" hidden>
+      <form class="form-card">
+        <h3 id="form-title">Add Player</h3>
+        <label>
+          Name
+          <input type="text" id="input-name" placeholder="Player name" autocomplete="off" required />
+        </label>
+        <label>
+          GK Status
+          <select id="input-gk-status">
+            <option value="specialist">Specialist (GK only)</option>
+            <option value="preferred">Preferred</option>
+            <option value="can_play" selected>Can Play</option>
+            <option value="emergency_only">Emergency Only</option>
+          </select>
+        </label>
+        <label class="toggle-row">
+          <span class="toggle-text">DEF Restricted <span class="toggle-hint">(never plays DEF)</span></span>
+          <span class="toggle-wrap">
+            <input type="checkbox" id="input-def-restricted" class="toggle-input" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </span>
+        </label>
+        <label>
+          Skill Rating (1–5)
+          <input type="number" id="input-skill" min="1" max="5" value="3" />
+        </label>
+        <div class="form-actions">
+          <button class="btn btn-secondary" type="button" id="btn-cancel-player">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Screen: Pitch ────────────────────────────────────────────────────── -->
+  <div id="screen-pitch" class="screen" hidden>
+
     <header class="header">
-      <div class="match-title" id="match-title"></div>
+      <div class="header-top">
+        <button class="btn-back" id="btn-pitch-back">◀ Matches</button>
+        <div class="match-title" id="match-title"></div>
+      </div>
       <div class="slot-label"  id="slot-label"></div>
       <div class="slot-counter" id="slot-counter"></div>
       <div class="progress-dots">
@@ -30,30 +115,28 @@
       </div>
     </header>
 
-    <!-- Pitch -->
     <div class="pitch-wrapper">
       <div class="pitch" id="pitch"></div>
     </div>
 
-    <!-- Report (shown after full time) -->
     <section class="report-section" id="report-section" style="display:none">
       <ul class="report-list" id="report-list"></ul>
     </section>
 
-    <!-- Bench -->
     <section class="bench-section">
       <div class="bench-title">Bench</div>
       <ul class="bench-list" id="bench-list"></ul>
     </section>
 
-    <!-- Controls -->
     <div class="controls">
       <button class="btn btn-prev" id="btn-prev">◀ Back</button>
       <button class="btn btn-next" id="btn-next">Next half ▶</button>
     </div>
 
-  </div>
+  </div><!-- /screen-pitch -->
 
-  <script type="module" src="app.js"></script>
+</div><!-- /app -->
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
