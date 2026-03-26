@@ -1,12 +1,13 @@
 """Unit tests for the rotation engine entry point."""
 
-import pytest
 from datetime import date
 
-from backend.models.player import GKTier
-from backend.models.match import Match, Squad
-from backend.models.rotation import Position
+import pytest
+
 from backend.algorithm.rotation_engine import generate_rotation
+from backend.models.match import Match, Squad
+from backend.models.player import GKTier
+from backend.models.rotation import Position
 from tests.conftest import make_player
 
 

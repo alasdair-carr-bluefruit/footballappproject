@@ -15,13 +15,12 @@ Mid-quarter point: transitions 0->1, 2->3, 4->5, 6->7
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from backend.models.player import Player
 
 
-class Position(str, Enum):
+class Position(StrEnum):
     GK = "GK"
     DEF = "DEF"
     MID1 = "MID1"
@@ -53,7 +52,7 @@ class SlotAssignment:
         return list(self.lineup.values())
 
     @property
-    def gk(self) -> Optional[Player]:
+    def gk(self) -> Player | None:
         return self.lineup.get(Position.GK)
 
     @property

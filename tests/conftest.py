@@ -1,10 +1,11 @@
 """Shared fixtures for all tests."""
 
+from datetime import date
+
 import pytest
 
-from backend.models.player import GKTier, Player
 from backend.models.match import Match, Squad
-from datetime import date
+from backend.models.player import GKTier, Player
 
 
 def make_player(

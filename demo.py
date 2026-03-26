@@ -6,9 +6,9 @@
 """
 from datetime import date
 
-from backend.models.player import Player, GKTier
-from backend.models.match import Match, Squad
 from backend.algorithm.rotation_engine import generate_rotation
+from backend.models.match import Match, Squad
+from backend.models.player import GKTier, Player
 from backend.models.rotation import Position
 
 # ── Tweak your squad here ─────────────────────────────────────────────────────

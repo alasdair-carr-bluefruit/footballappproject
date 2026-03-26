@@ -1,10 +1,11 @@
 """BDD-specific fixtures."""
 
-import pytest
 from datetime import date
 
-from backend.models.player import GKTier, Player
+import pytest
+
 from backend.models.match import Match, Squad
+from backend.models.player import GKTier
 from tests.conftest import make_player
 
 

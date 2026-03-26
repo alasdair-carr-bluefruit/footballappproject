@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier, Player
-from backend.models.rotation import Position, RotationPlan
+from backend.models.rotation import RotationPlan
 
 
 def get_or_create_squad(session: Session) -> SquadDB:
@@ -77,8 +77,18 @@ def rotation_plan_from_json(
 
         lineup = {pos: player_dict(id_to_player[pid]) for pos, pid in slot_data["lineup"].items()}
         bench = [player_dict(id_to_player[pid]) for pid in bench_ids]
+        skill_total = sum(
+            id_to_player[pid].skill_rating
+            for pos, pid in slot_data["lineup"].items()
+            if pos != "GK"
+        )
 
-        slots.append({"slot_index": slot_data["slot_index"], "lineup": lineup, "bench": bench})
+        slots.append({
+            "slot_index": slot_data["slot_index"],
+            "lineup": lineup,
+            "bench": bench,
+            "skill_total": skill_total,
+        })
 
     return {"slots": slots, "warnings": warnings}
 
@@ -101,5 +111,7 @@ def save_rotation(
         existing.warnings_json = warnings_json
         session.add(existing)
     else:
-        session.add(RotationPlanDB(match_id=match_id, slots_json=slots_json, warnings_json=warnings_json))
+        session.add(RotationPlanDB(
+            match_id=match_id, slots_json=slots_json, warnings_json=warnings_json
+        ))
     session.commit()

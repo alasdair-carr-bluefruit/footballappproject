@@ -1,16 +1,15 @@
 """Step definitions for gk_priority.feature."""
 from __future__ import annotations
 
-import pytest
-from pytest_bdd import given, scenarios, when, then
 from datetime import date
 
-from backend.models.player import GKTier
-from backend.models.match import Match, Squad
-from backend.models.rotation import Position, RotationPlan
-from backend.algorithm.rotation_engine import generate_rotation
-from tests.conftest import make_player
+from pytest_bdd import given, scenarios, then, when
 
+from backend.algorithm.rotation_engine import generate_rotation
+from backend.models.match import Match, Squad
+from backend.models.player import GKTier
+from backend.models.rotation import RotationPlan
+from tests.conftest import make_player
 
 scenarios("gk_priority.feature")
 

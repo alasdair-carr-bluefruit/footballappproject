@@ -3,15 +3,13 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
 from pytest_bdd import given, scenarios, then, when
 
 from backend.algorithm.rotation_engine import generate_rotation
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier
-from backend.models.rotation import RotationPlan, Position
+from backend.models.rotation import RotationPlan
 from tests.conftest import make_player
-
 
 scenarios("team_balance.feature")
 

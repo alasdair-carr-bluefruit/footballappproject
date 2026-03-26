@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "football-rotation"
-version = "0.1.0"
+version = "0.5.0"
 description = "Youth football squad rotation manager"
 requires-python = ">=3.11"
 dependencies = []
@@ -48,6 +48,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008"]  # FastAPI Depends() in function defaults is intentional
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501", "B905"]  # long assertion messages and zip() without strict= are fine in tests
 
 [tool.mypy]
 python_version = "3.12"

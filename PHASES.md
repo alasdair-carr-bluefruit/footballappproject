@@ -1,6 +1,6 @@
 # Development Phases
 
-## v0.1 — Core Rotation Algorithm ← CURRENT
+## v0.1 — Core Rotation Algorithm ✓ DONE
 **Goal:** Algorithm works correctly for a 10-player squad with full quarters only.
 
 Deliverables:
@@ -13,7 +13,7 @@ Acceptance: All BDD scenarios in `rotation_generation.feature` and `gk_priority.
 
 ---
 
-## v0.2 — Half-Quarter Substitution Support
+## v0.2 — Half-Quarter Substitution Support ✓ DONE
 **Goal:** Mid-quarter sub limits and GK lock enforced.
 
 New:
@@ -25,7 +25,7 @@ Acceptance: `substitution_rules.feature` BDD scenarios pass.
 
 ---
 
-## v0.3 — Skill Balancing
+## v0.3 — Skill Balancing ✓ DONE
 **Goal:** Outfield skill totals balanced as soft preference.
 
 New:
@@ -36,7 +36,7 @@ Acceptance: `team_balance.feature` BDD scenario passes.
 
 ---
 
-## v0.4 — Web UI + Pitch View
+## v0.4 — Web UI + Pitch View ✓ DONE
 **Goal:** Usable on a coach's phone on the pitch.
 
 New:
@@ -50,7 +50,7 @@ Acceptance: Manual browser test on mobile. App usable offline.
 
 ---
 
-## v0.5 — FastAPI + SQLite Persistence
+## v0.5 — FastAPI + SQLite Persistence ← CURRENT
 **Goal:** Data survives browser close / phone restart.
 
 New:

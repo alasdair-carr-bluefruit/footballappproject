@@ -428,6 +428,9 @@ html, body {
 .slot-chip.pos-mid { background: rgba(255,255,255,0.12); color: #fff; }
 .slot-chip.pos-fwd { background: #1e6b2e;  color: #7dda8a; }
 
+.report-row-skill { border-top: 1px solid rgba(255,255,255,0.12); margin-top: 4px; padding-top: 4px; }
+.slot-chip.skill-chip { background: rgba(255,255,255,0.1); color: #ffd700; }
+
 /* ── Controls ────────────────────────────────────────────────────── */
 
 .controls {

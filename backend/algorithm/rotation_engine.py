@@ -105,8 +105,20 @@ def _align_mid_quarter_positions(plan: RotationPlan) -> RotationPlan:
             h2_occupant = h2.lineup.get(pos)
             if h2_occupant is None:
                 continue
-            if pos == Position.DEF and h2_occupant.def_restricted:
-                continue  # cannot move DEF-restricted player into DEF
+            # Skip if either player would end up in DEF while def_restricted
+            if pos == Position.DEF and h1_player.def_restricted:
+                continue
+            if h2_pos == Position.DEF and h2_occupant.def_restricted:
+                continue
+            # Skip if moving h2_occupant to h2_pos would give them a 3rd position type
+            h2_pos_label = "MID" if h2_pos in (Position.MID1, Position.MID2) else h2_pos.value
+            occupant_positions = {
+                ("MID" if p in (Position.MID1, Position.MID2) else p.value)
+                for s in plan.slots for p, pl in s.lineup.items()
+                if pl is h2_occupant and p != Position.GK
+            }
+            if h2_pos_label not in occupant_positions and len(occupant_positions) >= 2:
+                continue
             h2.lineup[pos] = h1_player
             h2.lineup[h2_pos] = h2_occupant
     return plan
@@ -155,7 +167,9 @@ def _build_slots(
             outfield_candidates = _eligible_outfield(
                 players, gk_player, targets, slot_counts, remaining_gk
             )
-            outfield_players = _select_outfield(outfield_candidates, targets, slot_counts, remaining_gk)
+            outfield_players = _select_outfield(
+                outfield_candidates, targets, slot_counts, remaining_gk
+            )
 
         _assign_outfield_positions(slot, outfield_players, position_sets, slot_counts)
         slots.append(slot)
@@ -186,11 +200,14 @@ def _eligible_outfield(
     ]
 
 
-def _select_outfield(candidates: list, targets: dict, slot_counts: dict, remaining_gk: dict) -> list:
+def _select_outfield(
+    candidates: list, targets: dict, slot_counts: dict, remaining_gk: dict
+) -> list:
     """Select 4 outfield players for a regular (quarter-start) slot.
 
     Sort: fewest slots played first, then most outfield budget remaining.
     Players with identical priority are shuffled so results vary each run.
+    Position variety is handled downstream in _assign_outfield_positions.
     """
     def sort_key(p: Player) -> tuple:
         outfield_budget = targets.get(p, 0) - slot_counts[p] - remaining_gk.get(id(p), 0)
@@ -278,27 +295,42 @@ def _assign_outfield_positions(
     position_sets: dict,
     slot_counts: dict,
 ) -> None:
-    """Assign DEF, MID1, MID2, FWD to the 4 outfield players."""
+    """Assign DEF, MID1, MID2, FWD to the 4 outfield players.
+
+    Uses a most-constrained-first ordering: the position type with fewest
+    players who can fill it without a 3rd-position violation is assigned first.
+    This maximises the chance of a violation-free assignment when one exists.
+    DEF restriction is enforced as a hard constraint throughout.
+    """
     unassigned = list(players)
     assigned: dict = {}
 
-    can_play_def = [p for p in unassigned if not p.def_restricted]
-    def_restricted_only = [p for p in unassigned if p.def_restricted]
+    POS_ENUM = {
+        "DEF": Position.DEF,
+        "MID1": Position.MID1,
+        "MID2": Position.MID2,
+        "FWD": Position.FWD,
+    }
 
-    if can_play_def:
-        def_player = _pick_for_position("DEF", can_play_def, position_sets)
-        assigned[Position.DEF] = def_player
-        unassigned.remove(def_player)
-    elif def_restricted_only:
-        # No non-restricted player -- validator will flag this
-        assigned[Position.DEF] = unassigned[0]
-        unassigned.remove(unassigned[0])
+    def free_candidates(pos_label: str, pool: list) -> list:
+        """Players who can take pos_label without a 3rd-position violation."""
+        norm = "MID" if pos_label in ("MID1", "MID2") else pos_label
+        return [p for p in pool if norm in position_sets[p] or len(position_sets[p]) < 2]
 
-    for pos in [Position.MID1, Position.MID2, Position.FWD]:
-        if not unassigned:
-            break
-        player = _pick_for_position(pos.value, unassigned, position_sets)
-        assigned[pos] = player
+    remaining = list(POS_ENUM.keys())
+    while remaining and unassigned:
+        # For each remaining position, compute candidates and free candidates
+        def pool_for(lbl: str) -> list:
+            p = [x for x in unassigned if not (lbl == "DEF" and x.def_restricted)]
+            return p if p else unassigned  # fallback: validator will flag
+
+        # Sort remaining positions by number of free candidates (most constrained first)
+        remaining.sort(key=lambda lbl: len(free_candidates(lbl, pool_for(lbl))))
+        pos_label = remaining.pop(0)
+
+        pool = pool_for(pos_label)
+        player = _pick_for_position(pos_label, pool, position_sets)
+        assigned[POS_ENUM[pos_label]] = player
         unassigned.remove(player)
 
     for pos, player in assigned.items():

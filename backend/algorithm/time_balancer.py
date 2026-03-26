@@ -9,8 +9,6 @@ Extra slots priority:
 """
 from __future__ import annotations
 
-from backend.models.player import GKTier, Player
-
 
 def compute_target_slots(
     players: list,

@@ -19,10 +19,9 @@ or a maximum iteration cap is hit.
 from __future__ import annotations
 
 import itertools
-from dataclasses import replace
 
 from backend.models.player import GKTier, Player
-from backend.models.rotation import OUTFIELD_POSITIONS, Position, RotationPlan, SlotAssignment
+from backend.models.rotation import Position, RotationPlan, SlotAssignment
 
 
 def balance_skills(plan: RotationPlan) -> RotationPlan:

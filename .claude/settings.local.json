@@ -23,7 +23,21 @@
       "Bash(gh pr:*)",
       "Bash(brew --prefix gh)",
       "Read(//opt/homebrew/Cellar/gh/2.88.1/bin/**)",
-      "Bash(/opt/homebrew/bin/gh pr:*)"
+      "Bash(/opt/homebrew/bin/gh pr:*)",
+      "Bash(python -m pytest -q)",
+      "Bash(pytest -q)",
+      "Bash(python3 -m pytest -q)",
+      "Read(//usr/local/**)",
+      "Bash(ls ~/.local/bin/python*)",
+      "Bash(ls ~/Library/Python/*/bin/pytest)",
+      "Bash(ls /opt/homebrew/bin/python*)",
+      "Bash(ls ~/.pyenv/shims/python*)",
+      "Bash(command -v python)",
+      "Bash(command -v python3)",
+      "Bash(.venv/bin/pytest -q)",
+      "Bash(.venv/bin/ruff check:*)",
+      "Bash(/Users/ali/.local/bin/uv run:*)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

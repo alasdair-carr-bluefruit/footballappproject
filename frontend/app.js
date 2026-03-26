@@ -470,6 +470,23 @@ function renderReport() {
     list.appendChild(li);
   });
 
+  // Skill totals row
+  const skillLi = document.createElement("li");
+  skillLi.className = "report-row report-row-skill";
+  const skillChipsHtml = matchData.slots.map((slot, i) =>
+    `<span class="slot-chip skill-chip" title="${slotLabels[i]}: skill ${slot.skill_total ?? "?"}">
+      <span class="chip-quarter">${slotLabels[i]}</span>
+      <span class="chip-pos">${slot.skill_total ?? "?"}</span>
+    </span>`
+  ).join("");
+  skillLi.innerHTML = `
+    <div class="report-name-row">
+      <span class="report-name">Skill total</span>
+    </div>
+    <div class="slot-chips">${skillChipsHtml}</div>
+  `;
+  list.appendChild(skillLi);
+
   document.getElementById("btn-prev").disabled = false;
   document.getElementById("btn-next").disabled = true;
   document.getElementById("btn-next").textContent = "Full time";

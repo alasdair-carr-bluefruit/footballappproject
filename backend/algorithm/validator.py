@@ -5,7 +5,7 @@ Empty list = plan is valid.
 """
 from __future__ import annotations
 
-from backend.models.player import GKTier, Player
+from backend.models.player import GKTier
 from backend.models.rotation import Position, RotationPlan
 
 
@@ -27,7 +27,8 @@ def _check_def_restrictions(plan: RotationPlan, players: list) -> list:
         for pos, player in slot.lineup.items():
             if pos == Position.DEF and player.def_restricted:
                 violations.append(
-                    f"DEF restriction violated: {player.name} assigned DEF in slot {slot.slot_index}"
+                    f"DEF restriction violated: {player.name} "
+                    f"assigned DEF in slot {slot.slot_index}"
                 )
     return violations
 
@@ -47,7 +48,8 @@ def _check_position_variety(plan: RotationPlan, players: list) -> list:
             normalised.add("MID" if pos in (Position.MID1, Position.MID2) else pos.value)
         if len(normalised) > 2:
             violations.append(
-                f"Position variety violated: {player.name} plays {len(normalised)} different positions "
+                f"Position variety violated: {player.name} plays "
+                f"{len(normalised)} different positions "
                 f"({', '.join(sorted(normalised))})"
             )
     return violations

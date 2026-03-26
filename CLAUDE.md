@@ -15,13 +15,16 @@ A mobile-first Progressive Web App for a youth football coach to manage fair pla
 
 ## Current Phase
 
-**v0.1 — Core rotation algorithm (Python only, no UI, no API, no DB)**
+**v0.5 complete — FastAPI + SQLite + Render deployment + Web UI**
 
-Scope:
-- Pure Python algorithm in `backend/algorithm/`
-- Data models in `backend/models/`
-- Unit tests in `tests/unit/algorithm/`
-- BDD feature: `tests/bdd/features/rotation_generation.feature`
+Completed phases:
+- v0.1: Core rotation algorithm (Python only)
+- v0.2: Half-quarter subs, mid-quarter lock
+- v0.3: Skill balancing
+- v0.4: Web UI, pitch view, match day controls
+- v0.5: FastAPI backend, SQLite persistence (SQLModel), Render deployment, integration tests
+
+Next: **v0.6 — Manual override + warnings + mid-match player removal & re-calculation**
 
 ---
 

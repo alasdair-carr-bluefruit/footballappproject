@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from backend.algorithm.rotation_engine import generate_rotation
 from backend.algorithm.skill_balancer import balance_skills
 from backend.models.match import Match, Squad

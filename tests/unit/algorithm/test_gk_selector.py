@@ -1,8 +1,7 @@
 """Unit tests for gk_selector module."""
 
-import pytest
-from backend.models.player import GKTier, Player
 from backend.algorithm.gk_selector import select_gk_for_slots
+from backend.models.player import GKTier
 from tests.conftest import make_player
 
 
@@ -69,7 +68,6 @@ class TestNoSpecialist:
         assignments, warnings = select_gk_for_slots(players, num_slots=8, squad_size=9)
         # Preferred fills GK slots BEFORE emergency (chronological priority)
         preferred_slots = [i for i, p in enumerate(assignments) if p is preferred]
-        emergency_slots = [i for i, p in enumerate(assignments) if p is emergency]
         # Preferred must play some GK slots
         assert preferred_slots, "Preferred player should have some GK slots"
         # Some emergency player must cover the remaining GK quarters (time equality)

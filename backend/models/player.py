@@ -1,10 +1,10 @@
 """Player data model."""
 
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import dataclass
+from enum import StrEnum
 
 
-class GKTier(str, Enum):
+class GKTier(StrEnum):
     SPECIALIST = "specialist"
     PREFERRED = "preferred"
     CAN_PLAY = "can_play"

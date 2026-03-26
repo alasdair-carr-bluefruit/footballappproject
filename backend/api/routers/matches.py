@@ -107,7 +107,9 @@ def generate_match_rotation(
 
     players_db = get_players(session, db_match.squad_id)
     if len(players_db) < 5:
-        raise HTTPException(status_code=400, detail="Need at least 5 players to generate a rotation")
+        raise HTTPException(
+            status_code=400, detail="Need at least 5 players to generate a rotation"
+        )
 
     match, squad = match_db_to_domain(db_match, players_db)
     plan = generate_rotation(squad, match)

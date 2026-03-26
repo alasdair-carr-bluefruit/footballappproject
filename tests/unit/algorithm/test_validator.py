@@ -1,13 +1,11 @@
 """Unit tests for the rotation plan validator."""
 
-import pytest
 from datetime import date
 
-from backend.models.player import GKTier, Player
-from backend.models.match import Match, Squad
-from backend.models.rotation import Position, RotationPlan, SlotAssignment
 from backend.algorithm.rotation_engine import generate_rotation
-from backend.algorithm.validator import validate
+from backend.models.match import Match, Squad
+from backend.models.player import GKTier
+from backend.models.rotation import Position
 from tests.conftest import make_player
 
 
