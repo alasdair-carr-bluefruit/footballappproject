@@ -431,6 +431,39 @@ html, body {
 .report-row-skill { border-top: 1px solid rgba(255,255,255,0.12); margin-top: 4px; padding-top: 4px; }
 .slot-chip.skill-chip { background: rgba(255,255,255,0.1); color: #ffd700; }
 
+/* ── Quarter-break changes interstitial ──────────────────────────── */
+
+.changes-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 16px;
+}
+
+.changes-in {
+  color: var(--incoming-bg);
+  font-weight: 600;
+}
+
+.changes-for {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.changes-out {
+  color: var(--outgoing-bg);
+  font-weight: 600;
+}
+
+.changes-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
 /* ── Controls ────────────────────────────────────────────────────── */
 
 .controls {

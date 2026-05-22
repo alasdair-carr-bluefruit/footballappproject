@@ -3,6 +3,7 @@ import { api } from "./api.js";
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentSlot = 0;
 let showingReport = false;
+let showingChanges = false; // quarter-break interstitial
 let matchData = null; // { match, slots, warnings }
 const goalCounts = {}; // { playerName: count }
 
@@ -57,6 +58,7 @@ function enterPitchView(data) {
   matchData = data;
   currentSlot = 0;
   showingReport = false;
+  showingChanges = false;
   Object.keys(goalCounts).forEach(k => delete goalCounts[k]);
   showScreen("screen-pitch");
   // Reset any inline styles left over from a previous report view
@@ -302,8 +304,11 @@ function render() {
   const slot = slotObj(currentSlot);
   const nextSlot = matchData.slots[currentSlot + 1] || null;
   const { label } = quarterLabel(currentSlot);
-  const incoming = incomingSubs(slot, nextSlot);
-  const outgoing = outgoingSubs(slot, nextSlot);
+  // Only show sub arrows on 'a' slots (mid-quarter transitions, max 2 changes).
+  // On 'b' slots the next transition is a quarter break — shown via interstitial instead.
+  const isMidQuarter = currentSlot % 2 === 0 && nextSlot;
+  const incoming = isMidQuarter ? incomingSubs(slot, nextSlot) : new Set();
+  const outgoing = isMidQuarter ? outgoingSubs(slot, nextSlot) : new Set();
 
   const match = matchData.match;
   const date = new Date(match.date + "T12:00:00");
@@ -407,6 +412,84 @@ function render() {
   }
 }
 
+// ── Quarter-break changes interstitial ────────────────────────────────────────
+function renderChanges() {
+  const prevSlot = slotObj(currentSlot - 1); // the 'b' slot we just left
+  const nextSlot = slotObj(currentSlot);     // the 'a' slot we're about to show
+  const prevQ = Math.floor((currentSlot - 1) / 2) + 1;
+  const nextQ = Math.floor(currentSlot / 2) + 1;
+
+  const off = outgoingSubs(prevSlot, nextSlot);
+  const on  = incomingSubs(prevSlot, nextSlot);
+
+  // Build replacement map for "On for X" labels
+  const replacementMap = new Map();
+  const unpairedOut = new Set(off);
+  ["GK", "DEF", "MID1", "MID2", "FWD"].forEach(pos => {
+    const cur = prevSlot.lineup[pos]?.name;
+    const nxt = nextSlot.lineup[pos]?.name;
+    if (nxt && cur && on.has(nxt) && off.has(cur)) {
+      replacementMap.set(nxt, cur);
+      unpairedOut.delete(cur);
+    }
+  });
+  const leftoverOut = [...unpairedOut];
+  let li = 0;
+  on.forEach(inName => {
+    if (!replacementMap.has(inName) && leftoverOut[li]) {
+      replacementMap.set(inName, leftoverOut[li++]);
+    }
+  });
+
+  const match = matchData.match;
+  const date = new Date(match.date + "T12:00:00");
+  const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+  document.getElementById("match-title").textContent =
+    `${dateStr}  ·  vs ${match.opponent || "Unknown"}`;
+  document.getElementById("slot-label").textContent = `Q${prevQ} → Q${nextQ}`;
+  document.getElementById("slot-counter").textContent =
+    off.size === 0 ? "No changes" : `${off.size} change${off.size !== 1 ? "s" : ""}`;
+
+  // Update progress dots — highlight the gap between quarters
+  const dots = document.querySelectorAll(".progress-dot");
+  dots.forEach((dot, i) => {
+    dot.classList.toggle("active", false);
+    dot.classList.toggle("done", i < currentSlot);
+  });
+
+  // Hide pitch/bench, show changes in report section
+  document.querySelector(".pitch-wrapper").style.display = "none";
+  document.querySelector(".bench-section").style.display = "none";
+  document.getElementById("report-section").style.display = "block";
+
+  const list = document.getElementById("report-list");
+  list.innerHTML = "";
+
+  if (off.size === 0) {
+    const emptyLi = document.createElement("li");
+    emptyLi.className = "changes-empty";
+    emptyLi.textContent = "No changes — same lineup continues";
+    list.appendChild(emptyLi);
+  } else {
+    on.forEach(name => {
+      const replacing = replacementMap.get(name);
+      const item = document.createElement("li");
+      item.className = "changes-row";
+      item.innerHTML = `
+        <span class="changes-in">↑ ${name}</span>
+        ${replacing ? `<span class="changes-for">on for</span><span class="changes-out">↓ ${replacing}</span>` : ""}
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById("btn-prev").disabled = false;
+  const btnNext = document.getElementById("btn-next");
+  btnNext.disabled = false;
+  btnNext.textContent = `Start Q${nextQ} ▶`;
+}
+
 // ── Report ────────────────────────────────────────────────────────────────────
 function renderReport() {
   // Collect all players from first slot
@@ -494,6 +577,7 @@ function renderReport() {
 
 function showMatch() {
   showingReport = false;
+  showingChanges = false;
   document.querySelector(".pitch-wrapper").style.display = "";
   document.querySelector(".bench-section").style.display = "";
   document.getElementById("report-section").style.display = "none";
@@ -504,9 +588,21 @@ function showMatch() {
 // ── Pitch controls ────────────────────────────────────────────────────────────
 document.getElementById("btn-next").addEventListener("click", () => {
   if (showingReport) return;
+  if (showingChanges) {
+    // Leaving changes interstitial → show the next 'a' slot
+    showingChanges = false;
+    showMatch();
+    return;
+  }
   if (currentSlot < matchData.slots.length - 1) {
     currentSlot++;
-    render();
+    // If we just moved from a 'b' slot to an 'a' slot (quarter break), show changes
+    if (currentSlot % 2 === 0 && currentSlot > 0) {
+      showingChanges = true;
+      renderChanges();
+    } else {
+      render();
+    }
   } else {
     showingReport = true;
     renderReport();
@@ -515,6 +611,13 @@ document.getElementById("btn-next").addEventListener("click", () => {
 
 document.getElementById("btn-prev").addEventListener("click", () => {
   if (showingReport) { showMatch(); return; }
+  if (showingChanges) {
+    // Back from changes interstitial → go back to the 'b' slot
+    showingChanges = false;
+    currentSlot--;
+    showMatch();
+    return;
+  }
   if (currentSlot > 0) { currentSlot--; render(); }
 });
 
