@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
 from pytest_bdd import given, scenarios, then, when
+
+pytestmark = pytest.mark.bdd
 
 from backend.algorithm.rotation_engine import generate_rotation
 from backend.models.match import Match, Squad
