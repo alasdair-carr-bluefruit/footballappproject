@@ -5,6 +5,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB
+from backend.models.game_config import get_config
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier, Player
 from backend.models.rotation import RotationPlan
@@ -25,20 +26,29 @@ def get_players(session: Session, squad_id: int) -> list[PlayerDB]:
 
 
 def player_db_to_domain(p: PlayerDB) -> Player:
+    positions = json.loads(p.preferred_positions) if p.preferred_positions else []
     return Player(
         name=p.name,
         gk_status=GKTier(p.gk_status),
         def_restricted=p.def_restricted,
         skill_rating=p.skill_rating,
+        preferred_positions=positions,
+        best_position=p.best_position or None,
     )
 
 
 def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squad]:
+    try:
+        config = get_config(m.team_size, m.formation)
+    except KeyError:
+        config = None
     match = Match(
         date=date_type.fromisoformat(m.date),
         opponent=m.opponent,
         quarters=m.quarters,
         quarter_length_mins=m.quarter_length_mins,
+        game_config=config,
+        fairness=m.fairness,
     )
     squad = Squad(players=[player_db_to_domain(p) for p in players])
     return match, squad

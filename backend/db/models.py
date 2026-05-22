@@ -18,6 +18,8 @@ class PlayerDB(SQLModel, table=True):
     gk_status: str  # GKTier value: specialist | preferred | can_play | emergency_only
     def_restricted: bool = False
     skill_rating: int = 3
+    preferred_positions: str = "[]"  # JSON list of position types e.g. '["DEF","MID"]'
+    best_position: str = ""  # e.g. "DEF", "MID", "FWD", or "" for unset
 
 
 class MatchDB(SQLModel, table=True):
@@ -29,6 +31,9 @@ class MatchDB(SQLModel, table=True):
     opponent: str = ""
     quarters: int = 4
     quarter_length_mins: int = 10
+    team_size: int = 5
+    formation: str = "1-2-1"
+    fairness: str = "equal"  # "equal" or "competitive"
 
 
 class RotationPlanDB(SQLModel, table=True):
