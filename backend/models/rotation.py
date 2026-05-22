@@ -22,13 +22,47 @@ from backend.models.player import Player
 
 class Position(StrEnum):
     GK = "GK"
+    # DEF positions (DEF is first, DEF2–DEF4 for larger formations)
     DEF = "DEF"
+    DEF2 = "DEF2"
+    DEF3 = "DEF3"
+    DEF4 = "DEF4"
+    # MID positions (always numbered)
     MID1 = "MID1"
     MID2 = "MID2"
+    MID3 = "MID3"
+    MID4 = "MID4"
+    MID5 = "MID5"
+    # FWD positions (FWD is first, FWD2–FWD3 for larger formations)
     FWD = "FWD"
+    FWD2 = "FWD2"
+    FWD3 = "FWD3"
 
 
-# Formation slots: 1 GK + 1 DEF + 2 MID + 1 FWD
+def normalize_position(pos: str | Position) -> str:
+    """Normalize a position to its base type for variety checking.
+
+    DEF, DEF2, DEF3, DEF4 → 'DEF'
+    MID1, MID2, ... MID5  → 'MID'
+    FWD, FWD2, FWD3       → 'FWD'
+    GK                    → 'GK'
+    """
+    s = str(pos)
+    if s.startswith("MID"):
+        return "MID"
+    if s.startswith("DEF"):
+        return "DEF"
+    if s.startswith("FWD"):
+        return "FWD"
+    return s
+
+
+def is_def_position(pos: str | Position) -> bool:
+    """Return True if the position is any DEF variant."""
+    return normalize_position(pos) == "DEF"
+
+
+# Default 5v5 formation slots: 1 GK + 1 DEF + 2 MID + 1 FWD
 OUTFIELD_POSITIONS = [Position.DEF, Position.MID1, Position.MID2, Position.FWD]
 ALL_POSITIONS = [Position.GK] + OUTFIELD_POSITIONS
 

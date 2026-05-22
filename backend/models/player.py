@@ -1,6 +1,6 @@
 """Player data model."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 
@@ -17,4 +17,5 @@ class Player:
     gk_status: GKTier
     def_restricted: bool = False
     skill_rating: int = 3  # 1–5, coach-only, never displayed after setup
-    # position_history added in v0.5 when DB is introduced
+    preferred_positions: list[str] = field(default_factory=list, hash=False, compare=False)
+    best_position: str | None = field(default=None, hash=False, compare=False)
