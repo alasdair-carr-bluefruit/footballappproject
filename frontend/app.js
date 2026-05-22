@@ -3,14 +3,38 @@ import { api } from "./api.js";
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentSlot = 0;
 let showingReport = false;
-let showingChanges = false; // quarter-break interstitial
+let showingChanges = false;
 let matchData = null; // { match, slots, warnings }
 const goalCounts = {}; // { playerName: count }
+let gameConfigs = null; // cached from /api/matches/config/game-configs
+let selectedSize = 5;
 
 // ── Screen management ─────────────────────────────────────────────────────────
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach(s => { s.hidden = true; });
   document.getElementById(id).hidden = false;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function parseFormation(notation) {
+  const [d, m, f] = notation.split("-").map(Number);
+  return { defense: d, midfield: m, forward: f };
+}
+
+function formationPositions(notation) {
+  const { defense, midfield, forward } = parseFormation(notation);
+  const positions = [];
+  for (let i = 1; i <= defense; i++) positions.push(i === 1 ? "DEF" : `DEF${i}`);
+  for (let i = 1; i <= midfield; i++) positions.push(`MID${i}`);
+  for (let i = 1; i <= forward; i++) positions.push(i === 1 ? "FWD" : `FWD${i}`);
+  return positions;
+}
+
+function normalizePos(pos) {
+  if (pos.startsWith("MID")) return "MID";
+  if (pos.startsWith("DEF")) return "DEF";
+  if (pos.startsWith("FWD")) return "FWD";
+  return pos;
 }
 
 // ── Home screen ───────────────────────────────────────────────────────────────
@@ -31,6 +55,7 @@ async function loadHome() {
     const date = new Date(m.date + "T12:00:00");
     const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const opponent = m.opponent || "Unknown opponent";
+    const sizeBadge = `<span class="match-badge size-badge">${m.team_size || 5}v${m.team_size || 5}</span>`;
 
     const li = document.createElement("li");
     li.className = "match-item";
@@ -38,6 +63,7 @@ async function loadHome() {
       <div class="match-item-main">
         <span class="match-item-date">${dateStr}</span>
         <span class="match-item-opponent">vs ${opponent}</span>
+        ${sizeBadge}
         ${m.has_rotation ? "" : "<span class='match-badge'>No rotation</span>"}
       </div>
       <button class="btn-icon match-delete" data-id="${m.id}" title="Delete match">✕</button>
@@ -61,11 +87,20 @@ function enterPitchView(data) {
   showingChanges = false;
   Object.keys(goalCounts).forEach(k => delete goalCounts[k]);
   showScreen("screen-pitch");
-  // Reset any inline styles left over from a previous report view
   document.querySelector(".pitch-wrapper").style.display = "";
   document.querySelector(".bench-section").style.display = "";
   document.getElementById("report-section").style.display = "none";
-  document.querySelector(".progress-dots").style.display = "";
+
+  // Generate progress dots dynamically
+  const dotsContainer = document.getElementById("progress-dots");
+  dotsContainer.innerHTML = "";
+  dotsContainer.style.display = "";
+  for (let i = 0; i < matchData.slots.length; i++) {
+    const dot = document.createElement("div");
+    dot.className = "progress-dot";
+    dotsContainer.appendChild(dot);
+  }
+
   render();
 }
 
@@ -85,12 +120,57 @@ async function openMatch(matchId) {
   }
 }
 
-document.getElementById("btn-go-new-match").addEventListener("click", () => {
+document.getElementById("btn-go-new-match").addEventListener("click", async () => {
   document.getElementById("match-date").value = new Date().toISOString().split("T")[0];
   document.getElementById("opponent-input").value = "";
   document.getElementById("btn-generate").disabled = false;
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
+  document.getElementById("fairness-slider").value = 0;
+
+  // Load game configs if not cached
+  if (!gameConfigs) {
+    gameConfigs = await api.getGameConfigs().catch(() => null);
+  }
+
+  // Set default size selection
+  selectSize(5);
   showScreen("screen-new-match");
+});
+
+// ── Team size & formation picker ────────────────────────────────────────────
+function selectSize(size) {
+  selectedSize = size;
+  document.querySelectorAll(".size-btn").forEach(btn => {
+    btn.classList.toggle("active", parseInt(btn.dataset.size) === size);
+  });
+  updateFormationOptions();
+}
+
+function updateFormationOptions() {
+  const select = document.getElementById("formation-select");
+  select.innerHTML = "";
+  if (gameConfigs && gameConfigs[String(selectedSize)]) {
+    const cfg = gameConfigs[String(selectedSize)];
+    cfg.formations.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = f.notation;
+      opt.textContent = f.notation;
+      if (f.notation === cfg.default_formation) opt.selected = true;
+      select.appendChild(opt);
+    });
+  } else {
+    // Fallback for when configs aren't loaded
+    const defaults = { 5: "1-2-1", 6: "1-3-1", 7: "2-3-1", 9: "3-3-2", 11: "4-4-2" };
+    const opt = document.createElement("option");
+    opt.value = defaults[selectedSize] || "1-2-1";
+    opt.textContent = opt.value;
+    select.appendChild(opt);
+  }
+}
+
+document.getElementById("size-picker").addEventListener("click", e => {
+  const btn = e.target.closest(".size-btn");
+  if (btn) selectSize(parseInt(btn.dataset.size));
 });
 
 document.getElementById("btn-go-squad").addEventListener("click", loadSquad);
@@ -106,9 +186,13 @@ document.getElementById("new-match-form").addEventListener("submit", async e => 
 
   const date = document.getElementById("match-date").value || new Date().toISOString().split("T")[0];
   const opponent = document.getElementById("opponent-input").value.trim();
+  const formation = document.getElementById("formation-select").value;
+  const fairness = parseInt(document.getElementById("fairness-slider").value) === 0 ? "equal" : "competitive";
 
   try {
-    const match = await api.createMatch({ date, opponent });
+    const match = await api.createMatch({
+      date, opponent, team_size: selectedSize, formation, fairness,
+    });
     const data = await api.generateRotation(match.id);
     enterPitchView(data);
   } catch (err) {
@@ -139,6 +223,7 @@ async function loadSquad() {
     else if (p.gk_status === "can_play") badges.push('<span class="badge badge-gkcan">GK Can Play</span>');
     else if (p.gk_status === "emergency_only") badges.push('<span class="badge badge-emergency">Emergency GK</span>');
     if (p.def_restricted) badges.push('<span class="badge badge-def">No DEF</span>');
+    if (p.best_position) badges.push(`<span class="badge badge-pos">${p.best_position}</span>`);
 
     const li = document.createElement("li");
     li.className = "player-item";
@@ -170,8 +255,35 @@ function openPlayerForm(player = null) {
   document.getElementById("input-gk-status").value = player?.gk_status ?? "can_play";
   document.getElementById("input-def-restricted").checked = player?.def_restricted ?? false;
   document.getElementById("input-skill").value = player?.skill_rating ?? 3;
+
+  // Position checkboxes
+  const prefs = player?.preferred_positions || [];
+  document.querySelectorAll("#position-checkboxes input").forEach(cb => {
+    cb.checked = prefs.includes(cb.value);
+  });
+  updateBestPositionOptions(prefs, player?.best_position || "");
+
   document.getElementById("input-name").focus();
 }
+
+function updateBestPositionOptions(selectedPositions, currentBest) {
+  const sel = document.getElementById("input-best-position");
+  sel.innerHTML = '<option value="">Not set</option>';
+  selectedPositions.forEach(pos => {
+    const opt = document.createElement("option");
+    opt.value = pos;
+    opt.textContent = pos;
+    if (pos === currentBest) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// Update best position dropdown when checkboxes change
+document.getElementById("position-checkboxes").addEventListener("change", () => {
+  const checked = [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
+  const currentBest = document.getElementById("input-best-position").value;
+  updateBestPositionOptions(checked, checked.includes(currentBest) ? currentBest : "");
+});
 
 function closePlayerForm() {
   document.getElementById("player-form").hidden = true;
@@ -182,23 +294,25 @@ document.getElementById("btn-squad-back").addEventListener("click", loadHome);
 document.getElementById("btn-add-player").addEventListener("click", () => openPlayerForm());
 document.getElementById("btn-cancel-player").addEventListener("click", closePlayerForm);
 
-// Close when tapping the dark backdrop outside the form card
 document.getElementById("player-form").addEventListener("click", e => {
   if (e.target === e.currentTarget) closePlayerForm();
 });
 
 document.querySelector("#player-form form").addEventListener("submit", async e => {
   e.preventDefault();
+  const preferred = [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
   const data = {
-    name:           document.getElementById("input-name").value.trim(),
-    gk_status:      document.getElementById("input-gk-status").value,
-    def_restricted: document.getElementById("input-def-restricted").checked,
-    skill_rating:   parseInt(document.getElementById("input-skill").value, 10),
+    name:                document.getElementById("input-name").value.trim(),
+    gk_status:           document.getElementById("input-gk-status").value,
+    def_restricted:      document.getElementById("input-def-restricted").checked,
+    skill_rating:        parseInt(document.getElementById("input-skill").value, 10),
+    preferred_positions: preferred,
+    best_position:       document.getElementById("input-best-position").value,
   };
   if (!data.name) return;
 
   const id = editingPlayerId;
-  closePlayerForm(); // close immediately — prevents double-save
+  closePlayerForm();
 
   if (id !== null) {
     await api.updatePlayer(id, data).catch(err => alert(err.message));
@@ -208,15 +322,17 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
   loadSquad();
 });
 
-// ── Pitch helpers (same logic as v0.4, adapted for API data shape) ─────────────
+// ── Pitch helpers ─────────────────────────────────────────────────────────────
 function slotObj(slotIndex) {
   return matchData.slots[slotIndex];
 }
 
-function quarterLabel(slotIndex) {
-  const q = Math.floor(slotIndex / 2) + 1;
+function periodLabel(slotIndex) {
+  const label = matchData.match.period_label || "Quarter";
+  const short = label === "Half" ? "H" : "Q";
+  const p = Math.floor(slotIndex / 2) + 1;
   const h = slotIndex % 2 === 0 ? "a" : "b";
-  return { q, h, label: `Q${q}${h}` };
+  return { p, h, label: `${short}${p}${h}`, periodLabel: label };
 }
 
 function slotPlayerNames(slot) {
@@ -303,12 +419,14 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false) {
 function render() {
   const slot = slotObj(currentSlot);
   const nextSlot = matchData.slots[currentSlot + 1] || null;
-  const { label } = quarterLabel(currentSlot);
-  // Only show sub arrows on 'a' slots (mid-quarter transitions, max 2 changes).
-  // On 'b' slots the next transition is a quarter break — shown via interstitial instead.
-  const isMidQuarter = currentSlot % 2 === 0 && nextSlot;
-  const incoming = isMidQuarter ? incomingSubs(slot, nextSlot) : new Set();
-  const outgoing = isMidQuarter ? outgoingSubs(slot, nextSlot) : new Set();
+  const { label } = periodLabel(currentSlot);
+  const formation = matchData.match.formation || "1-2-1";
+  const teamSize = matchData.match.team_size || 5;
+
+  // Only show sub arrows on 'a' slots (mid-period transitions)
+  const isMidPeriod = currentSlot % 2 === 0 && nextSlot;
+  const incoming = isMidPeriod ? incomingSubs(slot, nextSlot) : new Set();
+  const outgoing = isMidPeriod ? outgoingSubs(slot, nextSlot) : new Set();
 
   const match = matchData.match;
   const date = new Date(match.date + "T12:00:00");
@@ -326,12 +444,12 @@ function render() {
     dot.classList.toggle("done", i < currentSlot);
   });
 
-  // Build replacement map: incoming player → outgoing player they replace.
-  // First try exact position match; pair any leftovers by iteration order.
+  // Build replacement map for bench display
   const replacementMap = new Map();
-  if (nextSlot) {
+  if (nextSlot && isMidPeriod) {
     const unpairedOut = new Set(outgoing);
-    ["GK", "DEF", "MID1", "MID2", "FWD"].forEach(pos => {
+    const allPos = ["GK", ...formationPositions(formation)];
+    allPos.forEach(pos => {
       const cur = slot.lineup[pos]?.name;
       const nxt = nextSlot.lineup[pos]?.name;
       if (nxt && cur && incoming.has(nxt) && outgoing.has(cur)) {
@@ -339,41 +457,50 @@ function render() {
         unpairedOut.delete(cur);
       }
     });
-    // Pair any remaining incoming with remaining outgoing
     const leftoverOut = [...unpairedOut];
-    let i = 0;
+    let li = 0;
     incoming.forEach(inName => {
-      if (!replacementMap.has(inName) && leftoverOut[i]) {
-        replacementMap.set(inName, leftoverOut[i++]);
+      if (!replacementMap.has(inName) && leftoverOut[li]) {
+        replacementMap.set(inName, leftoverOut[li++]);
       }
     });
   }
 
-  // Pitch
+  // Dynamic pitch rendering based on formation
   const pitch = document.getElementById("pitch");
   pitch.innerHTML = "";
+  pitch.className = teamSize >= 9 ? "pitch pitch-large" : "pitch";
 
+  const { defense, midfield, forward } = parseFormation(formation);
+
+  // Build rows: FWD, MID, DEF, GK (top to bottom)
   const rows = [
-    { key: "FWD",  label: "FWD" },
-    { key: "MID",  label: "MID" },
-    { key: "DEF",  label: "DEF" },
-    { key: "GK",   label: "GK"  },
+    { type: "FWD", count: forward },
+    { type: "MID", count: midfield },
+    { type: "DEF", count: defense },
+    { type: "GK", count: 1 },
   ];
 
   rows.forEach(row => {
     const rowEl = document.createElement("div");
     rowEl.className = "pitch-row";
+    if (row.count > 1) rowEl.classList.add("multi-row");
 
-    if (row.key === "MID") {
-      rowEl.classList.add("mid-row");
-      ["MID1", "MID2"].forEach(pos => {
-        const name = slot.lineup[pos]?.name ?? "?";
-        rowEl.appendChild(playerCircle(name, "MID", incoming.has(name), outgoing.has(name)));
-      });
-    } else {
-      const name = slot.lineup[row.key]?.name ?? "?";
-      const isGk = row.key === "GK";
-      rowEl.appendChild(playerCircle(name, row.label, incoming.has(name), outgoing.has(name), isGk));
+    for (let i = 1; i <= row.count; i++) {
+      let posKey;
+      if (row.type === "GK") {
+        posKey = "GK";
+      } else if (row.type === "MID") {
+        posKey = `MID${i}`;
+      } else if (row.type === "DEF") {
+        posKey = i === 1 ? "DEF" : `DEF${i}`;
+      } else {
+        posKey = i === 1 ? "FWD" : `FWD${i}`;
+      }
+      const name = slot.lineup[posKey]?.name ?? "?";
+      const displayRole = row.type;
+      const isGk = row.type === "GK";
+      rowEl.appendChild(playerCircle(name, displayRole, incoming.has(name), outgoing.has(name), isGk));
     }
 
     pitch.appendChild(rowEl);
@@ -405,27 +532,27 @@ function render() {
   btnNext.disabled = false;
   if (currentSlot === matchData.slots.length - 1) {
     btnNext.textContent = "Full time ▶";
-  } else if (currentSlot % 2 === 0) {
-    btnNext.textContent = "Next half ▶";
   } else {
-    btnNext.textContent = "Next quarter ▶";
+    btnNext.textContent = "Next ▶";
   }
 }
 
 // ── Quarter-break changes interstitial ────────────────────────────────────────
 function renderChanges() {
-  const prevSlot = slotObj(currentSlot - 1); // the 'b' slot we just left
-  const nextSlot = slotObj(currentSlot);     // the 'a' slot we're about to show
-  const prevQ = Math.floor((currentSlot - 1) / 2) + 1;
-  const nextQ = Math.floor(currentSlot / 2) + 1;
+  const prevSlot = slotObj(currentSlot - 1);
+  const nextSlot = slotObj(currentSlot);
+  const prevP = Math.floor((currentSlot - 1) / 2) + 1;
+  const nextP = Math.floor(currentSlot / 2) + 1;
+  const pLabel = (matchData.match.period_label || "Quarter") === "Half" ? "H" : "Q";
 
   const off = outgoingSubs(prevSlot, nextSlot);
   const on  = incomingSubs(prevSlot, nextSlot);
+  const formation = matchData.match.formation || "1-2-1";
 
-  // Build replacement map for "On for X" labels
   const replacementMap = new Map();
   const unpairedOut = new Set(off);
-  ["GK", "DEF", "MID1", "MID2", "FWD"].forEach(pos => {
+  const allPos = ["GK", ...formationPositions(formation)];
+  allPos.forEach(pos => {
     const cur = prevSlot.lineup[pos]?.name;
     const nxt = nextSlot.lineup[pos]?.name;
     if (nxt && cur && on.has(nxt) && off.has(cur)) {
@@ -447,18 +574,16 @@ function renderChanges() {
 
   document.getElementById("match-title").textContent =
     `${dateStr}  ·  vs ${match.opponent || "Unknown"}`;
-  document.getElementById("slot-label").textContent = `Q${prevQ} → Q${nextQ}`;
+  document.getElementById("slot-label").textContent = `${pLabel}${prevP} → ${pLabel}${nextP}`;
   document.getElementById("slot-counter").textContent =
     off.size === 0 ? "No changes" : `${off.size} change${off.size !== 1 ? "s" : ""}`;
 
-  // Update progress dots — highlight the gap between quarters
   const dots = document.querySelectorAll(".progress-dot");
   dots.forEach((dot, i) => {
     dot.classList.toggle("active", false);
     dot.classList.toggle("done", i < currentSlot);
   });
 
-  // Hide pitch/bench, show changes in report section
   document.querySelector(".pitch-wrapper").style.display = "none";
   document.querySelector(".bench-section").style.display = "none";
   document.getElementById("report-section").style.display = "block";
@@ -487,23 +612,24 @@ function renderChanges() {
   document.getElementById("btn-prev").disabled = false;
   const btnNext = document.getElementById("btn-next");
   btnNext.disabled = false;
-  btnNext.textContent = `Start Q${nextQ} ▶`;
+  const periodLbl = (matchData.match.period_label || "Quarter") === "Half" ? "Half" : "Quarter";
+  btnNext.textContent = `Start ${periodLbl} ${nextP} ▶`;
 }
 
 // ── Report ────────────────────────────────────────────────────────────────────
 function renderReport() {
-  // Collect all players from first slot
   const allPlayers = [
     ...Object.values(matchData.slots[0].lineup),
     ...matchData.slots[0].bench,
   ].sort((a, b) => a.name.localeCompare(b.name));
 
+  const totalSlots = matchData.slots.length;
   const perSlot = {};
-  allPlayers.forEach(p => { perSlot[p.name] = Array(8).fill(null); });
+  allPlayers.forEach(p => { perSlot[p.name] = Array(totalSlots).fill(null); });
 
   matchData.slots.forEach(slot => {
     Object.entries(slot.lineup).forEach(([pos, p]) => {
-      const displayPos = pos.startsWith("MID") ? "MID" : pos;
+      const displayPos = normalizePos(pos);
       perSlot[p.name][slot.slot_index] = displayPos;
     });
   });
@@ -511,6 +637,7 @@ function renderReport() {
   const match = matchData.match;
   const date = new Date(match.date + "T12:00:00");
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const pLabel = (match.period_label || "Quarter") === "Half" ? "H" : "Q";
 
   document.getElementById("slot-label").textContent = "Full Time";
   document.getElementById("slot-counter").textContent = "Match report";
@@ -519,9 +646,16 @@ function renderReport() {
   document.querySelector(".pitch-wrapper").style.display = "none";
   document.querySelector(".bench-section").style.display = "none";
   document.getElementById("report-section").style.display = "block";
-  document.querySelector(".progress-dots").style.display = "none";
+  document.getElementById("progress-dots").style.display = "none";
 
-  const slotLabels = ["Q1a","Q1b","Q2a","Q2b","Q3a","Q3b","Q4a","Q4b"];
+  // Generate slot labels dynamically
+  const slotLabels = [];
+  for (let i = 0; i < totalSlots; i++) {
+    const p = Math.floor(i / 2) + 1;
+    const h = i % 2 === 0 ? "a" : "b";
+    slotLabels.push(`${pLabel}${p}${h}`);
+  }
+
   const list = document.getElementById("report-list");
   list.innerHTML = "";
 
@@ -581,7 +715,7 @@ function showMatch() {
   document.querySelector(".pitch-wrapper").style.display = "";
   document.querySelector(".bench-section").style.display = "";
   document.getElementById("report-section").style.display = "none";
-  document.querySelector(".progress-dots").style.display = "";
+  document.getElementById("progress-dots").style.display = "";
   render();
 }
 
@@ -589,14 +723,12 @@ function showMatch() {
 document.getElementById("btn-next").addEventListener("click", () => {
   if (showingReport) return;
   if (showingChanges) {
-    // Leaving changes interstitial → show the next 'a' slot
     showingChanges = false;
     showMatch();
     return;
   }
   if (currentSlot < matchData.slots.length - 1) {
     currentSlot++;
-    // If we just moved from a 'b' slot to an 'a' slot (quarter break), show changes
     if (currentSlot % 2 === 0 && currentSlot > 0) {
       showingChanges = true;
       renderChanges();
@@ -612,7 +744,6 @@ document.getElementById("btn-next").addEventListener("click", () => {
 document.getElementById("btn-prev").addEventListener("click", () => {
   if (showingReport) { showMatch(); return; }
   if (showingChanges) {
-    // Back from changes interstitial → go back to the 'b' slot
     showingChanges = false;
     currentSlot--;
     showMatch();
@@ -621,7 +752,6 @@ document.getElementById("btn-prev").addEventListener("click", () => {
   if (currentSlot > 0) { currentSlot--; render(); }
 });
 
-// "Back to matches" from pitch header
 document.getElementById("btn-pitch-back").addEventListener("click", loadHome);
 
 // ── Init ──────────────────────────────────────────────────────────────────────

@@ -41,6 +41,30 @@
         Date
         <input type="date" id="match-date" />
       </label>
+
+      <label>Team Size</label>
+      <div class="size-picker" id="size-picker">
+        <button type="button" class="size-btn" data-size="5">5v5</button>
+        <button type="button" class="size-btn" data-size="6">6v6</button>
+        <button type="button" class="size-btn" data-size="7">7v7</button>
+        <button type="button" class="size-btn" data-size="9">9v9</button>
+        <button type="button" class="size-btn" data-size="11">11v11</button>
+      </div>
+
+      <label>
+        Formation
+        <select id="formation-select"></select>
+      </label>
+
+      <label>
+        Playing Time
+        <div class="fairness-row">
+          <span class="fairness-label">Equal</span>
+          <input type="range" id="fairness-slider" min="0" max="1" step="1" value="0" />
+          <span class="fairness-label">Competitive</span>
+        </div>
+      </label>
+
       <button class="btn btn-primary btn-full" type="submit" id="btn-generate">
         Generate Rotation ▶
       </button>
@@ -86,6 +110,22 @@
           Skill Rating (1–5)
           <input type="number" id="input-skill" min="1" max="5" value="3" />
         </label>
+
+        <label>Can Play Positions</label>
+        <div class="position-checkboxes" id="position-checkboxes">
+          <label class="pos-check"><input type="checkbox" value="GK" /> GK</label>
+          <label class="pos-check"><input type="checkbox" value="DEF" /> DEF</label>
+          <label class="pos-check"><input type="checkbox" value="MID" /> MID</label>
+          <label class="pos-check"><input type="checkbox" value="FWD" /> FWD</label>
+        </div>
+
+        <label>
+          Best Position
+          <select id="input-best-position">
+            <option value="">Not set</option>
+          </select>
+        </label>
+
         <div class="form-actions">
           <button class="btn btn-secondary" type="button" id="btn-cancel-player">Cancel</button>
           <button class="btn btn-primary" type="submit">Save</button>
@@ -104,16 +144,7 @@
       </div>
       <div class="slot-label"  id="slot-label"></div>
       <div class="slot-counter" id="slot-counter"></div>
-      <div class="progress-dots">
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-      </div>
+      <div class="progress-dots" id="progress-dots"></div>
     </header>
 
     <div class="pitch-wrapper">
@@ -131,7 +162,7 @@
 
     <div class="controls">
       <button class="btn btn-prev" id="btn-prev">◀ Back</button>
-      <button class="btn btn-next" id="btn-next">Next half ▶</button>
+      <button class="btn btn-next" id="btn-next">Next ▶</button>
     </div>
 
   </div><!-- /screen-pitch -->

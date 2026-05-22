@@ -137,9 +137,13 @@ html, body {
   gap: 24px;
 }
 
-.pitch-row.mid-row {
-  gap: 72px;
+.pitch-row.multi-row {
+  gap: 36px;
 }
+
+.pitch-large .player-circle { --circle-size: 52px; --circle-font: 11px; }
+.pitch-large .circle-name { font-size: 10px; }
+.pitch-large .circle-role { font-size: 9px; }
 
 /* ── Player circle ────────────────────────────────────────────────── */
 
@@ -683,6 +687,92 @@ html, body {
 
 .form-card input[type="number"] { width: 80px; }
 
+/* ── Team size picker ────────────────────────────────────────────── */
+
+.size-picker {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.size-btn {
+  flex: 1;
+  padding: 10px 4px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-light);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.size-btn.active {
+  background: var(--btn-primary);
+  border-color: var(--btn-primary);
+  color: #fff;
+}
+
+.size-btn:not(.active):active {
+  background: rgba(255,255,255,0.1);
+}
+
+/* ── Fairness slider ─────────────────────────────────────────────── */
+
+.fairness-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 8px;
+}
+
+.fairness-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.fairness-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--btn-primary);
+}
+
+/* ── Position checkboxes ─────────────────────────────────────────── */
+
+.position-checkboxes {
+  display: flex;
+  gap: 12px;
+  margin: 4px 0 8px;
+  flex-wrap: wrap;
+}
+
+.pos-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-light);
+  cursor: pointer;
+}
+
+.pos-check input { accent-color: var(--btn-primary); }
+
+/* ── Size badge on match list ────────────────────────────────────── */
+
+.size-badge {
+  background: rgba(76, 175, 80, 0.3);
+  color: #8bc34a;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* ── Best position badge ─────────────────────────────────────────── */
+
+.badge-pos {
+  background: rgba(33,150,243,0.2);
+  color: #64b5f6;
+}
 
 .form-actions {
   display: flex;

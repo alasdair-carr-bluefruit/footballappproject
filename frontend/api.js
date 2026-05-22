@@ -27,4 +27,7 @@ export const api = {
   getMatch:          (id) => request(`/matches/${id}`),
   generateRotation:  (id) => request(`/matches/${id}/rotation`, { method: "POST" }),
   deleteMatch:       (id) => request(`/matches/${id}`,          { method: "DELETE" }),
+
+  // Config
+  getGameConfigs:    ()   => request("/matches/config/game-configs"),
 };
