@@ -20,15 +20,23 @@ from __future__ import annotations
 
 import itertools
 
+from backend.models.game_config import DEFAULT_CONFIG, GameConfig
 from backend.models.player import GKTier, Player
-from backend.models.rotation import Position, RotationPlan, SlotAssignment
+from backend.models.rotation import (
+    Position,
+    RotationPlan,
+    SlotAssignment,
+    is_def_position,
+    normalize_position,
+)
 
 
-def balance_skills(plan: RotationPlan) -> RotationPlan:
+def balance_skills(plan: RotationPlan, config: GameConfig | None = None) -> RotationPlan:
     """Return a new RotationPlan with improved outfield skill balance.
 
     Performs iterative pairwise swaps. Original plan is not mutated.
     """
+    cfg = config or DEFAULT_CONFIG
     slots = [_copy_slot(s) for s in plan.slots]
     improved = True
     iterations = 0
@@ -38,7 +46,7 @@ def balance_skills(plan: RotationPlan) -> RotationPlan:
         improved = False
         iterations += 1
         for i, j in itertools.combinations(range(len(slots)), 2):
-            if _try_best_swap(slots, i, j):
+            if _try_best_swap(slots, i, j, cfg.mid_period_subs):
                 improved = True
 
     return RotationPlan(slots=slots, warnings=list(plan.warnings))
@@ -60,7 +68,7 @@ def _skill_variance(slots: list) -> float:
     return sum((t - mean) ** 2 for t in totals)
 
 
-def _try_best_swap(slots: list, i: int, j: int) -> bool:
+def _try_best_swap(slots: list, i: int, j: int, mid_period_subs: int = 2) -> bool:
     """Try all outfield player pairs between slot i and slot j.
 
     Applies the best variance-reducing swap found (if any).
@@ -82,7 +90,7 @@ def _try_best_swap(slots: list, i: int, j: int) -> bool:
             continue
 
         # Check hard constraints for both directions of the swap
-        if not _swap_is_valid(slots, i, j, pos_i, player_i, pos_j, player_j):
+        if not _swap_is_valid(slots, i, j, pos_i, player_i, pos_j, player_j, mid_period_subs):
             continue
 
         # Tentatively apply swap
@@ -117,6 +125,7 @@ def _swap_is_valid(
     player_i: Player,
     pos_j: Position,
     player_j: Player,
+    mid_period_subs: int = 2,
 ) -> bool:
     """Return True if swapping player_i (at pos_i in slot i) with player_j
     (at pos_j in slot j) is valid under all hard constraints."""
@@ -125,10 +134,10 @@ def _swap_is_valid(
     if player_i.gk_status == GKTier.SPECIALIST or player_j.gk_status == GKTier.SPECIALIST:
         return False
 
-    # DEF restriction
-    if pos_i == Position.DEF and player_j.def_restricted:
+    # DEF restriction (covers DEF, DEF2, DEF3, DEF4)
+    if is_def_position(pos_i) and player_j.def_restricted:
         return False
-    if pos_j == Position.DEF and player_i.def_restricted:
+    if is_def_position(pos_j) and player_i.def_restricted:
         return False
 
     # Prevent duplicate: player must not already exist in the destination slot
@@ -143,7 +152,7 @@ def _swap_is_valid(
     # must have ≤ 2 outfield changes after this swap.
     # A swap can affect the transition within slot i's quarter AND slot j's quarter,
     # so we check all impacted pairs.
-    if not _all_mid_quarter_limits_ok(slots, i, j, pos_i, player_i, pos_j, player_j):
+    if not _all_mid_quarter_limits_ok(slots, i, j, pos_i, player_i, pos_j, player_j, mid_period_subs):
         return False
 
     # Position variety: skip if either player would gain a 3rd position type
@@ -165,12 +174,9 @@ def _all_mid_quarter_limits_ok(
     player_i: Player,
     pos_j: Position,
     player_j: Player,
+    mid_period_subs: int = 2,
 ) -> bool:
-    """Return True if all mid-quarter transitions still respect ≤2 changes after this swap.
-
-    A swap of player_i (slot i) with player_j (slot j) can affect the mid-quarter
-    transition within slot i's quarter AND slot j's quarter — we check both.
-    """
+    """Return True if all mid-period transitions still respect sub limits after this swap."""
     # Find every (H1, H2) pair whose transition is affected by this swap
     affected_pairs: set = set()
     for slot_idx in [i, j]:
@@ -180,7 +186,7 @@ def _all_mid_quarter_limits_ok(
             affected_pairs.add(pair)
 
     for (first_idx, second_idx) in affected_pairs:
-        if not _transition_ok_after_swap(slots, first_idx, second_idx, i, j, player_i, player_j):
+        if not _transition_ok_after_swap(slots, first_idx, second_idx, i, j, player_i, player_j, mid_period_subs):
             return False
     return True
 
@@ -214,16 +220,17 @@ def _transition_ok_after_swap(
     j: int,
     player_i: Player,
     player_j: Player,
+    mid_period_subs: int = 2,
 ) -> bool:
-    """Check that the mid-quarter transition (first_idx → second_idx) has ≤ 2 changes."""
+    """Check that the mid-period transition respects the sub limit."""
     first_ids = _effective_outfield_ids(slots[first_idx], first_idx, i, j, player_i, player_j)
     second_ids = _effective_outfield_ids(slots[second_idx], second_idx, i, j, player_i, player_j)
     changes = len(first_ids.symmetric_difference(second_ids)) // 2
-    return changes <= 2
+    return changes <= mid_period_subs
 
 
 def _norm_pos(pos: Position) -> str:
-    return "MID" if pos in (Position.MID1, Position.MID2) else pos.value
+    return normalize_position(pos)
 
 
 def _position_variety_ok(slots: list, slot_idx: int, player: Player, new_pos_label: str) -> bool:

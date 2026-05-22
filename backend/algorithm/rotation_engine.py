@@ -5,7 +5,7 @@ Usage:
     from backend.models.match import Match, Squad
 
     plan = generate_rotation(squad, match)
-    # plan.slots -- list of 8 SlotAssignments
+    # plan.slots -- list of SlotAssignments (8 for 5v5, 4 for 9v9, etc.)
     # plan.warnings -- any soft warnings (e.g. emergency GK used)
 """
 from __future__ import annotations
@@ -17,31 +17,43 @@ from backend.algorithm.gk_selector import select_gk_for_slots
 from backend.algorithm.skill_balancer import balance_skills
 from backend.algorithm.time_balancer import compute_target_slots
 from backend.algorithm.validator import validate
+from backend.models.game_config import DEFAULT_CONFIG, GameConfig
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier, Player
 from backend.models.rotation import (
-    OUTFIELD_POSITIONS,
     Position,
     RotationPlan,
     SlotAssignment,
+    is_def_position,
+    normalize_position,
 )
+
+
+def _resolve_config(match: Match) -> GameConfig:
+    return match.game_config or DEFAULT_CONFIG
 
 
 def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
     """Generate a full rotation plan for the match.
 
     Raises:
-        ValueError: if the squad is too small (< 5) to fill a lineup
+        ValueError: if the squad is too small to fill a lineup
     """
+    config = _resolve_config(match)
     players = squad.available
     n = len(players)
-    num_slots = match.half_quarters  # 8 for a standard 4-quarter match
+    num_slots = config.total_slots
+    outfield_count = config.formation.outfield_count
 
-    if n < 5:
-        raise ValueError(f"Squad too small: need at least 5 players, got {n}")
+    if n < config.players_per_slot:
+        raise ValueError(
+            f"Squad too small: need at least {config.players_per_slot} players, got {n}"
+        )
 
-    # Step 1: Determine GK per slot (same GK for both half-quarters of a quarter)
-    gk_assignments, warnings = select_gk_for_slots(players, num_slots, squad_size=n)
+    # Step 1: Determine GK per slot (same GK for both sub-periods of a period)
+    gk_assignments, warnings = select_gk_for_slots(
+        players, num_slots, squad_size=n, players_per_slot=config.players_per_slot,
+    )
 
     # Identify non-specialist players who will cover GK slots (ordered, de-duped by identity)
     seen_ids: set = set()
@@ -52,45 +64,48 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
             non_specialist_gk_players.append(p)
 
     # Step 2: Compute target slot counts per player
-    targets = compute_target_slots(players, num_slots * 5, non_specialist_gk_players)
+    total_player_slots = num_slots * config.players_per_slot
+    targets = compute_target_slots(players, total_player_slots, non_specialist_gk_players)
 
     # Pre-compute future GK slots for each player (slots not yet processed).
-    # This prevents GK players being over-selected for outfield.
-    # future_gk[player_id] = count of GK slots in the entire assignment list
     future_gk: dict = defaultdict(int)
     for gk in gk_assignments:
         if gk is not None:
             future_gk[id(gk)] += 1
 
     # Step 3: Build slot assignments
-    plan = _build_slots(players, gk_assignments, targets, future_gk, num_slots)
+    plan = _build_slots(players, gk_assignments, targets, future_gk, num_slots, config)
     plan.warnings.extend(warnings)
 
     # Step 4: Skill balance optimisation (soft preference)
-    plan = balance_skills(plan)
+    plan = balance_skills(plan, config)
 
     # Step 4b: Restore position consistency — carried players should keep their H1 position
-    plan = _align_mid_quarter_positions(plan)
+    plan = _align_mid_quarter_positions(plan, config)
 
     # Step 5: Validate
-    violations = validate(plan, players)
+    violations = validate(plan, players, config)
     if violations:
         plan.warnings.extend(["VIOLATION: " + v for v in violations])
 
     return plan
 
 
-def _align_mid_quarter_positions(plan: RotationPlan) -> RotationPlan:
+def _align_mid_quarter_positions(
+    plan: RotationPlan, config: GameConfig,
+) -> RotationPlan:
     """Swap outfield positions within H2 slots so carried players keep their H1 position.
 
     Only swaps position *labels* within a slot — never changes which players
     are on the pitch — so sub limits and playing-time constraints are unaffected.
     DEF-restriction is explicitly checked before any swap.
     """
-    for quarter in range(len(plan.slots) // 2):
-        h1 = plan.slots[quarter * 2]
-        h2 = plan.slots[quarter * 2 + 1]
-        for pos in OUTFIELD_POSITIONS:
+    outfield_pos_keys = config.formation.outfield_positions()
+    for period in range(len(plan.slots) // 2):
+        h1 = plan.slots[period * 2]
+        h2 = plan.slots[period * 2 + 1]
+        for pos_key in outfield_pos_keys:
+            pos = Position(pos_key)
             h1_player = h1.lineup.get(pos)
             if h1_player is None:
                 continue
@@ -106,14 +121,14 @@ def _align_mid_quarter_positions(plan: RotationPlan) -> RotationPlan:
             if h2_occupant is None:
                 continue
             # Skip if either player would end up in DEF while def_restricted
-            if pos == Position.DEF and h1_player.def_restricted:
+            if is_def_position(pos) and h1_player.def_restricted:
                 continue
-            if h2_pos == Position.DEF and h2_occupant.def_restricted:
+            if is_def_position(h2_pos) and h2_occupant.def_restricted:
                 continue
             # Skip if moving h2_occupant to h2_pos would give them a 3rd position type
-            h2_pos_label = "MID" if h2_pos in (Position.MID1, Position.MID2) else h2_pos.value
+            h2_pos_label = normalize_position(h2_pos)
             occupant_positions = {
-                ("MID" if p in (Position.MID1, Position.MID2) else p.value)
+                normalize_position(p)
                 for s in plan.slots for p, pl in s.lineup.items()
                 if pl is h2_occupant and p != Position.GK
             }
@@ -130,21 +145,14 @@ def _build_slots(
     targets: dict,
     future_gk: dict,
     num_slots: int,
+    config: GameConfig,
 ) -> RotationPlan:
-    """Assign players to all slots respecting constraints.
-
-    Key constraint: at mid-quarter transitions (slot i -> slot i+1 where i is even),
-    at most 2 outfield players may change. GK is guaranteed the same by per-quarter
-    GK assignment.
-
-    future_gk[player_id] tracks GK slots remaining (decremented as they're processed).
-    Outfield candidates must satisfy: slot_counts + future_gk_remaining < target.
-    """
+    """Assign players to all slots respecting constraints."""
+    outfield_count = config.formation.outfield_count
     slot_counts: dict = defaultdict(int)
     position_sets: dict = defaultdict(set)
     slots: list = []
-    # Track remaining future GK (decremented as slots are processed)
-    remaining_gk = dict(future_gk)  # copy so we can decrement
+    remaining_gk = dict(future_gk)
 
     for slot_index in range(num_slots):
         gk_player = gk_assignments[slot_index]
@@ -156,22 +164,25 @@ def _build_slots(
             position_sets[gk_player].add("GK")
             remaining_gk[id(gk_player)] = max(0, remaining_gk.get(id(gk_player), 0) - 1)
 
-        is_mid_quarter = slot_index % 2 == 1
+        is_mid_period = slot_index % 2 == 1
         prev_slot = slots[-1] if slots else None
 
-        if is_mid_quarter and prev_slot is not None:
-            outfield_players = _select_outfield_mid_quarter(
-                players, gk_player, prev_slot, targets, slot_counts, remaining_gk
+        if is_mid_period and prev_slot is not None:
+            outfield_players = _select_outfield_mid_period(
+                players, gk_player, prev_slot, targets, slot_counts, remaining_gk,
+                outfield_count, config.mid_period_subs,
             )
         else:
             outfield_candidates = _eligible_outfield(
                 players, gk_player, targets, slot_counts, remaining_gk
             )
             outfield_players = _select_outfield(
-                outfield_candidates, targets, slot_counts, remaining_gk
+                outfield_candidates, targets, slot_counts, remaining_gk, outfield_count,
             )
 
-        _assign_outfield_positions(slot, outfield_players, position_sets, slot_counts)
+        _assign_outfield_positions(
+            slot, outfield_players, position_sets, slot_counts, config,
+        )
         slots.append(slot)
 
     return RotationPlan(slots=slots)
@@ -184,14 +195,7 @@ def _eligible_outfield(
     slot_counts: dict,
     remaining_gk: dict,
 ) -> list:
-    """Return players eligible for outfield selection.
-
-    A player is eligible if:
-    - Not the current GK
-    - Not a specialist (never plays outfield)
-    - Their current slot count + remaining future GK slots < their target
-      (i.e. they have outfield budget remaining)
-    """
+    """Return players eligible for outfield selection."""
     return [
         p for p in players
         if p is not gk_player
@@ -201,41 +205,38 @@ def _eligible_outfield(
 
 
 def _select_outfield(
-    candidates: list, targets: dict, slot_counts: dict, remaining_gk: dict
+    candidates: list, targets: dict, slot_counts: dict, remaining_gk: dict,
+    outfield_count: int,
 ) -> list:
-    """Select 4 outfield players for a regular (quarter-start) slot.
-
-    Sort: fewest slots played first, then most outfield budget remaining.
-    Players with identical priority are shuffled so results vary each run.
-    Position variety is handled downstream in _assign_outfield_positions.
-    """
+    """Select outfield players for a regular (period-start) slot."""
     def sort_key(p: Player) -> tuple:
         outfield_budget = targets.get(p, 0) - slot_counts[p] - remaining_gk.get(id(p), 0)
         return (slot_counts[p], -outfield_budget)
 
     shuffled = list(candidates)
-    random.shuffle(shuffled)  # shuffle first so equal-priority players vary each run
-    return sorted(shuffled, key=sort_key)[:4]
+    random.shuffle(shuffled)
+    selected = sorted(shuffled, key=sort_key)[:outfield_count]
+    return selected
 
 
-def _select_outfield_mid_quarter(
+def _select_outfield_mid_period(
     all_players: list,
     gk_player: object,
     prev_slot: SlotAssignment,
     targets: dict,
     slot_counts: dict,
     remaining_gk: dict,
+    outfield_count: int,
+    mid_period_subs: int,
 ) -> list:
-    """Select outfield players for a mid-quarter slot (max 2 new players vs previous slot).
+    """Select outfield players for a mid-period slot (limited new players vs previous slot).
 
     Strategy:
-    - Carry over at least 2 outfield players from the previous slot
-    - Bring in at most 2 new players (bench players with most playing time owed)
+    - Carry over as many outfield players as possible from the previous slot
+    - Bring in at most mid_period_subs new players
     """
     prev_outfield = prev_slot.outfield_players
 
-    # Carried candidates sorted by how much outfield budget they have remaining
-    # (most budget = most valuable to carry = least urgent to sub off)
     def budget(p: Player) -> int:
         return targets.get(p, 0) - slot_counts[p] - remaining_gk.get(id(p), 0)
 
@@ -244,8 +245,9 @@ def _select_outfield_mid_quarter(
     random.shuffle(shuffled_prev)
     carried_candidates = sorted(shuffled_prev, key=lambda p: -budget(p))
 
-    # Carry players who still have budget remaining (never force-carry over target)
-    carry_over = [p for p in carried_candidates if budget(p) > 0][:3]
+    # Carry players who still have budget remaining
+    max_carry = outfield_count - 1  # at least 1 slot for potential new player
+    carry_over = [p for p in carried_candidates if budget(p) > 0][:max_carry]
 
     prev_ids = {id(p) for p in prev_slot.players}
     carried_ids = {id(p) for p in carry_over}
@@ -267,14 +269,20 @@ def _select_outfield_mid_quarter(
         return (slot_counts[p], -budget(p))
 
     bench_sorted = sorted(bench_candidates, key=bench_sort_key)
-    slots_needed = 4 - len(carry_over)
-    new_players = bench_sorted[:slots_needed]
+    slots_needed = outfield_count - len(carry_over)
+    # Cap new players by mid-period sub limit
+    max_new = min(slots_needed, mid_period_subs)
+    new_players = bench_sorted[:max_new]
+
+    # If we capped new players, fill remaining from carry-over
+    if len(new_players) < slots_needed:
+        extra_carry = [p for p in carried_candidates if budget(p) > 0 and p not in carry_over]
+        carry_over += extra_carry[:slots_needed - len(new_players)]
 
     result = carry_over + new_players
 
-    # If still short (rare — budget exhaustion), pull remaining within-budget players
-    # from anywhere, then as a last resort accept over-budget (validator will flag)
-    if len(result) < 4:
+    # If still short, pull remaining within-budget players from anywhere
+    if len(result) < outfield_count:
         result_ids = {id(p) for p in result}
         if gk_player is not None:
             result_ids.add(id(gk_player))
@@ -284,7 +292,29 @@ def _select_outfield_mid_quarter(
             and p.gk_status != GKTier.SPECIALIST
             and budget(p) > 0
         ]
-        result += extras_in_budget[:4 - len(result)]
+        result += extras_in_budget[:outfield_count - len(result)]
+
+    # Last resort: prefer over-budget carry-overs (minimizes changes), then bench
+    if len(result) < outfield_count:
+        result_ids = {id(p) for p in result}
+        if gk_player is not None:
+            result_ids.add(id(gk_player))
+        # First try carrying over more from previous slot (over-budget but fewer changes)
+        over_budget_carry = [
+            p for p in prev_outfield
+            if id(p) not in result_ids and p.gk_status != GKTier.SPECIALIST
+        ]
+        result += over_budget_carry[:outfield_count - len(result)]
+
+    if len(result) < outfield_count:
+        result_ids = {id(p) for p in result}
+        if gk_player is not None:
+            result_ids.add(id(gk_player))
+        over_budget_bench = [
+            p for p in all_players
+            if id(p) not in result_ids and p.gk_status != GKTier.SPECIALIST
+        ]
+        result += over_budget_bench[:outfield_count - len(result)]
 
     return result
 
@@ -294,49 +324,43 @@ def _assign_outfield_positions(
     players: list,
     position_sets: dict,
     slot_counts: dict,
+    config: GameConfig,
 ) -> None:
-    """Assign DEF, MID1, MID2, FWD to the 4 outfield players.
+    """Assign outfield positions to selected players.
 
     Uses a most-constrained-first ordering: the position type with fewest
     players who can fill it without a 3rd-position violation is assigned first.
-    This maximises the chance of a violation-free assignment when one exists.
     DEF restriction is enforced as a hard constraint throughout.
     """
     unassigned = list(players)
     assigned: dict = {}
 
-    POS_ENUM = {
-        "DEF": Position.DEF,
-        "MID1": Position.MID1,
-        "MID2": Position.MID2,
-        "FWD": Position.FWD,
-    }
+    # Build position map dynamically from formation
+    pos_keys = config.formation.outfield_positions()
+    pos_enum = {key: Position(key) for key in pos_keys}
 
     def free_candidates(pos_label: str, pool: list) -> list:
         """Players who can take pos_label without a 3rd-position violation."""
-        norm = "MID" if pos_label in ("MID1", "MID2") else pos_label
+        norm = normalize_position(pos_label)
         return [p for p in pool if norm in position_sets[p] or len(position_sets[p]) < 2]
 
-    remaining = list(POS_ENUM.keys())
+    remaining = list(pos_enum.keys())
     while remaining and unassigned:
-        # For each remaining position, compute candidates and free candidates
         def pool_for(lbl: str) -> list:
-            p = [x for x in unassigned if not (lbl == "DEF" and x.def_restricted)]
+            p = [x for x in unassigned if not (is_def_position(lbl) and x.def_restricted)]
             return p if p else unassigned  # fallback: validator will flag
 
-        # Sort remaining positions by number of free candidates (most constrained first)
         remaining.sort(key=lambda lbl: len(free_candidates(lbl, pool_for(lbl))))
         pos_label = remaining.pop(0)
 
         pool = pool_for(pos_label)
         player = _pick_for_position(pos_label, pool, position_sets)
-        assigned[POS_ENUM[pos_label]] = player
+        assigned[pos_enum[pos_label]] = player
         unassigned.remove(player)
 
     for pos, player in assigned.items():
         slot.lineup[pos] = player
-        pos_label = "MID" if pos in (Position.MID1, Position.MID2) else pos.value
-        position_sets[player].add(pos_label)
+        position_sets[player].add(normalize_position(pos))
         slot_counts[player] += 1
 
 
@@ -348,7 +372,7 @@ def _pick_for_position(pos_label: str, candidates: list, position_sets: dict) ->
     2. Players who have fewer than 2 position types (can absorb a new one)
     3. Anyone remaining (validator will flag if >2 positions result)
     """
-    norm_label = "MID" if pos_label in ("MID1", "MID2") else pos_label
+    norm_label = normalize_position(pos_label)
     already_plays = [p for p in candidates if norm_label in position_sets[p]]
     if already_plays:
         return min(already_plays, key=lambda p: len(position_sets[p]))

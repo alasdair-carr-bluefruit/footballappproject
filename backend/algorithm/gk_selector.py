@@ -26,17 +26,18 @@ def select_gk_for_slots(
     players: list,
     num_slots: int,
     squad_size: int,
+    players_per_slot: int = 5,
 ) -> tuple:
     """Return a list of GK assignments (one per slot) and any warnings.
 
-    GK assignments are made per-quarter (same GK for both half-quarters).
+    GK assignments are made per-period (same GK for both sub-periods).
 
     Returns:
         gk_assignments: list of length num_slots
         warnings: list of warning strings
     """
     num_quarters = num_slots // 2
-    total_player_slots = num_slots * 5
+    total_player_slots = num_slots * players_per_slot
     fair_share = total_player_slots // squad_size
     # Max GK quarters one player can take within their fair-share budget.
     # Each GK quarter = 2 slots. Use floor(fair_share / 2) so outfield time is possible.

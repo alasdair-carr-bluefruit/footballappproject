@@ -5,17 +5,23 @@ Empty list = plan is valid.
 """
 from __future__ import annotations
 
+from backend.models.game_config import DEFAULT_CONFIG, GameConfig
 from backend.models.player import GKTier
-from backend.models.rotation import Position, RotationPlan
+from backend.models.rotation import Position, RotationPlan, is_def_position, normalize_position
 
 
-def validate(plan: RotationPlan, all_players: list) -> list:
+def validate(
+    plan: RotationPlan,
+    all_players: list,
+    config: GameConfig | None = None,
+) -> list:
     """Return list of constraint violations. Empty = valid."""
+    cfg = config or DEFAULT_CONFIG
     violations: list = []
     violations += _check_def_restrictions(plan, all_players)
     violations += _check_position_variety(plan, all_players)
-    violations += _check_gk_mid_quarter_change(plan)
-    violations += _check_mid_quarter_sub_limit(plan)
+    violations += _check_gk_mid_period_change(plan)
+    violations += _check_mid_period_sub_limit(plan, cfg)
     violations += _check_playing_time_equality(plan, all_players)
     violations += _check_specialist_never_outfield(plan, all_players)
     return violations
@@ -25,10 +31,10 @@ def _check_def_restrictions(plan: RotationPlan, players: list) -> list:
     violations = []
     for slot in plan.slots:
         for pos, player in slot.lineup.items():
-            if pos == Position.DEF and player.def_restricted:
+            if is_def_position(pos) and player.def_restricted:
                 violations.append(
                     f"DEF restriction violated: {player.name} "
-                    f"assigned DEF in slot {slot.slot_index}"
+                    f"assigned {pos} in slot {slot.slot_index}"
                 )
     return violations
 
@@ -42,10 +48,7 @@ def _check_position_variety(plan: RotationPlan, players: list) -> list:
             for pos, p in slot.lineup.items()
             if p is player
         }
-        # Normalise MID1/MID2 -- both count as "MID" for variety purposes
-        normalised = set()
-        for pos in positions_used:
-            normalised.add("MID" if pos in (Position.MID1, Position.MID2) else pos.value)
+        normalised = {normalize_position(pos) for pos in positions_used}
         if len(normalised) > 2:
             violations.append(
                 f"Position variety violated: {player.name} plays "
@@ -55,7 +58,7 @@ def _check_position_variety(plan: RotationPlan, players: list) -> list:
     return violations
 
 
-def _check_gk_mid_quarter_change(plan: RotationPlan) -> list:
+def _check_gk_mid_period_change(plan: RotationPlan) -> list:
     violations = []
     for i in range(0, len(plan.slots) - 1, 2):
         if i + 1 >= len(plan.slots):
@@ -64,24 +67,25 @@ def _check_gk_mid_quarter_change(plan: RotationPlan) -> list:
         gk_second = plan.slots[i + 1].gk
         if gk_first != gk_second:
             violations.append(
-                f"GK mid-quarter change in Q{plan.slots[i].quarter}: "
+                f"GK mid-period change in period {plan.slots[i].quarter}: "
                 f"{getattr(gk_first, 'name', None)} -> {getattr(gk_second, 'name', None)}"
             )
     return violations
 
 
-def _check_mid_quarter_sub_limit(plan: RotationPlan) -> list:
+def _check_mid_period_sub_limit(plan: RotationPlan, config: GameConfig) -> list:
     violations = []
+    max_subs = config.mid_period_subs
     for i in range(0, len(plan.slots) - 1, 2):
         if i + 1 >= len(plan.slots):
             break
         players_before = set(id(p) for p in plan.slots[i].players)
         players_after = set(id(p) for p in plan.slots[i + 1].players)
         changes = len(players_before - players_after)
-        if changes > 2:
+        if changes > max_subs:
             violations.append(
-                f"Mid-quarter sub limit exceeded in Q{plan.slots[i].quarter}: "
-                f"{changes} players changed (max 2)"
+                f"Mid-period sub limit exceeded in period {plan.slots[i].quarter}: "
+                f"{changes} players changed (max {max_subs})"
             )
     return violations
 
