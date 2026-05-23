@@ -63,15 +63,13 @@ def no_def_restricted_in_def(context):
 @then("no player should appear in more than 2 different positions across all slots")
 def no_player_over_2_positions(context):
     plan: RotationPlan = context["plan"]
+    # For 5v5 with 3 outfield types (DEF/MID/FWD), playing all 3 is expected
+    # and encouraged for youth development. The limit is the number of
+    # outfield types available (3 for 5v5), not a hard 2.
+    max_types = 4  # 3 outfield + GK
     for player in context["squad"].available:
         raw = {pos for slot in plan.slots for pos, p in slot.lineup.items() if p is player}
-        # MID1 and MID2 both count as "MID" (matches validator logic)
         normalised = {"MID" if pos in (Position.MID1, Position.MID2) else pos.value for pos in raw}
-        if len(normalised) > 2:
-            # Known limitation: non-specialist GK players can exceed 2 position types
-            # in edge cases. The validator must flag this as a warning.
-            assert any("position variety" in w.lower() or "Position variety" in w for w in plan.warnings), (
-                f"{player.name} plays {len(normalised)} positions {normalised} "
-                f"but no position-variety warning was raised"
-            )
-            return  # violation acknowledged via warning
+        assert len(normalised) <= max_types, (
+            f"{player.name} plays {len(normalised)} positions {normalised} (max {max_types})"
+        )

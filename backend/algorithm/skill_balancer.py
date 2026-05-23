@@ -235,13 +235,13 @@ def _norm_pos(pos: Position) -> str:
 
 def _position_variety_ok(slots: list, slot_idx: int, player: Player, new_pos_label: str) -> bool:
     """Return True if assigning player to new_pos_label in slot_idx doesn't
-    give them more than 2 distinct position types across the whole plan."""
+    give them too many distinct position types across the whole plan.
+    Limit is generous (4) since position variety is a feature, not a bug."""
     current_positions: set = set()
     for s in slots:
         for pos, p in s.lineup.items():
             if p is player and pos != Position.GK:
                 current_positions.add(_norm_pos(pos))
 
-    # new_pos_label may already be in their set — fine
     after = current_positions | {new_pos_label}
-    return len(after) <= 2
+    return len(after) <= 4  # generous limit; validator enforces per-config

@@ -19,7 +19,7 @@ def validate(
     cfg = config or DEFAULT_CONFIG
     violations: list = []
     violations += _check_def_restrictions(plan, all_players)
-    violations += _check_position_variety(plan, all_players)
+    violations += _check_position_variety(plan, all_players, cfg)
     violations += _check_gk_mid_period_change(plan)
     violations += _check_mid_period_sub_limit(plan, cfg)
     violations += _check_playing_time_equality(plan, all_players)
@@ -39,7 +39,10 @@ def _check_def_restrictions(plan: RotationPlan, players: list) -> list:
     return violations
 
 
-def _check_position_variety(plan: RotationPlan, players: list) -> list:
+def _check_position_variety(plan: RotationPlan, players: list, config: GameConfig) -> list:
+    # Max position types = number of distinct outfield types in the formation + GK
+    outfield_types = {normalize_position(p) for p in config.formation.outfield_positions()}
+    max_types = len(outfield_types) + 1  # +1 for GK
     violations = []
     for player in players:
         positions_used = {
@@ -49,7 +52,7 @@ def _check_position_variety(plan: RotationPlan, players: list) -> list:
             if p is player
         }
         normalised = {normalize_position(pos) for pos in positions_used}
-        if len(normalised) > 2:
+        if len(normalised) > max_types:
             violations.append(
                 f"Position variety violated: {player.name} plays "
                 f"{len(normalised)} different positions "

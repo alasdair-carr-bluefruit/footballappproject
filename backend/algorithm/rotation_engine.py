@@ -339,10 +339,17 @@ def _assign_outfield_positions(
     pos_keys = config.formation.outfield_positions()
     pos_enum = {key: Position(key) for key in pos_keys}
 
+    # How many distinct outfield position types exist in this formation
+    outfield_types = {normalize_position(k) for k in pos_keys}
+    max_pos_types = len(outfield_types)  # e.g. 3 for DEF/MID/FWD
+
     def free_candidates(pos_label: str, pool: list) -> list:
-        """Players who can take pos_label without a 3rd-position violation."""
+        """Players who can take pos_label without exceeding the position type limit."""
         norm = normalize_position(pos_label)
-        return [p for p in pool if norm in position_sets[p] or len(position_sets[p]) < 2]
+        return [
+            p for p in pool
+            if norm in position_sets[p] or len(position_sets[p]) < max_pos_types
+        ]
 
     remaining = list(pos_enum.keys())
     while remaining and unassigned:
@@ -354,7 +361,7 @@ def _assign_outfield_positions(
         pos_label = remaining.pop(0)
 
         pool = pool_for(pos_label)
-        player = _pick_for_position(pos_label, pool, position_sets)
+        player = _pick_for_position(pos_label, pool, position_sets, max_pos_types)
         assigned[pos_enum[pos_label]] = player
         unassigned.remove(player)
 
@@ -364,18 +371,31 @@ def _assign_outfield_positions(
         slot_counts[player] += 1
 
 
-def _pick_for_position(pos_label: str, candidates: list, position_sets: dict) -> Player:
-    """Pick the best candidate for a position.
+def _pick_for_position(
+    pos_label: str, candidates: list, position_sets: dict, max_pos_types: int = 3,
+) -> Player:
+    """Pick the best candidate for a position, favouring variety.
 
     Priority:
-    1. Players who already play this position (no new position type introduced)
-    2. Players who have fewer than 2 position types (can absorb a new one)
-    3. Anyone remaining (validator will flag if >2 positions result)
+    1. Players who HAVEN'T played this position yet but can absorb it
+       (gives them experience in a new position)
+    2. Players who already play this position (no new type introduced)
+    3. Anyone remaining (validator will flag if over the limit)
     """
     norm_label = normalize_position(pos_label)
+
+    # Prefer players who can absorb a NEW position type (promotes variety)
+    new_experience = [
+        p for p in candidates
+        if norm_label not in position_sets[p] and len(position_sets[p]) < max_pos_types
+    ]
+    if new_experience:
+        return min(new_experience, key=lambda p: len(position_sets[p]))
+
+    # Fall back to players already playing this position
     already_plays = [p for p in candidates if norm_label in position_sets[p]]
     if already_plays:
         return min(already_plays, key=lambda p: len(position_sets[p]))
-    can_absorb = [p for p in candidates if len(position_sets[p]) < 2]
-    pool = can_absorb if can_absorb else candidates
-    return min(pool, key=lambda p: len(position_sets[p]))
+
+    # Last resort
+    return min(candidates, key=lambda p: len(position_sets[p]))
