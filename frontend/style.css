@@ -1281,6 +1281,78 @@ html, body {
   to   { opacity: 1; }
 }
 
+/* ── Season export bar ───────────────────────────────────────── */
+
+.export-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 28px;
+  gap: 6px;
+  position: relative;
+}
+
+.btn-export-main {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+  padding: 8px 24px;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+}
+.btn-export-main:active { background: rgba(255,255,255,0.06); }
+
+.export-dropdown {
+  background: #1a2e20;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  color: var(--chalk, #F2F4EE);
+  font-size: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+}
+.export-option:last-child { border-bottom: none; }
+.export-option:active { background: rgba(255,255,255,0.06); }
+.export-option.btn-sheets { color: #34A853; }
+.export-option .sheets-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.sheets-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a2e20;
+  color: #F2F4EE;
+  font-size: 14px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
 .btn-danger { color: #e74c3c; }
 .btn-danger:active { background: rgba(231,76,60,0.15); }
 

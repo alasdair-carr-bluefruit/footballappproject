@@ -92,6 +92,13 @@
       </div>
     </header>
     <ul class="match-list" id="match-list"></ul>
+    <div class="export-bar" id="export-bar" hidden>
+      <button class="btn-export-main" id="btn-export-matches">Export</button>
+      <div class="export-dropdown" id="export-dropdown" hidden>
+        <button class="export-option" id="btn-export-csv">↓ Download CSV</button>
+        <button class="export-option btn-sheets" id="btn-export-sheets"><svg class="sheets-icon" viewBox="0 0 24 24"><rect fill="#34A853" width="24" height="24" rx="3"/><rect fill="#fff" x="5" y="7" width="14" height="2"/><rect fill="#fff" x="5" y="11" width="14" height="2"/><rect fill="#fff" x="5" y="15" width="9" height="2"/></svg>Google Sheets</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Screen: New Match ────────────────────────────────────────────────── -->
@@ -336,6 +343,7 @@
 
       <div class="ft-actions">
         <button class="btn btn-primary btn-full" id="btn-ft-share">Share Result</button>
+        <button class="btn btn-secondary btn-full" id="btn-ft-save">Save Image</button>
         <button class="btn btn-secondary btn-full" id="btn-ft-done">Done</button>
       </div>
     </div>

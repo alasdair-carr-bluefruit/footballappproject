@@ -69,10 +69,16 @@ async function loadHome() {
   const matches = await api.getMatches().catch(() => []);
   list.innerHTML = "";
 
+  const exportBar = document.getElementById("export-bar");
+  document.getElementById("export-dropdown").hidden = true;
+
   if (matches.length === 0) {
     list.innerHTML = "<li class='empty-state'>No matches yet — tap New Match to start</li>";
+    exportBar.hidden = true;
     return;
   }
+
+  exportBar.hidden = false;
 
   matches.forEach(m => {
     const date = new Date(m.date + "T12:00:00");
@@ -1258,15 +1264,13 @@ async function loadStats() {
 
 
 // ── Share result (canvas image) ───────────────────────────────────────────────
-document.getElementById("btn-ft-share").addEventListener("click", () => {
+function buildResultBlob() {
   const match = matchData.match;
   const ourGoals = Object.values(goalCounts).reduce((sum, n) => sum + n, 0);
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   const isHome = (match.home_away || "home") === "home";
-  const ourName = teamInfo.team_name || "My Team";
-  const oppName = match.opponent || "Opponent";
-  const homeTeam = isHome ? ourName : oppName;
-  const awayTeam = isHome ? oppName : ourName;
+  const homeTeam = isHome ? (teamInfo.team_name || "My Team") : (match.opponent || "Opponent");
+  const awayTeam = isHome ? (match.opponent || "Opponent") : (teamInfo.team_name || "My Team");
   const homeGoals = isHome ? ourGoals : oppGoals;
   const awayGoals = isHome ? oppGoals : ourGoals;
 
@@ -1274,94 +1278,209 @@ document.getElementById("btn-ft-share").addEventListener("click", () => {
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const scorers = Object.entries(goalCounts).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
 
+  // Logical dimensions (2× canvas for HiDPI sharpness)
   const W = 600;
-  const H = 300 + Math.max(0, scorers.length) * 38;
+  const H = 270 + (scorers.length > 0 ? 28 + scorers.length * 40 : 0);
+  const SCALE = 2;
   const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
   const ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
 
-  // Background gradient
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, "#1e2d40");
-  grad.addColorStop(1, "#111c2a");
-  ctx.fillStyle = grad;
+  // Background — Pitch Deep
+  ctx.fillStyle = "#0E3A29";
   ctx.fillRect(0, 0, W, H);
 
-  // Top amber bar
-  ctx.fillStyle = "#f0b429";
-  ctx.fillRect(0, 0, W, 5);
+  // Subtle centre-line texture
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
 
-  // FULL TIME label
-  ctx.fillStyle = "#f0b429";
-  ctx.font = "bold 18px system-ui, sans-serif";
+  // Top accent bar — Pitch green
+  ctx.fillStyle = "#1A5C42";
+  ctx.fillRect(0, 0, W, 6);
+
+  // "FULL TIME" amber pill
+  ctx.font = "bold 13px system-ui, sans-serif";
+  const pillPad = 20;
+  const pillTW = ctx.measureText("FULL TIME").width;
+  const pillW = pillTW + pillPad * 2;
+  const pillH = 30;
+  const pillX = W / 2 - pillW / 2;
+  const pillY = 22;
+  ctx.fillStyle = "#F5B544";
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(pillX, pillY, pillW, pillH, 15);
+  } else {
+    ctx.rect(pillX, pillY, pillW, pillH);
+  }
+  ctx.fill();
+  ctx.fillStyle = "#1A1F1C";
   ctx.textAlign = "center";
-  ctx.fillText("FULL TIME", W / 2, 45);
+  ctx.fillText("FULL TIME", W / 2, pillY + 20);
 
   // Date
-  ctx.fillStyle = "rgba(255,255,255,0.4)";
-  ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText(dateStr, W / 2, 68);
+  ctx.fillStyle = "rgba(242,244,238,0.4)";
+  ctx.font = "14px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(dateStr, W / 2, 76);
 
   // Divider
-  ctx.strokeStyle = "rgba(255,255,255,0.1)";
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(50, 85); ctx.lineTo(W - 50, 85); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(40, 92); ctx.lineTo(W - 40, 92); ctx.stroke();
 
-  // Team names
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 24px system-ui, sans-serif";
-  ctx.textAlign = "right";
-  ctx.fillText(homeTeam, W / 2 - 50, 155);
+  // Helper: truncate to maxWidth
+  function trunc(text, maxW) {
+    if (ctx.measureText(text).width <= maxW) return text;
+    while (text.length > 1 && ctx.measureText(text + "\u2026").width > maxW) text = text.slice(0, -1);
+    return text + "\u2026";
+  }
+
+  // Team names left/right
+  ctx.font = "bold 21px system-ui, sans-serif";
+  const nameMax = W / 2 - 60;
+  ctx.fillStyle = "rgba(242,244,238,0.9)";
   ctx.textAlign = "left";
-  ctx.fillText(awayTeam, W / 2 + 50, 155);
+  ctx.fillText(trunc(homeTeam, nameMax), 40, 128);
+  ctx.textAlign = "right";
+  ctx.fillText(trunc(awayTeam, nameMax), W - 40, 128);
 
-  // Score
-  ctx.fillStyle = "#ffffff";
+  // Score — large, centered
+  ctx.fillStyle = "#F2F4EE";
   ctx.font = "bold 72px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(`${homeGoals}–${awayGoals}`, W / 2, 165);
+  ctx.fillText(`${homeGoals} \u2013 ${awayGoals}`, W / 2, 210);
 
-  // Scorers
+  // Scorers section
   if (scorers.length > 0) {
-    ctx.strokeStyle = "rgba(255,255,255,0.1)";
-    ctx.beginPath(); ctx.moveTo(50, 190); ctx.lineTo(W - 50, 190); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.beginPath(); ctx.moveTo(40, 228); ctx.lineTo(W - 40, 228); ctx.stroke();
 
-    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.fillStyle = "rgba(242,244,238,0.6)";
     ctx.font = "17px system-ui, sans-serif";
     ctx.textAlign = "center";
-    let y = 222;
+    let y = 258;
     scorers.forEach(([name, n]) => {
-      ctx.fillText(`\u26BD  ${name}${n > 1 ? `  \xD7${n}` : ""}`, W / 2, y);
-      y += 38;
+      ctx.fillText(`${name}${n > 1 ? `  \xD7${n}` : ""}`, W / 2, y);
+      y += 40;
     });
   }
 
-  // Watermark
-  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  // Gaffer wordmark watermark
+  ctx.fillStyle = "rgba(242,244,238,0.2)";
   ctx.font = "12px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("Gaffer \u2014 Football Squad Rotation", W / 2, H - 14);
+  ctx.fillText("Gaffer", W / 2, H - 12);
 
-  canvas.toBlob(async (blob) => {
-    const file = new File([blob], "result.png", { type: "image/png" });
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: `FT: ${homeTeam} ${homeGoals}\u2013${awayGoals} ${awayTeam}`,
-      }).catch(() => {});
-    } else if (navigator.share) {
-      await navigator.share({
-        title: `FT: ${homeTeam} ${homeGoals}\u2013${awayGoals} ${awayTeam}`,
-        text: `FULL TIME\n${homeTeam} ${homeGoals}\u2013${awayGoals} ${awayTeam}\n${dateStr}`,
-      }).catch(() => {});
-    } else {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `FT-${match.date}.png`;
-      a.click();
-    }
-  }, "image/png");
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+}
+
+function downloadBlob(blob, filename) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+document.getElementById("btn-ft-share").addEventListener("click", async () => {
+  const blob = await buildResultBlob();
+  const match = matchData.match;
+  const isHome = (match.home_away || "home") === "home";
+  const home = isHome ? (teamInfo.team_name || "My Team") : (match.opponent || "Opponent");
+  const away = isHome ? (match.opponent || "Opponent") : (teamInfo.team_name || "My Team");
+  const ourGoals = Object.values(goalCounts).reduce((sum, n) => sum + n, 0);
+  const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
+  const hg = isHome ? ourGoals : oppGoals;
+  const ag = isHome ? oppGoals : ourGoals;
+  const file = new File([blob], "result.png", { type: "image/png" });
+  const title = `FT: ${home} ${hg}\u2013${ag} ${away}`;
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title }).catch(() => {});
+  } else if (navigator.share) {
+    await navigator.share({ title, text: `FULL TIME\n${home} ${hg}\u2013${ag} ${away}` }).catch(() => {});
+  } else {
+    downloadBlob(blob, `FT-${match.date}.png`);
+  }
+});
+
+document.getElementById("btn-ft-save").addEventListener("click", async () => {
+  const blob = await buildResultBlob();
+  downloadBlob(blob, `FT-${matchData.match.date}.png`);
+});
+
+// ── Season export ─────────────────────────────────────────────────────────────
+function buildMatchesCsv(matches) {
+  const rows = [
+    ["Date", "Opponent", "Size", "Formation", "Home/Away", "Has Rotation"],
+    ...matches.map(m => {
+      const d = new Date(m.date + "T12:00:00");
+      return [
+        d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+        m.opponent || "", `${m.team_size || 5}v${m.team_size || 5}`,
+        m.formation || "", m.home_away || "home", m.has_rotation ? "Yes" : "No",
+      ];
+    }),
+  ];
+  const csv = rows.map(r => r.map(cell => {
+    const s = String(cell ?? "");
+    return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(",")).join("\n");
+  return csv;
+}
+
+document.getElementById("btn-export-matches").addEventListener("click", async () => {
+  const matches = await api.getMatches().catch(() => []);
+  const csv = buildMatchesCsv(matches);
+  const file = new File([csv], "season-matches.csv", { type: "text/csv" });
+
+  // Mobile: native share sheet shows Excel, Sheets, etc.
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: "Season Matches" }).catch(() => {});
+    return;
+  }
+
+  // Desktop: toggle dropdown
+  const dropdown = document.getElementById("export-dropdown");
+  dropdown.hidden = !dropdown.hidden;
+
+  document.getElementById("btn-export-csv").onclick = () => {
+    downloadBlob(new Blob([csv], { type: "text/csv" }), "season-matches.csv");
+    dropdown.hidden = true;
+  };
+
+  document.getElementById("btn-export-sheets").onclick = async () => {
+    const rows = [
+      ["Date", "Opponent", "Size", "Formation", "Home/Away", "Has Rotation"],
+      ...matches.map(m => {
+        const d = new Date(m.date + "T12:00:00");
+        return [d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+          m.opponent || "", `${m.team_size || 5}v${m.team_size || 5}`, m.formation || "",
+          m.home_away || "home", m.has_rotation ? "Yes" : "No"];
+      }),
+    ];
+    const tsv = rows.map(r => r.map(c => String(c ?? "").replace(/\t/g, " ")).join("\t")).join("\n");
+    await navigator.clipboard.writeText(tsv).catch(() => {});
+    window.open("https://sheets.new", "_blank");
+    const toast = document.createElement("div");
+    toast.className = "sheets-toast";
+    toast.textContent = "Data copied \u2014 paste with Ctrl+V / \u2318V into the new sheet";
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+    dropdown.hidden = true;
+  };
+});
+
+// Close dropdown when clicking outside
+document.addEventListener("click", e => {
+  const bar = document.getElementById("export-bar");
+  if (bar && !bar.contains(e.target)) {
+    const dd = document.getElementById("export-dropdown");
+    if (dd) dd.hidden = true;
+  }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
