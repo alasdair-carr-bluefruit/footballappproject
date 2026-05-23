@@ -135,15 +135,9 @@ html, body {
 
 /* ── Tinkering mode ────────────────────────────────────────────────── */
 
-/* Lighter green base + suppress pitch lines in tinkering mode */
+/* Lighter green base in tinkering mode */
 .pitch-wrapper.whiteboard {
   background-color: #72C49A;
-  background-image: none; /* remove stripe texture */
-  --pitch-line: transparent;
-}
-
-.pitch-wrapper.whiteboard::after {
-  opacity: 0; /* hide centre circle hint */
 }
 
 /* Paper texture overlay — real JPG multiplied over the lighter green */
@@ -209,11 +203,11 @@ html, body {
   background: #2EBE6B;
   color: #0E3A29;
   font-family: 'Cabin Sketch', cursive;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.03em;
-  padding: 4px 14px 4px 10px;
-  border-radius: 20px;
+  padding: 6px 18px 6px 13px;
+  border-radius: 24px;
   pointer-events: none;
   filter: url(#pen-wobble-sm);
 }
