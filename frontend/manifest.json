@@ -1,7 +1,7 @@
 {
-  "name": "Squad Rotation",
-  "short_name": "Rotation",
-  "description": "Youth football squad rotation manager",
+  "name": "Gaffer",
+  "short_name": "Gaffer",
+  "description": "Fair play made simple for grassroots coaches",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#162e16",

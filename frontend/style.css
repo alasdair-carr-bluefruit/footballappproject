@@ -638,6 +638,19 @@ html, body {
   border-radius: 6px;
 }
 
+.bug-report {
+  display: block;
+  text-align: center;
+  padding: 12px 0 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  position: relative;
+  z-index: 1;
+}
+
+.bug-report:active { color: var(--text-light); }
+
 .home-title-row {
   display: flex;
   align-items: center;
