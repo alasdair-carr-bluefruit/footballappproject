@@ -60,9 +60,10 @@
         Playing Time
         <div class="fairness-row">
           <span class="fairness-label">Equal</span>
-          <input type="range" id="fairness-slider" min="0" max="1" step="1" value="0" />
+          <input type="range" id="fairness-slider" min="0" max="100" step="1" value="0" />
           <span class="fairness-label">Competitive</span>
         </div>
+        <div class="fairness-value" id="fairness-value">Equal play</div>
       </label>
 
       <button class="btn btn-primary btn-full" type="submit" id="btn-generate">
@@ -93,10 +94,10 @@
 
         <label>Can Play</label>
         <div class="position-checkboxes" id="position-checkboxes">
-          <label class="pos-check"><input type="checkbox" value="GK" /> GK</label>
-          <label class="pos-check"><input type="checkbox" value="DEF" /> DEF</label>
-          <label class="pos-check"><input type="checkbox" value="MID" /> MID</label>
-          <label class="pos-check"><input type="checkbox" value="FWD" /> FWD</label>
+          <label class="pos-check"><input type="checkbox" value="GK" /><span class="pos-label pos-gk">GK</span></label>
+          <label class="pos-check"><input type="checkbox" value="DEF" /><span class="pos-label pos-def">DEF</span></label>
+          <label class="pos-check"><input type="checkbox" value="MID" /><span class="pos-label pos-mid">MID</span></label>
+          <label class="pos-check"><input type="checkbox" value="FWD" /><span class="pos-label pos-fwd">FWD</span></label>
         </div>
 
         <label>

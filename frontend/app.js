@@ -126,6 +126,7 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   document.getElementById("btn-generate").disabled = false;
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
   document.getElementById("fairness-slider").value = 0;
+  updateFairnessLabel(0);
 
   // Load game configs if not cached
   if (!gameConfigs) {
@@ -173,6 +174,20 @@ document.getElementById("size-picker").addEventListener("click", e => {
   if (btn) selectSize(parseInt(btn.dataset.size));
 });
 
+function updateFairnessLabel(value) {
+  const el = document.getElementById("fairness-value");
+  const v = parseInt(value);
+  if (v <= 15) el.textContent = "Equal play — everyone gets the same time";
+  else if (v <= 40) el.textContent = "Mostly fair — slight edge for stronger players";
+  else if (v <= 60) el.textContent = "Balanced — skill matters but everyone plays";
+  else if (v <= 85) el.textContent = "Competitive — best players get more time";
+  else el.textContent = "Win mode — strongest lineup prioritised";
+}
+
+document.getElementById("fairness-slider").addEventListener("input", e => {
+  updateFairnessLabel(e.target.value);
+});
+
 document.getElementById("btn-go-squad").addEventListener("click", loadSquad);
 
 // ── New match screen ──────────────────────────────────────────────────────────
@@ -187,7 +202,8 @@ document.getElementById("new-match-form").addEventListener("submit", async e => 
   const date = document.getElementById("match-date").value || new Date().toISOString().split("T")[0];
   const opponent = document.getElementById("opponent-input").value.trim();
   const formation = document.getElementById("formation-select").value;
-  const fairness = parseInt(document.getElementById("fairness-slider").value) === 0 ? "equal" : "competitive";
+  const fairnessVal = parseInt(document.getElementById("fairness-slider").value);
+  const fairness = fairnessVal <= 15 ? "equal" : "competitive";
 
   try {
     const match = await api.createMatch({
