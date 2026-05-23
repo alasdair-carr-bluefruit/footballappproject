@@ -5,6 +5,7 @@ let currentSlot = 0;
 let showingReport = false;
 let showingChanges = false;
 let editMode = false;
+let matchStarted = false; // true once "Start Match" has been tapped
 let lockedSlots = new Set(); // slot indices locked by coach edits
 let pendingSwap = null; // {slotIndex, posKey, currentPlayerName}
 let dragState = null; // {slotIndex, posKey, playerName} for drag-and-drop
@@ -15,6 +16,8 @@ let selectedSize = 5;
 let selectedHomeAway = "home";
 let teamInfo = { team_name: "My Team", team_logo: "" }; // cached squad info
 let shirtNumbers = {}; // { playerName: shirtNumber } — populated from squad API
+let removedPlayers = {}; // { playerId: fromSlot } — players removed mid-match
+let pendingActionPlayer = null; // { id, name } for player-action overlay
 
 // Returns true if this player's shirt number is shared and they are the LATER entry
 // (i.e. the "duplicate" — their number shows in red)
@@ -122,12 +125,18 @@ async function loadHome() {
 
 function enterPitchView(data) {
   matchData = data;
-  currentSlot = 0;
   showingReport = false;
   showingChanges = false;
   editMode = false;
   lockedSlots = new Set(data.locked_slots || []);
+  removedPlayers = data.removed_players || {};
   Object.keys(goalCounts).forEach(k => delete goalCounts[k]);
+
+  // Determine match state
+  const status = data.match?.status || "planned";
+  matchStarted = status !== "planned";
+  currentSlot = matchStarted ? (data.match?.current_slot || 0) : 0;
+
   showScreen("screen-pitch");
   document.querySelector(".pitch-wrapper").style.display = "";
   document.querySelector(".bench-section").style.display = "";
@@ -796,40 +805,81 @@ function render() {
     pitch.appendChild(rowEl);
   });
 
+  // Build set of removed player IDs for quick lookup
+  const removedIds = new Set(Object.keys(removedPlayers).map(Number));
+
   // Bench
   const bench = document.getElementById("bench-list");
   bench.innerHTML = "";
   slot.bench.forEach(p => {
+    const isRemoved = removedIds.has(p.id);
     const li = document.createElement("li");
     li.className = "bench-player";
     if (incoming.has(p.name)) li.classList.add("incoming");
+    if (isRemoved) li.classList.add("bench-removed");
 
-    const initials = p.name.slice(0, 3).toUpperCase();
+    const shirtNum = shirtNumbers[p.name];
+    const avatarContent = shirtNum != null ? String(shirtNum) : p.name.slice(0, 3).toUpperCase();
     const replacing = replacementMap.get(p.name);
     const subLabel = replacing ? `<span class="bench-arrow">↑ On for ${replacing}</span>` : "";
+    const removedLabel = isRemoved ? `<span class="bench-removed-badge">Removed</span>` : "";
 
     li.innerHTML = `
-      <span class="bench-avatar">${initials}</span>
+      <span class="bench-avatar">${avatarContent}</span>
       <span class="bench-name">${p.name}</span>
-      ${subLabel}
+      ${subLabel}${removedLabel}
     `;
+
+    if (matchStarted) {
+      if (isRemoved) {
+        li.addEventListener("click", () => openReinstateOverlay(p));
+      } else {
+        let benchPressTimer = null;
+        li.addEventListener("pointerdown", () => {
+          benchPressTimer = setTimeout(() => {
+            benchPressTimer = null;
+            openPlayerActionMenu(p);
+          }, 600);
+        });
+        li.addEventListener("pointerup",    () => clearTimeout(benchPressTimer));
+        li.addEventListener("pointerleave", () => clearTimeout(benchPressTimer));
+      }
+    }
+
     bench.appendChild(li);
   });
 
   // Buttons
-  document.getElementById("btn-prev").disabled = currentSlot === 0 || editMode;
+  const btnPrev = document.getElementById("btn-prev");
   const btnNext = document.getElementById("btn-next");
-  btnNext.disabled = editMode;
-  if (currentSlot === matchData.slots.length - 1) {
-    btnNext.textContent = "Full time ▶";
-  } else {
-    btnNext.textContent = "Next ▶";
-  }
-
-  // Adjust plan button (always visible on pitch view)
   const btnAdjust = document.getElementById("btn-adjust");
-  btnAdjust.hidden = false;
-  btnAdjust.textContent = editMode ? "Done" : "Tinker";
+
+  if (!matchStarted) {
+    // Pre-match: only "Start Match" is active
+    btnPrev.disabled = true;
+    btnNext.disabled = false;
+    btnNext.textContent = "Start Match ▶";
+    btnNext.classList.add("btn-start-match");
+    btnAdjust.hidden = false;
+    btnAdjust.textContent = "Tinker";
+  } else {
+    btnNext.classList.remove("btn-start-match");
+    btnPrev.disabled = currentSlot === 0 || editMode;
+    btnNext.disabled = editMode;
+    if (currentSlot === matchData.slots.length - 1) {
+      btnNext.textContent = "Full time ▶";
+    } else {
+      btnNext.textContent = "Next ▶";
+    }
+
+    // Past slots (already played) — hide Tinker to prevent editing history
+    const isPastSlot = currentSlot < (matchData.match.current_slot || 0);
+    btnAdjust.hidden = isPastSlot;
+    if (!isPastSlot) {
+      btnAdjust.hidden = false;
+      btnAdjust.textContent = editMode ? "Done" : "Tinker";
+    }
+  }
 
   // Show locked badge in slot label
   const slotLabelEl = document.getElementById("slot-label");
@@ -1022,6 +1072,10 @@ function showMatch() {
 
 // ── Pitch controls ────────────────────────────────────────────────────────────
 document.getElementById("btn-next").addEventListener("click", async () => {
+  if (!matchStarted) {
+    await doStartMatch();
+    return;
+  }
   if (showingReport) {
     await showFulltime();
     return;
@@ -1033,6 +1087,11 @@ document.getElementById("btn-next").addEventListener("click", async () => {
   }
   if (currentSlot < matchData.slots.length - 1) {
     currentSlot++;
+    // Persist progress when advancing beyond the furthest reached slot
+    if (currentSlot > (matchData.match.current_slot || 0)) {
+      matchData.match.current_slot = currentSlot;
+      api.updateProgress(matchData.match.id, currentSlot).catch(() => {});
+    }
     if (currentSlot % 2 === 0 && currentSlot > 0) {
       showingChanges = true;
       renderChanges();
@@ -1054,6 +1113,98 @@ document.getElementById("btn-prev").addEventListener("click", () => {
     return;
   }
   if (currentSlot > 0) { currentSlot--; render(); }
+});
+
+// ── Start match ───────────────────────────────────────────────────────────────
+async function doStartMatch() {
+  try {
+    await api.startMatch(matchData.match.id);
+    matchStarted = true;
+    matchData.match.status = "in_progress";
+    matchData.match.current_slot = 0;
+    render();
+  } catch (err) {
+    alert("Could not start match: " + err.message);
+  }
+}
+
+// ── Player removal ─────────────────────────────────────────────────────────────
+function openPlayerActionMenu(player) {
+  pendingActionPlayer = player;
+  document.getElementById("player-action-title").textContent = player.name;
+  document.getElementById("player-action-overlay").hidden = false;
+}
+
+function openReinstateOverlay(player) {
+  pendingActionPlayer = player;
+  document.getElementById("reinstate-title").textContent = player.name;
+  document.getElementById("reinstate-info").textContent =
+    `${player.name} was removed from the match. Reinstate them from slot ${currentSlot + 1} onward?`;
+  document.getElementById("reinstate-overlay").hidden = false;
+}
+
+document.getElementById("btn-action-cancel").addEventListener("click", () => {
+  document.getElementById("player-action-overlay").hidden = true;
+  pendingActionPlayer = null;
+});
+
+document.getElementById("btn-action-goal").addEventListener("click", () => {
+  document.getElementById("player-action-overlay").hidden = true;
+  if (pendingActionPlayer) {
+    goalCounts[pendingActionPlayer.name] = (goalCounts[pendingActionPlayer.name] || 0) + 1;
+    if (navigator.vibrate) navigator.vibrate(80);
+    render();
+  }
+  pendingActionPlayer = null;
+});
+
+document.getElementById("btn-action-remove").addEventListener("click", async () => {
+  document.getElementById("player-action-overlay").hidden = true;
+  if (!pendingActionPlayer || !matchData) { pendingActionPlayer = null; return; }
+
+  const player = pendingActionPlayer;
+  pendingActionPlayer = null;
+
+  const statusEl = document.getElementById("adjust-status");
+  statusEl.hidden = false;
+  try {
+    const result = await api.removePlayer(matchData.match.id, player.id, currentSlot);
+    statusEl.hidden = true;
+    removedPlayers = result.removed_players || {};
+    matchData.slots = result.slots;
+    matchData.warnings = result.warnings;
+    render();
+  } catch (err) {
+    statusEl.hidden = true;
+    alert("Could not remove player: " + err.message);
+  }
+});
+
+document.getElementById("btn-reinstate-cancel").addEventListener("click", () => {
+  document.getElementById("reinstate-overlay").hidden = true;
+  pendingActionPlayer = null;
+});
+
+document.getElementById("btn-reinstate-confirm").addEventListener("click", async () => {
+  document.getElementById("reinstate-overlay").hidden = true;
+  if (!pendingActionPlayer || !matchData) { pendingActionPlayer = null; return; }
+
+  const player = pendingActionPlayer;
+  pendingActionPlayer = null;
+
+  const statusEl = document.getElementById("adjust-status");
+  statusEl.hidden = false;
+  try {
+    const result = await api.reinstatePlayer(matchData.match.id, player.id);
+    statusEl.hidden = true;
+    removedPlayers = result.removed_players || {};
+    matchData.slots = result.slots;
+    matchData.warnings = result.warnings;
+    render();
+  } catch (err) {
+    statusEl.hidden = true;
+    alert("Could not reinstate player: " + err.message);
+  }
 });
 
 // ── Edit mode (adjust plan) ────────────────────────────────────────────────────

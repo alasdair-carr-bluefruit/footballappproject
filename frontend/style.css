@@ -623,6 +623,48 @@ html, body {
 }
 .btn-adjust:active { opacity: 1; }
 
+/* ── Start Match button state ────────────────────────────────────── */
+.btn-start-match {
+  background: var(--pitch-green);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  animation: pulse-start 1.5s ease-in-out infinite;
+}
+@keyframes pulse-start {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(39,174,96,0); }
+}
+
+/* ── Removed player bench state ──────────────────────────────────── */
+.bench-player.bench-removed {
+  opacity: 0.5;
+  border-style: dashed;
+  cursor: pointer;
+}
+.bench-removed-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: #e74c3c;
+  font-weight: 600;
+}
+.bench-player.bench-removed .bench-name {
+  text-decoration: line-through;
+}
+
+/* ── Player action overlay ───────────────────────────────────────── */
+.player-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+.reinstate-info {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.9rem;
+  margin: 4px 0 12px;
+}
+
 /* ── Swap overlay ────────────────────────────────────────────────── */
 
 .swap-overlay {

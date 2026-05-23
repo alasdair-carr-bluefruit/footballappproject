@@ -328,6 +328,30 @@
       </div>
     </div>
 
+    <!-- Player action overlay (bench long-press) -->
+    <div class="swap-overlay" id="player-action-overlay" hidden>
+      <div class="swap-panel">
+        <h3 class="swap-title" id="player-action-title">Player</h3>
+        <div class="player-action-buttons">
+          <button class="btn btn-primary btn-full" id="btn-action-goal">⚽ Record Goal</button>
+          <button class="btn btn-danger btn-full" id="btn-action-remove">Remove from match</button>
+          <button class="btn btn-secondary btn-full" id="btn-action-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Removed player reinstate overlay -->
+    <div class="swap-overlay" id="reinstate-overlay" hidden>
+      <div class="swap-panel">
+        <h3 class="swap-title" id="reinstate-title">Player removed</h3>
+        <p class="reinstate-info" id="reinstate-info">This player was removed from the match.</p>
+        <div class="player-action-buttons">
+          <button class="btn btn-primary btn-full" id="btn-reinstate-confirm">Reinstate player</button>
+          <button class="btn btn-secondary btn-full" id="btn-reinstate-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /screen-pitch -->
 
   <!-- ── Screen: Full Time ───────────────────────────────────────────────── -->

@@ -96,3 +96,95 @@ def test_delete_match(client: TestClient) -> None:
 def test_match_not_found(client: TestClient) -> None:
     assert client.get("/api/matches/999").status_code == 404
     assert client.post("/api/matches/999/rotation").status_code == 404
+
+
+# ── Start Match tests ──────────────────────────────────────────────────────────
+
+def test_start_match(client: TestClient, squad_10: None) -> None:
+    match_id = client.post("/api/matches/", json={"date": "2026-03-25"}).json()["id"]
+    client.post(f"/api/matches/{match_id}/rotation")
+
+    # Initial status is planned
+    data = client.get(f"/api/matches/{match_id}").json()
+    assert data["match"]["status"] == "planned"
+
+    # Start the match
+    resp = client.post(f"/api/matches/{match_id}/start")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "in_progress"
+    assert resp.json()["current_slot"] == 0
+
+    # Status persists
+    data = client.get(f"/api/matches/{match_id}").json()
+    assert data["match"]["status"] == "in_progress"
+
+
+def test_start_match_idempotent(client: TestClient, squad_10: None) -> None:
+    match_id = client.post("/api/matches/", json={"date": "2026-03-25"}).json()["id"]
+    client.post(f"/api/matches/{match_id}/rotation")
+    client.post(f"/api/matches/{match_id}/start")
+    resp = client.post(f"/api/matches/{match_id}/start")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "in_progress"
+
+
+def test_update_progress(client: TestClient, squad_10: None) -> None:
+    match_id = client.post("/api/matches/", json={"date": "2026-03-25"}).json()["id"]
+    client.post(f"/api/matches/{match_id}/rotation")
+    client.post(f"/api/matches/{match_id}/start")
+
+    resp = client.post(f"/api/matches/{match_id}/progress", json={"current_slot": 3})
+    assert resp.status_code == 200
+    assert resp.json()["current_slot"] == 3
+
+    # Mark completed
+    resp = client.post(f"/api/matches/{match_id}/progress", json={"current_slot": 7, "status": "completed"})
+    assert resp.json()["status"] == "completed"
+
+
+# ── Remove / reinstate player tests ───────────────────────────────────────────
+
+def test_remove_player_from_match(client: TestClient, squad_10: None) -> None:
+    match_id = client.post("/api/matches/", json={"date": "2026-03-25"}).json()["id"]
+    rotation_data = client.post(f"/api/matches/{match_id}/rotation").json()
+
+    # Pick a bench player to remove
+    bench_player = rotation_data["slots"][2]["bench"][0]
+    player_id = bench_player["id"]
+
+    resp = client.post(
+        f"/api/matches/{match_id}/remove-player",
+        json={"player_id": player_id, "from_slot": 2},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert str(player_id) in data["removed_players"]
+    assert data["removed_players"][str(player_id)] == 2
+    # Removed player should not appear in any slot from index 2 onward
+    for slot in data["slots"][2:]:
+        lineup_ids = list(slot["lineup"].values())
+        bench_ids = [p["id"] for p in slot["bench"]]
+        assert player_id not in [p["id"] if isinstance(p, dict) else p for p in lineup_ids]
+
+
+def test_reinstate_player(client: TestClient, squad_10: None) -> None:
+    match_id = client.post("/api/matches/", json={"date": "2026-03-25"}).json()["id"]
+    rotation_data = client.post(f"/api/matches/{match_id}/rotation").json()
+    client.post(f"/api/matches/{match_id}/start")
+    client.post(f"/api/matches/{match_id}/progress", json={"current_slot": 2})
+
+    bench_player = rotation_data["slots"][2]["bench"][0]
+    player_id = bench_player["id"]
+
+    # Remove then reinstate
+    client.post(
+        f"/api/matches/{match_id}/remove-player",
+        json={"player_id": player_id, "from_slot": 3},
+    )
+    resp = client.post(
+        f"/api/matches/{match_id}/reinstate-player",
+        json={"player_id": player_id},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert str(player_id) not in data["removed_players"]

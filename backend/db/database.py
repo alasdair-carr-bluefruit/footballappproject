@@ -15,6 +15,9 @@ def create_db_and_tables() -> None:
     with engine.connect() as conn:
         for stmt in [
             "ALTER TABLE players ADD COLUMN shirt_number INTEGER",
+            "ALTER TABLE matches ADD COLUMN status TEXT DEFAULT 'planned'",
+            "ALTER TABLE matches ADD COLUMN current_slot INTEGER DEFAULT 0",
+            "ALTER TABLE rotation_plans ADD COLUMN removed_players_json TEXT DEFAULT '{}'",
         ]:
             try:
                 conn.execute(__import__("sqlalchemy").text(stmt))

@@ -41,6 +41,8 @@ class MatchDB(SQLModel, table=True):
     rotation_intensity: int = 50  # 0 = specialist, 100 = all-rounder
     home_away: str = "home"  # "home" or "away"
     opponent_goals: int = 0
+    status: str = "planned"  # "planned" | "in_progress" | "completed"
+    current_slot: int = 0  # furthest slot reached during live match
 
 
 class RotationPlanDB(SQLModel, table=True):
@@ -52,3 +54,4 @@ class RotationPlanDB(SQLModel, table=True):
     warnings_json: str = "[]"
     goals_json: str = "{}"  # JSON dict: {player_id: goal_count}
     available_player_ids_json: str = "[]"  # JSON list of player IDs selected for this match
+    removed_players_json: str = "{}"  # JSON dict: {player_id: from_slot_index}

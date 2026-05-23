@@ -47,6 +47,8 @@ class MatchRead(BaseModel):
     rotation_intensity: int
     home_away: str = "home"
     opponent_goals: int = 0
+    status: str = "planned"
+    current_slot: int = 0
 
 
 def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
@@ -64,6 +66,8 @@ def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
         rotation_intensity=m.rotation_intensity,
         home_away=m.home_away,
         opponent_goals=m.opponent_goals,
+        status=m.status,
+        current_slot=m.current_slot,
     )
 
 
@@ -85,6 +89,8 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "period_label": period_label,
             "home_away": m.home_away,
             "opponent_goals": m.opponent_goals,
+            "status": m.status,
+            "current_slot": m.current_slot,
         },
         "slots": slots,
         "warnings": warnings,
@@ -138,7 +144,9 @@ def get_match(match_id: int, session: Session = Depends(get_session)) -> dict[st
     players = get_players(session, db_match.squad_id)
     id_to_player = {p.id: p for p in players if p.id is not None}
     plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
-    return _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
+    response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
+    response["removed_players"] = json.loads(rotation.removed_players_json)
+    return response
 
 
 class RotationRequest(BaseModel):
@@ -188,7 +196,9 @@ def generate_match_rotation(
 
     id_to_player = {p.id: p for p in players_db if p.id is not None}
     plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
-    return _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
+    response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
+    response["removed_players"] = {}
+    return response
 
 
 class AdjustRequest(BaseModel):
@@ -368,6 +378,189 @@ def get_season_stats(session: Session = Depends(get_session)) -> list[dict[str, 
                 stats[pid]["goals"] += count
 
     return sorted(stats.values(), key=lambda s: s["name"])
+
+
+@router.post("/{match_id}/start")
+def start_match(match_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Mark match as in_progress. Idempotent if already started."""
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if db_match.status == "planned":
+        db_match.status = "in_progress"
+        db_match.current_slot = 0
+        session.add(db_match)
+        session.commit()
+    return {"status": db_match.status, "current_slot": db_match.current_slot}
+
+
+class ProgressUpdate(BaseModel):
+    current_slot: int
+    status: str | None = None  # "in_progress" or "completed"
+
+
+@router.post("/{match_id}/progress")
+def update_progress(
+    match_id: int, body: ProgressUpdate, session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Persist current slot position and optionally update match status."""
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    db_match.current_slot = body.current_slot
+    if body.status and body.status in ("in_progress", "completed"):
+        db_match.status = body.status
+    session.add(db_match)
+    session.commit()
+    return {"status": db_match.status, "current_slot": db_match.current_slot}
+
+
+class RemovePlayerRequest(BaseModel):
+    player_id: int
+    from_slot: int  # first slot where player should no longer appear
+
+
+@router.post("/{match_id}/remove-player")
+def remove_player_from_match(
+    match_id: int, body: RemovePlayerRequest, session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Mark a player unavailable from a given slot onward and re-generate remaining slots."""
+    from backend.algorithm.rotation_engine import adjust_rotation
+    from backend.models.rotation import Position, RotationPlan, SlotAssignment
+
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    rotation = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+    if not rotation:
+        raise HTTPException(status_code=400, detail="No rotation exists")
+
+    # Track removed player
+    removed = json.loads(rotation.removed_players_json)
+    removed[str(body.player_id)] = body.from_slot
+    rotation.removed_players_json = json.dumps(removed)
+
+    # Remove player from available set
+    avail_ids = json.loads(rotation.available_player_ids_json)
+    avail_ids = [pid for pid in avail_ids if pid != body.player_id]
+    rotation.available_player_ids_json = json.dumps(avail_ids)
+    session.add(rotation)
+    session.commit()
+
+    all_players = get_players(session, db_match.squad_id)
+    players_db = [p for p in all_players if p.id in set(avail_ids)]
+
+    match, squad = match_db_to_domain(db_match, players_db)
+    id_to_player = {p.id: p for p in players_db if p.id is not None}
+    player_by_name = {p.name: p for p in squad.available}
+
+    # Reconstruct current plan; lock all slots before from_slot
+    slots_data = json.loads(rotation.slots_json)
+    current_slots = []
+    for sd in slots_data:
+        slot = SlotAssignment(slot_index=sd["slot_index"])
+        for pos_key, pid in sd["lineup"].items():
+            db_p = id_to_player.get(pid)
+            if db_p and db_p.name in player_by_name:
+                slot.lineup[Position(pos_key)] = player_by_name[db_p.name]
+        if sd["slot_index"] < body.from_slot:
+            slot.locked = True
+        current_slots.append(slot)
+
+    current_plan = RotationPlan(slots=current_slots)
+    new_plan, _ = adjust_rotation(current_plan, {}, squad, match)
+    save_rotation(session, match_id, new_plan, players_db)
+
+    rotation = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+    assert rotation is not None
+    rotation.removed_players_json = json.dumps(removed)
+    rotation.available_player_ids_json = json.dumps(avail_ids)
+    session.add(rotation)
+    session.commit()
+
+    plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
+    response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
+    response["removed_players"] = removed
+    return response
+
+
+class ReinstatePlayerRequest(BaseModel):
+    player_id: int
+
+
+@router.post("/{match_id}/reinstate-player")
+def reinstate_player_in_match(
+    match_id: int, body: ReinstatePlayerRequest, session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Restore a removed player and re-generate slots from current match position."""
+    from backend.algorithm.rotation_engine import adjust_rotation
+    from backend.models.rotation import Position, RotationPlan, SlotAssignment
+
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    rotation = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+    if not rotation:
+        raise HTTPException(status_code=400, detail="No rotation exists")
+
+    # Remove from removed list and restore to available
+    removed = json.loads(rotation.removed_players_json)
+    removed.pop(str(body.player_id), None)
+    rotation.removed_players_json = json.dumps(removed)
+
+    avail_ids = json.loads(rotation.available_player_ids_json)
+    if body.player_id not in avail_ids:
+        avail_ids.append(body.player_id)
+    rotation.available_player_ids_json = json.dumps(avail_ids)
+    session.add(rotation)
+    session.commit()
+
+    all_players = get_players(session, db_match.squad_id)
+    players_db = [p for p in all_players if p.id in set(avail_ids)]
+
+    match, squad = match_db_to_domain(db_match, players_db)
+    id_to_player = {p.id: p for p in players_db if p.id is not None}
+    player_by_name = {p.name: p for p in squad.available}
+
+    # Lock all slots up to current_slot
+    from_slot = db_match.current_slot
+    slots_data = json.loads(rotation.slots_json)
+    current_slots = []
+    for sd in slots_data:
+        slot = SlotAssignment(slot_index=sd["slot_index"])
+        for pos_key, pid in sd["lineup"].items():
+            db_p = id_to_player.get(pid)
+            if db_p and db_p.name in player_by_name:
+                slot.lineup[Position(pos_key)] = player_by_name[db_p.name]
+        if sd["slot_index"] < from_slot:
+            slot.locked = True
+        current_slots.append(slot)
+
+    current_plan = RotationPlan(slots=current_slots)
+    new_plan, _ = adjust_rotation(current_plan, {}, squad, match)
+    save_rotation(session, match_id, new_plan, players_db)
+
+    rotation = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+    assert rotation is not None
+    rotation.removed_players_json = json.dumps(removed)
+    rotation.available_player_ids_json = json.dumps(avail_ids)
+    session.add(rotation)
+    session.commit()
+
+    plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
+    response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
+    response["removed_players"] = removed
+    return response
 
 
 @router.delete("/{match_id}", status_code=204)
