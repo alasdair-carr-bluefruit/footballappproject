@@ -1237,7 +1237,7 @@ html, body {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  background: #1e4d1e;
+  background: var(--pitch);
   border: 1px solid rgba(255,255,255,0.15);
 }
 
