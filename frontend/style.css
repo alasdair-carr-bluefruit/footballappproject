@@ -133,77 +133,54 @@ html, body {
   pointer-events: none;
 }
 
-/* ── Whiteboard / adjust-plan mode ───────────────────────────────── */
+/* ── Tinkering mode ────────────────────────────────────────────────── */
 
-/* Separate background-color so it can transition independently */
-.pitch-wrapper {
-  background-color: var(--pitch-green);
-  transition: background-color 0.45s ease;
+/* Paper texture overlay — real JPG multiplied over pitch green */
+.tinkering-overlay {
+  position: absolute;
+  inset: 0;
+  background: url('/assets/brand/texture-paper.jpg') center / cover no-repeat;
+  mix-blend-mode: multiply;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
 }
 
-.pitch-wrapper.whiteboard {
-  background-color: #F2F0EB;
-  background-image: repeating-linear-gradient(
-    180deg,
-    transparent,
-    transparent 52px,
-    rgba(0,0,0,0.04) 52px,
-    rgba(0,0,0,0.04) 104px
-  );
-  --pitch-line: rgba(0,0,0,0.12);
-  --circle-bg: #ffffff;
-  --circle-text: #1a1f1c;
-  --text-light: #1a1f1c;
-  --text-dim: rgba(26,31,28,0.5);
+.pitch-wrapper.whiteboard .tinkering-overlay {
+  opacity: 1;
 }
 
-.pitch-wrapper.whiteboard::after {
-  border-color: rgba(0,0,0,0.12);
-}
-
-/* Fade player circles via explicit descendant values (CSS vars don't animate) */
+/* On-pitch circles: hide normal border, show amber wobble ring via ::after */
 .pitch-wrapper .circle-avatar {
-  transition: background-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+  transition: border-color 0.25s ease;
 }
+
 .pitch-wrapper.whiteboard .circle-avatar {
-  background-color: #ffffff;
-  color: #1a1f1c;
-  border-color: rgba(0,0,0,0.15);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  border-color: transparent;
 }
+
+.pitch-wrapper.whiteboard .circle-avatar::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2.5px solid #F5B544;
+  filter: url(#pen-wobble);
+  pointer-events: none;
+  animation: wobbleRingIn 0.2s ease 0.1s both;
+}
+
+@keyframes wobbleRingIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Remove inset matchday ring on outfield circles in tinkering mode */
 .pitch-wrapper.whiteboard .player-circle:not(.is-gk) .circle-avatar {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12), inset 0 0 0 4px rgba(245,181,68,0.6);
-}
-.pitch-wrapper.whiteboard .circle-name,
-.pitch-wrapper.whiteboard .circle-role {
-  color: #1a1f1c;
-  transition: color 0.4s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-.bench-section {
-  transition: background-color 0.45s ease;
-}
-
-.bench-section.whiteboard {
-  background-color: #EAE6DF;
-  border-top: 1px solid rgba(0,0,0,0.1);
-  --text-dim: rgba(26,31,28,0.5);
-}
-
-.bench-section.whiteboard .bench-title {
-  color: rgba(26,31,28,0.5);
-}
-
-.bench-section.whiteboard .bench-player {
-  background: rgba(0,0,0,0.06);
-  color: #1a1f1c;
-}
-
-.bench-section.whiteboard .bench-arrow {
-  color: rgba(26,31,28,0.5);
-}
-
-/* ── Edit mode badge ────────────────────────────────────────── */
+/* ── Tinkering pill (status indicator, not a button) ────────────── */
 
 .edit-mode-badge {
   display: none;
@@ -212,19 +189,16 @@ html, body {
   right: 12px;
   z-index: 10;
   align-items: center;
-  gap: 5px;
-  background: rgba(245,181,68,0.22);
-  color: rgba(245,181,68,0.9);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 4px 10px 4px 8px;
+  justify-content: center;
+  background: #2EBE6B;
+  color: #0E3A29;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 5px 12px;
   border-radius: 20px;
-  border: 1.5px dashed rgba(245,181,68,0.55);
-  box-shadow: none;
   pointer-events: none;
-  transform: rotate(-1deg);
+  filter: url(#pen-wobble-sm);
 }
 
 .edit-mode-badge.visible {
@@ -233,8 +207,8 @@ html, body {
 }
 
 @keyframes badgeFadeIn {
-  from { opacity: 0; transform: rotate(-1deg) translateY(-4px); }
-  to   { opacity: 1; transform: rotate(-1deg) translateY(0); }
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .pitch {
