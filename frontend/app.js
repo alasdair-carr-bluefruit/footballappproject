@@ -601,6 +601,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
 
   let pressTimer = null;
   div.addEventListener("pointerdown", () => {
+    if (editMode) return; // no goals while adjusting plan
     pressTimer = setTimeout(() => {
       pressTimer = null;
       goalCounts[name] = (goalCounts[name] || 0) + 1;
@@ -626,6 +627,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
   if (dragData) {
     div.draggable = true;
     div.addEventListener("dragstart", e => {
+      clearTimeout(pressTimer);
       dragState = { slotIndex: dragData.slotIndex, posKey: dragData.posKey, playerName: name };
       e.dataTransfer.effectAllowed = "move";
       setTimeout(() => div.classList.add("dragging"), 0);
@@ -715,6 +717,12 @@ function render() {
   pitch.innerHTML = "";
   pitch.className = teamSize >= 9 ? "pitch pitch-large" : "pitch";
   if (editMode) pitch.classList.add("edit-mode");
+
+  // Whiteboard mode — paper look when adjusting plan
+  const pitchWrapper = document.querySelector(".pitch-wrapper");
+  const benchSection = document.querySelector(".bench-section");
+  pitchWrapper?.classList.toggle("whiteboard", editMode);
+  benchSection?.classList.toggle("whiteboard", editMode);
 
   const { defense, midfield, forward } = parseFormation(formation);
 
@@ -1278,104 +1286,131 @@ function buildResultBlob() {
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const scorers = Object.entries(goalCounts).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
 
-  // Logical dimensions (2× canvas for HiDPI sharpness)
-  const W = 600;
-  const H = 270 + (scorers.length > 0 ? 28 + scorers.length * 40 : 0);
-  const SCALE = 2;
-  const canvas = document.createElement("canvas");
-  canvas.width = W * SCALE;
-  canvas.height = H * SCALE;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(SCALE, SCALE);
+  function draw(logoImg) {
+    // Logical dimensions (2× canvas for HiDPI sharpness)
+    const W = 600;
+    const H = 270 + (scorers.length > 0 ? 28 + scorers.length * 40 : 0);
+    const SCALE = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = W * SCALE;
+    canvas.height = H * SCALE;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(SCALE, SCALE);
 
-  // Background — Pitch Deep
-  ctx.fillStyle = "#0E3A29";
-  ctx.fillRect(0, 0, W, H);
+    // Background — Pitch Deep
+    ctx.fillStyle = "#0E3A29";
+    ctx.fillRect(0, 0, W, H);
 
-  // Subtle centre-line texture
-  ctx.strokeStyle = "rgba(255,255,255,0.04)";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+    // Subtle centre-line texture
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
 
-  // Top accent bar — Pitch green
-  ctx.fillStyle = "#1A5C42";
-  ctx.fillRect(0, 0, W, 6);
+    // Top accent bar — Pitch green
+    ctx.fillStyle = "#1A5C42";
+    ctx.fillRect(0, 0, W, 6);
 
-  // "FULL TIME" amber pill
-  ctx.font = "bold 13px system-ui, sans-serif";
-  const pillPad = 20;
-  const pillTW = ctx.measureText("FULL TIME").width;
-  const pillW = pillTW + pillPad * 2;
-  const pillH = 30;
-  const pillX = W / 2 - pillW / 2;
-  const pillY = 22;
-  ctx.fillStyle = "#F5B544";
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(pillX, pillY, pillW, pillH, 15);
-  } else {
-    ctx.rect(pillX, pillY, pillW, pillH);
-  }
-  ctx.fill();
-  ctx.fillStyle = "#1A1F1C";
-  ctx.textAlign = "center";
-  ctx.fillText("FULL TIME", W / 2, pillY + 20);
-
-  // Date
-  ctx.fillStyle = "rgba(242,244,238,0.4)";
-  ctx.font = "14px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(dateStr, W / 2, 76);
-
-  // Divider
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(40, 92); ctx.lineTo(W - 40, 92); ctx.stroke();
-
-  // Helper: truncate to maxWidth
-  function trunc(text, maxW) {
-    if (ctx.measureText(text).width <= maxW) return text;
-    while (text.length > 1 && ctx.measureText(text + "\u2026").width > maxW) text = text.slice(0, -1);
-    return text + "\u2026";
-  }
-
-  // Team names left/right
-  ctx.font = "bold 21px system-ui, sans-serif";
-  const nameMax = W / 2 - 60;
-  ctx.fillStyle = "rgba(242,244,238,0.9)";
-  ctx.textAlign = "left";
-  ctx.fillText(trunc(homeTeam, nameMax), 40, 128);
-  ctx.textAlign = "right";
-  ctx.fillText(trunc(awayTeam, nameMax), W - 40, 128);
-
-  // Score — large, centered
-  ctx.fillStyle = "#F2F4EE";
-  ctx.font = "bold 72px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(`${homeGoals} \u2013 ${awayGoals}`, W / 2, 210);
-
-  // Scorers section
-  if (scorers.length > 0) {
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    ctx.beginPath(); ctx.moveTo(40, 228); ctx.lineTo(W - 40, 228); ctx.stroke();
-
-    ctx.fillStyle = "rgba(242,244,238,0.6)";
-    ctx.font = "17px system-ui, sans-serif";
+    // "FULL TIME" amber pill
+    ctx.font = "bold 13px system-ui, sans-serif";
+    const pillPad = 20;
+    const pillTW = ctx.measureText("FULL TIME").width;
+    const pillW = pillTW + pillPad * 2;
+    const pillH = 30;
+    const pillX = W / 2 - pillW / 2;
+    const pillY = 22;
+    ctx.fillStyle = "#F5B544";
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(pillX, pillY, pillW, pillH, 15);
+    } else {
+      ctx.rect(pillX, pillY, pillW, pillH);
+    }
+    ctx.fill();
+    ctx.fillStyle = "#1A1F1C";
     ctx.textAlign = "center";
-    let y = 258;
-    scorers.forEach(([name, n]) => {
-      ctx.fillText(`${name}${n > 1 ? `  \xD7${n}` : ""}`, W / 2, y);
-      y += 40;
+    ctx.fillText("FULL TIME", W / 2, pillY + 20);
+
+    // Date
+    ctx.fillStyle = "rgba(242,244,238,0.4)";
+    ctx.font = "14px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(dateStr, W / 2, 76);
+
+    // Divider
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(40, 92); ctx.lineTo(W - 40, 92); ctx.stroke();
+
+    // Helper: truncate to maxWidth
+    function trunc(text, maxW) {
+      if (ctx.measureText(text).width <= maxW) return text;
+      while (text.length > 1 && ctx.measureText(text + "\u2026").width > maxW) text = text.slice(0, -1);
+      return text + "\u2026";
+    }
+
+    // Logo badge (circular clip, top-left of home team name area)
+    const logoSize = 36;
+    const logoX = 40;
+    const logoY = 104;
+    if (logoImg) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+      ctx.restore();
+    }
+
+    // Team names — offset right if logo present
+    const nameOffsetX = logoImg ? logoX + logoSize + 8 : logoX;
+    const nameMax = W / 2 - nameOffsetX - 10;
+    ctx.font = "bold 21px system-ui, sans-serif";
+    ctx.fillStyle = "rgba(242,244,238,0.9)";
+    ctx.textAlign = "left";
+    ctx.fillText(trunc(homeTeam, nameMax), nameOffsetX, 128);
+    ctx.textAlign = "right";
+    ctx.fillText(trunc(awayTeam, W / 2 - 60), W - 40, 128);
+
+    // Score — large, centered
+    ctx.fillStyle = "#F2F4EE";
+    ctx.font = "bold 72px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`${homeGoals} \u2013 ${awayGoals}`, W / 2, 210);
+
+    // Scorers section
+    if (scorers.length > 0) {
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.beginPath(); ctx.moveTo(40, 228); ctx.lineTo(W - 40, 228); ctx.stroke();
+
+      ctx.fillStyle = "rgba(242,244,238,0.6)";
+      ctx.font = "17px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      let y = 258;
+      scorers.forEach(([pName, n]) => {
+        ctx.fillText(`${pName}${n > 1 ? `  \xD7${n}` : ""}`, W / 2, y);
+        y += 40;
+      });
+    }
+
+    // Gaffer wordmark watermark
+    ctx.fillStyle = "rgba(242,244,238,0.2)";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Gaffer", W / 2, H - 12);
+
+    return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  }
+
+  // Load team logo if available, then draw
+  if (teamInfo.team_logo) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => draw(img).then(resolve);
+      img.onerror = () => draw(null).then(resolve);
+      img.src = teamInfo.team_logo;
     });
   }
-
-  // Gaffer wordmark watermark
-  ctx.fillStyle = "rgba(242,244,238,0.2)";
-  ctx.font = "12px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("Gaffer", W / 2, H - 12);
-
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  return draw(null);
 }
 
 function downloadBlob(blob, filename) {

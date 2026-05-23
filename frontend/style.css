@@ -133,6 +133,47 @@ html, body {
   pointer-events: none;
 }
 
+/* ── Whiteboard / adjust-plan mode ───────────────────────────────── */
+
+.pitch-wrapper.whiteboard {
+  background: #F2F0EB;
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent,
+    transparent 52px,
+    rgba(0,0,0,0.04) 52px,
+    rgba(0,0,0,0.04) 104px
+  );
+  --pitch-line: rgba(0,0,0,0.12);
+  --circle-bg: #ffffff;
+  --circle-text: #1a1f1c;
+  --text-light: #1a1f1c;
+  --text-dim: rgba(26,31,28,0.5);
+}
+
+.pitch-wrapper.whiteboard::after {
+  border-color: rgba(0,0,0,0.12);
+}
+
+.bench-section.whiteboard {
+  background: #EAE6DF;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  --text-dim: rgba(26,31,28,0.5);
+}
+
+.bench-section.whiteboard .bench-title {
+  color: rgba(26,31,28,0.5);
+}
+
+.bench-section.whiteboard .bench-player {
+  background: rgba(0,0,0,0.06);
+  color: #1a1f1c;
+}
+
+.bench-section.whiteboard .bench-arrow {
+  color: rgba(26,31,28,0.5);
+}
+
 .pitch {
   flex: 1;
   display: flex;
