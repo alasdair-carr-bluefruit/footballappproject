@@ -774,7 +774,7 @@ function render() {
   // Buttons
   document.getElementById("btn-prev").disabled = currentSlot === 0;
   const btnNext = document.getElementById("btn-next");
-  btnNext.disabled = false;
+  btnNext.disabled = editMode;
   if (currentSlot === matchData.slots.length - 1) {
     btnNext.textContent = "Full time ▶";
   } else {
