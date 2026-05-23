@@ -71,6 +71,7 @@ ALL_POSITIONS = [Position.GK] + OUTFIELD_POSITIONS
 class SlotAssignment:
     slot_index: int  # 0-7
     lineup: dict = field(default_factory=dict)  # dict[Position, Player]
+    locked: bool = False
 
     @property
     def quarter(self) -> int:

@@ -102,6 +102,157 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
     return plan
 
 
+def adjust_rotation(
+    original_plan: RotationPlan,
+    edits: dict[int, dict[str, str]],
+    squad: Squad,
+    match: Match,
+) -> tuple[RotationPlan, list[dict]]:
+    """Re-generate unlocked slots around manual edits.
+
+    Args:
+        original_plan: the current rotation plan
+        edits: {slot_index: {position_key: player_name}} — manual changes
+        squad: full squad
+        match: match config
+
+    Returns:
+        (new_plan, fairness_warnings) where fairness_warnings is a list of
+        {player, before, after, diff} dicts for players whose time changed.
+    """
+    config = _resolve_config(match)
+    players = squad.available
+    player_by_name = {p.name: p for p in players}
+
+    # Count slots per player in the original plan (for fairness diff)
+    original_counts = {p: original_plan.slot_count_for_player(p) for p in players}
+
+    # Apply edits and mark those slots as locked
+    new_slots = []
+    for slot in original_plan.slots:
+        new_slot = SlotAssignment(slot_index=slot.slot_index, locked=slot.locked)
+        new_slot.lineup = dict(slot.lineup)
+
+        if slot.slot_index in edits:
+            # Apply manual edit
+            for pos_key, player_name in edits[slot.slot_index].items():
+                pos = Position(pos_key)
+                player = player_by_name.get(player_name)
+                if player:
+                    new_slot.lineup[pos] = player
+            new_slot.locked = True
+
+        new_slots.append(new_slot)
+
+    # Identify locked vs unlocked slot indices
+    locked_indices = {s.slot_index for s in new_slots if s.locked}
+    unlocked_indices = [s.slot_index for s in new_slots if not s.locked]
+
+    if not unlocked_indices:
+        # Everything is locked — just validate and return
+        plan = RotationPlan(slots=new_slots, warnings=list(original_plan.warnings))
+        violations = validate(plan, players, config)
+        if violations:
+            plan.warnings = ["VIOLATION: " + v for v in violations]
+        return plan, _fairness_diff(original_counts, plan, players)
+
+    # Count how many slots each player already uses in locked slots
+    locked_counts: dict = defaultdict(int)
+    for s in new_slots:
+        if s.locked:
+            for p in s.players:
+                locked_counts[p] += 1
+
+    # Compute targets and subtract locked usage to get remaining budget
+    rotation_intensity = match.rotation_intensity
+    num_slots = config.total_slots
+    total_player_slots = num_slots * config.players_per_slot
+    fairness_value = getattr(match, "fairness_value", 0)
+    if fairness_value == 0 and match.fairness == "competitive":
+        fairness_value = 60
+
+    gk_assignments_orig, _ = select_gk_for_slots(
+        players, num_slots, squad_size=len(players),
+        players_per_slot=config.players_per_slot,
+    )
+    non_specialist_gk = []
+    seen: set = set()
+    for p in gk_assignments_orig:
+        if p is not None and p.gk_status != GKTier.SPECIALIST and id(p) not in seen:
+            seen.add(id(p))
+            non_specialist_gk.append(p)
+
+    targets = compute_target_slots(
+        players, total_player_slots, non_specialist_gk,
+        fairness=match.fairness, fairness_value=fairness_value,
+    )
+
+    # Adjust targets: subtract locked slot appearances
+    adjusted_targets = {p: max(0, targets[p] - locked_counts.get(p, 0)) for p in players}
+
+    # Count unlocked player-slots needed
+    unlocked_player_slots = len(unlocked_indices) * config.players_per_slot
+    # GK for unlocked slots — reuse original GK assignments
+    gk_for_unlocked = [gk_assignments_orig[i] for i in unlocked_indices]
+
+    # Build only the unlocked slots using the algorithm
+    future_gk: dict = defaultdict(int)
+    for gk in gk_for_unlocked:
+        if gk is not None:
+            future_gk[id(gk)] += 1
+
+    unlocked_plan = _build_slots(
+        players, [gk_assignments_orig[i] for i in range(num_slots)],
+        adjusted_targets, future_gk, num_slots, config, rotation_intensity,
+    )
+
+    # Merge: locked slots stay, unlocked slots get replaced
+    final_slots = []
+    unlocked_iter = iter(s for s in unlocked_plan.slots if s.slot_index in set(unlocked_indices))
+    for s in new_slots:
+        if s.locked:
+            final_slots.append(s)
+        else:
+            regen = next(unlocked_iter, None)
+            if regen:
+                regen.slot_index = s.slot_index
+                final_slots.append(regen)
+            else:
+                final_slots.append(s)
+
+    plan = RotationPlan(slots=final_slots, warnings=[])
+
+    # Skill balance on unlocked slots only
+    plan = balance_skills(plan, config)
+    if rotation_intensity < 70:
+        plan = _align_mid_quarter_positions(plan, config)
+
+    violations = validate(plan, players, config)
+    if violations:
+        plan.warnings.extend(["VIOLATION: " + v for v in violations])
+
+    fairness_warnings = _fairness_diff(original_counts, plan, players)
+    return plan, fairness_warnings
+
+
+def _fairness_diff(
+    original_counts: dict, new_plan: RotationPlan, players: list,
+) -> list[dict]:
+    """Return list of {player, before, after, diff} for players whose slot count changed."""
+    warnings = []
+    for p in players:
+        before = original_counts.get(p, 0)
+        after = new_plan.slot_count_for_player(p)
+        if before != after:
+            warnings.append({
+                "player": p.name,
+                "before": before,
+                "after": after,
+                "diff": after - before,
+            })
+    return warnings
+
+
 def _align_mid_quarter_positions(
     plan: RotationPlan, config: GameConfig,
 ) -> RotationPlan:

@@ -4,6 +4,9 @@ import { api } from "./api.js";
 let currentSlot = 0;
 let showingReport = false;
 let showingChanges = false;
+let editMode = false;
+let lockedSlots = new Set(); // slot indices locked by coach edits
+let pendingSwap = null; // {slotIndex, posKey, currentPlayerName}
 let matchData = null; // { match, slots, warnings }
 const goalCounts = {}; // { playerName: count }
 let gameConfigs = null; // cached from /api/matches/config/game-configs
@@ -91,6 +94,8 @@ function enterPitchView(data) {
   currentSlot = 0;
   showingReport = false;
   showingChanges = false;
+  editMode = false;
+  lockedSlots = new Set(data.locked_slots || []);
   Object.keys(goalCounts).forEach(k => delete goalCounts[k]);
   showScreen("screen-pitch");
   document.querySelector(".pitch-wrapper").style.display = "";
@@ -471,7 +476,7 @@ function outgoingSubs(cur, nxt) {
 }
 
 // ── Pitch rendering ───────────────────────────────────────────────────────────
-function playerCircle(name, role, isIncoming, isOutgoing, isGk = false) {
+function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapClick = null) {
   const div = document.createElement("div");
   div.className = "player-circle tappable";
   if (isIncoming) div.classList.add("incoming");
@@ -532,6 +537,15 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false) {
   div.addEventListener("pointerup",    () => clearTimeout(pressTimer));
   div.addEventListener("pointerleave", () => clearTimeout(pressTimer));
 
+  if (onSwapClick) {
+    div.addEventListener("click", (e) => {
+      if (pressTimer !== null) {
+        // Was a short tap, not a long press
+        onSwapClick();
+      }
+    });
+  }
+
   return div;
 }
 
@@ -589,6 +603,7 @@ function render() {
   const pitch = document.getElementById("pitch");
   pitch.innerHTML = "";
   pitch.className = teamSize >= 9 ? "pitch pitch-large" : "pitch";
+  if (editMode) pitch.classList.add("edit-mode");
 
   const { defense, midfield, forward } = parseFormation(formation);
 
@@ -619,7 +634,8 @@ function render() {
       const name = slot.lineup[posKey]?.name ?? "?";
       const displayRole = row.type;
       const isGk = row.type === "GK";
-      rowEl.appendChild(playerCircle(name, displayRole, incoming.has(name), outgoing.has(name), isGk));
+      const swapHandler = editMode && !isGk ? () => openSwapPicker(currentSlot, posKey, name) : null;
+      rowEl.appendChild(playerCircle(name, displayRole, incoming.has(name), outgoing.has(name), isGk, swapHandler));
     }
 
     pitch.appendChild(rowEl);
@@ -653,6 +669,17 @@ function render() {
     btnNext.textContent = "Full time ▶";
   } else {
     btnNext.textContent = "Next ▶";
+  }
+
+  // Adjust plan button (always visible on pitch view)
+  const btnAdjust = document.getElementById("btn-adjust");
+  btnAdjust.hidden = false;
+  btnAdjust.textContent = editMode ? "Done editing" : "Adjust Plan";
+
+  // Show locked badge in slot label
+  const slotLabelEl = document.getElementById("slot-label");
+  if (lockedSlots.has(currentSlot)) {
+    slotLabelEl.innerHTML += ' <span class="slot-locked-badge">LOCKED</span>';
   }
 }
 
@@ -870,6 +897,130 @@ document.getElementById("btn-prev").addEventListener("click", () => {
   }
   if (currentSlot > 0) { currentSlot--; render(); }
 });
+
+// ── Edit mode (adjust plan) ────────────────────────────────────────────────────
+document.getElementById("btn-adjust").addEventListener("click", () => {
+  editMode = !editMode;
+  const btn = document.getElementById("btn-adjust");
+  btn.textContent = editMode ? "Done editing" : "Adjust Plan";
+  render();
+});
+
+document.getElementById("btn-swap-cancel").addEventListener("click", () => {
+  document.getElementById("swap-overlay").hidden = true;
+  pendingSwap = null;
+});
+
+document.getElementById("btn-fairness-cancel").addEventListener("click", () => {
+  document.getElementById("fairness-overlay").hidden = true;
+});
+
+function openSwapPicker(slotIndex, posKey, currentPlayerName) {
+  pendingSwap = { slotIndex, posKey, currentPlayerName };
+  const slot = matchData.slots[slotIndex];
+  const onPitchNames = new Set(Object.values(slot.lineup).map(p => p.name));
+
+  document.getElementById("swap-title").textContent = `Replace ${currentPlayerName}`;
+  const list = document.getElementById("swap-list");
+  list.innerHTML = "";
+
+  // Show bench players as swap options
+  slot.bench.forEach(p => {
+    const li = document.createElement("li");
+    li.className = "swap-item";
+    li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">Bench</span>`;
+    li.addEventListener("click", () => executeSwap(p.id, p.name));
+    list.appendChild(li);
+  });
+
+  // Also show other on-pitch players (position swap)
+  Object.entries(slot.lineup).forEach(([pos, p]) => {
+    if (p.name !== currentPlayerName && pos !== "GK") {
+      const li = document.createElement("li");
+      li.className = "swap-item";
+      li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">${pos}</span>`;
+      li.addEventListener("click", () => executeSwap(p.id, p.name));
+      list.appendChild(li);
+    }
+  });
+
+  document.getElementById("swap-overlay").hidden = false;
+}
+
+async function executeSwap(newPlayerId, newPlayerName) {
+  document.getElementById("swap-overlay").hidden = true;
+  if (!pendingSwap || !matchData) return;
+
+  const { slotIndex, posKey, currentPlayerName } = pendingSwap;
+  const slot = matchData.slots[slotIndex];
+
+  // Build the edit: figure out if this is a bench swap or position swap
+  const edits = {};
+  const isOnPitch = Object.entries(slot.lineup).find(([, p]) => p.name === newPlayerName);
+
+  if (isOnPitch) {
+    // Position swap: swap the two players' positions
+    const [otherPos] = isOnPitch;
+    const currentPlayer = slot.lineup[posKey];
+    edits[slotIndex] = {
+      [posKey]: newPlayerId,
+      [otherPos]: currentPlayer.id,
+    };
+  } else {
+    // Bench swap: replace current player with bench player
+    edits[slotIndex] = { [posKey]: newPlayerId };
+  }
+
+  try {
+    const result = await api.adjustRotation(
+      matchData.match.id, edits, [...lockedSlots],
+    );
+
+    // Check for fairness warnings
+    if (result.fairness_warnings && result.fairness_warnings.length > 0) {
+      showFairnessWarning(result);
+      return;
+    }
+
+    applyAdjustResult(result);
+  } catch (err) {
+    alert("Could not adjust: " + err.message);
+  }
+  pendingSwap = null;
+}
+
+function showFairnessWarning(result) {
+  const list = document.getElementById("fairness-list");
+  list.innerHTML = "";
+  result.fairness_warnings.forEach(w => {
+    const li = document.createElement("li");
+    li.className = "fairness-item";
+    const cls = w.diff < 0 ? "fairness-loss" : "fairness-gain";
+    const verb = w.diff < 0 ? "loses" : "gains";
+    li.innerHTML = `${w.player} <span class="${cls}">${verb} ${Math.abs(w.diff)} slot${Math.abs(w.diff) !== 1 ? "s" : ""}</span> (${w.before} → ${w.after})`;
+    list.appendChild(li);
+  });
+
+  // Wire confirm button to apply
+  const confirmBtn = document.getElementById("btn-fairness-confirm");
+  const handler = () => {
+    document.getElementById("fairness-overlay").hidden = true;
+    applyAdjustResult(result);
+    confirmBtn.removeEventListener("click", handler);
+  };
+  confirmBtn.addEventListener("click", handler);
+
+  document.getElementById("fairness-overlay").hidden = false;
+}
+
+function applyAdjustResult(result) {
+  matchData.slots = result.slots;
+  matchData.warnings = result.warnings;
+  if (result.locked_slots) {
+    lockedSlots = new Set(result.locked_slots);
+  }
+  render();
+}
 
 // Save goals when leaving pitch view
 async function saveGoalsIfNeeded() {

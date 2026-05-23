@@ -515,6 +515,105 @@ html, body {
 .btn-next:disabled { background: var(--btn-disabled); color: rgba(255,255,255,0.4); cursor: default; }
 .btn-next:not(:disabled):active { background: #1f9e55; }
 
+.btn-adjust {
+  background: var(--trophy-amber);
+  color: var(--slate);
+  font-size: 13px;
+  flex: 0 0 auto;
+  padding: 14px 16px;
+}
+.btn-adjust:active { background: #d9a03c; }
+
+/* ── Swap overlay ────────────────────────────────────────────────── */
+
+.swap-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: flex-end;
+  z-index: 100;
+  padding: 16px;
+}
+.swap-overlay[hidden] { display: none; }
+
+.swap-panel {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--pitch);
+  border: 1px solid rgba(242,244,238,0.15);
+  border-radius: 12px;
+  padding: 20px 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.swap-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--chalk);
+  margin-bottom: 12px;
+}
+
+.swap-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.swap-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(242,244,238,0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--chalk);
+  font-size: 15px;
+  transition: background 0.1s;
+}
+
+.swap-item:active { background: rgba(242,244,238,0.12); }
+.swap-item .swap-name { flex: 1; font-weight: 500; }
+.swap-item .swap-pos { font-size: 12px; color: var(--text-dim); }
+
+/* ── Fairness warnings ───────────────────────────────────────────── */
+
+.fairness-list {
+  list-style: none;
+  margin-bottom: 12px;
+}
+
+.fairness-item {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(242,244,238,0.08);
+  font-size: 14px;
+  color: var(--chalk);
+}
+
+.fairness-item .fairness-loss { color: #ef5350; font-weight: 600; }
+.fairness-item .fairness-gain { color: var(--matchday); font-weight: 600; }
+
+/* ── Edit mode indicators ────────────────────────────────────────── */
+
+.pitch.edit-mode .player-circle { cursor: pointer; }
+.pitch.edit-mode .player-circle:active { transform: scale(0.95); }
+
+.slot-locked-badge {
+  display: inline-block;
+  font-size: 10px;
+  background: var(--trophy-amber);
+  color: var(--slate);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
 /* ── Landing screen ──────────────────────────────────────────────── */
 
 .landing {

@@ -245,7 +245,29 @@
 
     <div class="controls">
       <button class="btn btn-prev" id="btn-prev">◀ Back</button>
+      <button class="btn btn-adjust" id="btn-adjust" hidden>Adjust Plan</button>
       <button class="btn btn-next" id="btn-next">Next ▶</button>
+    </div>
+
+    <!-- Swap picker overlay -->
+    <div class="swap-overlay" id="swap-overlay" hidden>
+      <div class="swap-panel">
+        <h3 class="swap-title" id="swap-title">Swap player</h3>
+        <ul class="swap-list" id="swap-list"></ul>
+        <button class="btn btn-secondary btn-full" id="btn-swap-cancel">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Fairness warning overlay -->
+    <div class="swap-overlay" id="fairness-overlay" hidden>
+      <div class="swap-panel">
+        <h3 class="swap-title">Playing time impact</h3>
+        <ul class="fairness-list" id="fairness-list"></ul>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="btn-fairness-cancel">Cancel</button>
+          <button class="btn btn-primary" id="btn-fairness-confirm">Apply anyway</button>
+        </div>
+      </div>
     </div>
 
   </div><!-- /screen-pitch -->

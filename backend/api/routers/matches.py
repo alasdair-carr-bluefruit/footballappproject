@@ -184,6 +184,92 @@ def generate_match_rotation(
     return _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
 
 
+class AdjustRequest(BaseModel):
+    edits: dict[int, dict[str, int]]  # {slot_index: {position_key: player_id}}
+    locked_slots: list[int] = []  # additional slot indices to keep locked
+
+
+@router.post("/{match_id}/adjust")
+def adjust_match_rotation(
+    match_id: int, body: AdjustRequest, session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Apply manual edits and re-generate unlocked slots."""
+    from backend.algorithm.rotation_engine import adjust_rotation
+
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    rotation = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+    if not rotation:
+        raise HTTPException(status_code=400, detail="No rotation exists — generate one first")
+
+    all_players = get_players(session, db_match.squad_id)
+
+    # Load available players for this match
+    avail_ids = json.loads(rotation.available_player_ids_json)
+    if avail_ids:
+        avail_set = set(avail_ids)
+        players_db = [p for p in all_players if p.id in avail_set]
+    else:
+        players_db = all_players
+
+    match, squad = match_db_to_domain(db_match, players_db)
+    id_to_player = {p.id: p for p in players_db if p.id is not None}
+
+    # Reconstruct current plan as domain objects
+    from backend.models.rotation import Position, RotationPlan, SlotAssignment
+    slots_data = json.loads(rotation.slots_json)
+    domain_players = squad.available
+    player_by_name = {p.name: p for p in domain_players}
+
+    current_slots = []
+    for sd in slots_data:
+        slot = SlotAssignment(slot_index=sd["slot_index"])
+        for pos_key, pid in sd["lineup"].items():
+            db_p = id_to_player.get(pid)
+            if db_p:
+                domain_p = player_by_name.get(db_p.name)
+                if domain_p:
+                    slot.lineup[Position(pos_key)] = domain_p
+        # Mark previously locked slots
+        if sd["slot_index"] in body.locked_slots:
+            slot.locked = True
+        current_slots.append(slot)
+
+    current_plan = RotationPlan(slots=current_slots)
+
+    # Convert edits from player IDs to player names
+    edits_by_name: dict[int, dict[str, str]] = {}
+    for slot_idx_str, pos_map in body.edits.items():
+        slot_idx = int(slot_idx_str)
+        edits_by_name[slot_idx] = {
+            pos_key: id_to_player[pid].name
+            for pos_key, pid in pos_map.items()
+            if pid in id_to_player
+        }
+
+    new_plan, fairness_warnings = adjust_rotation(current_plan, edits_by_name, squad, match)
+
+    # Save updated plan
+    save_rotation(session, match_id, new_plan, players_db)
+
+    # Re-read for response
+    rotation = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+    assert rotation is not None
+    plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
+
+    response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
+    response["fairness_warnings"] = fairness_warnings
+    # Include locked slot indices in response
+    response["locked_slots"] = [s.slot_index for s in new_plan.slots if s.locked]
+    return response
+
+
 class GoalsSave(BaseModel):
     goals: dict[str, int]  # {player_name: goal_count}
 
