@@ -14,10 +14,37 @@
 <body>
 <div class="app">
 
+  <!-- ── Screen: Landing ───────────────────────────────────────────────────── -->
+  <div id="screen-landing" class="screen">
+    <div class="landing">
+      <div class="landing-hero">
+        <h1 class="landing-title">Squad Rotation</h1>
+        <p class="landing-subtitle">Fair play made simple for grassroots coaches</p>
+        <p class="landing-desc">Generate balanced rotation plans so every player gets game time. Set up your squad once, then create match plans in seconds — on the pitch, on your phone.</p>
+      </div>
+      <div class="landing-modes">
+        <button class="mode-card" id="btn-season-mode">
+          <span class="mode-icon">📋</span>
+          <span class="mode-title">Season Mode</span>
+          <span class="mode-desc">Week-to-week matches with a fixed squad. Track playing time across the season.</span>
+        </button>
+        <button class="mode-card mode-coming-soon" id="btn-tournament-mode">
+          <span class="mode-icon">🏆</span>
+          <span class="mode-title">Tournament Mode</span>
+          <span class="mode-desc">Back-to-back matches in a single day. Optimise rotation across multiple games.</span>
+          <span class="mode-badge">Coming soon</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Screen: Home ─────────────────────────────────────────────────────── -->
-  <div id="screen-home" class="screen">
+  <div id="screen-home" class="screen" hidden>
     <header class="header header-home">
-      <h1 class="app-title">Squad Rotation</h1>
+      <div class="home-title-row">
+        <button class="btn-back" id="btn-home-back">◀</button>
+        <h1 class="app-title">Season Mode</h1>
+      </div>
       <div class="home-actions">
         <button class="btn btn-primary" id="btn-go-new-match">+ New Match</button>
         <button class="btn btn-secondary" id="btn-go-squad">Edit Squad</button>

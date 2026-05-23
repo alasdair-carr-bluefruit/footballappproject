@@ -505,6 +505,122 @@ html, body {
 .btn-next:disabled { background: var(--btn-disabled); color: rgba(255,255,255,0.4); cursor: default; }
 .btn-next:not(:disabled):active { background: #388e3c; }
 
+/* ── Landing screen ──────────────────────────────────────────────── */
+
+.landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: linear-gradient(170deg, #162e16 0%, #1e4d1e 40%, #2d6a2d 100%);
+  padding: 0 20px env(safe-area-inset-bottom);
+}
+
+.landing-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 40px 0 20px;
+}
+
+.landing-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.landing-subtitle {
+  font-size: 16px;
+  color: #a5d6a7;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.landing-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  max-width: 340px;
+}
+
+.landing-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 32px;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 18px 20px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+  position: relative;
+}
+
+.mode-card:active {
+  background: rgba(255,255,255,0.12);
+  border-color: var(--btn-primary);
+}
+
+.mode-card.mode-coming-soon {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mode-card.mode-coming-soon:active {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.mode-icon {
+  font-size: 24px;
+  margin-bottom: 2px;
+}
+
+.mode-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.mode-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.mode-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #e8a000;
+  background: rgba(232,160,0,0.15);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.home-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ── Screen management ────────────────────────────────────────────── */
 
 .screen { display: flex; flex-direction: column; min-height: 100dvh; }

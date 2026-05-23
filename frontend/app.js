@@ -37,6 +37,12 @@ function normalizePos(pos) {
   return pos;
 }
 
+// ── Landing screen ────────────────────────────────────────────────────────────
+document.getElementById("btn-season-mode").addEventListener("click", () => loadHome());
+document.getElementById("btn-tournament-mode").addEventListener("click", () => {
+  // Tournament mode — coming soon
+});
+
 // ── Home screen ───────────────────────────────────────────────────────────────
 async function loadHome() {
   showScreen("screen-home");
@@ -207,6 +213,7 @@ document.getElementById("rotation-slider").addEventListener("input", e => {
 });
 
 document.getElementById("btn-go-squad").addEventListener("click", loadSquad);
+document.getElementById("btn-home-back").addEventListener("click", () => showScreen("screen-landing"));
 
 // ── New match screen ──────────────────────────────────────────────────────────
 document.getElementById("btn-new-match-back").addEventListener("click", loadHome);
@@ -822,4 +829,4 @@ document.getElementById("btn-prev").addEventListener("click", () => {
 document.getElementById("btn-pitch-back").addEventListener("click", loadHome);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-loadHome();
+showScreen("screen-landing");
