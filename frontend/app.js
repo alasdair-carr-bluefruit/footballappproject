@@ -218,12 +218,18 @@ async function loadSquad() {
 
   players.forEach(p => {
     const badges = [];
-    if (p.gk_status === "specialist") badges.push('<span class="badge badge-gk">GK Specialist</span>');
-    else if (p.gk_status === "preferred") badges.push('<span class="badge badge-gkpref">GK Preferred</span>');
-    else if (p.gk_status === "can_play") badges.push('<span class="badge badge-gkcan">GK Can Play</span>');
-    else if (p.gk_status === "emergency_only") badges.push('<span class="badge badge-emergency">Emergency GK</span>');
-    if (p.def_restricted) badges.push('<span class="badge badge-def">No DEF</span>');
-    if (p.best_position) badges.push(`<span class="badge badge-pos">${p.best_position}</span>`);
+    const prefs = p.preferred_positions || [];
+    if (prefs.length > 0) {
+      prefs.forEach(pos => {
+        const isBest = pos === p.best_position;
+        const cls = isBest ? "badge badge-pos badge-best" : "badge badge-pos";
+        badges.push(`<span class="${cls}">${pos}</span>`);
+      });
+    } else {
+      // Legacy fallback
+      if (p.gk_status === "specialist") badges.push('<span class="badge badge-gk">GK</span>');
+      if (p.def_restricted) badges.push('<span class="badge badge-def">No DEF</span>');
+    }
 
     const li = document.createElement("li");
     li.className = "player-item";
@@ -252,12 +258,20 @@ function openPlayerForm(player = null) {
   form.hidden = false;
   document.getElementById("form-title").textContent = player ? "Edit Player" : "Add Player";
   document.getElementById("input-name").value = player?.name ?? "";
-  document.getElementById("input-gk-status").value = player?.gk_status ?? "can_play";
-  document.getElementById("input-def-restricted").checked = player?.def_restricted ?? false;
   document.getElementById("input-skill").value = player?.skill_rating ?? 3;
 
-  // Position checkboxes
-  const prefs = player?.preferred_positions || [];
+  // Position checkboxes — derive from preferred_positions or legacy gk_status/def_restricted
+  let prefs = player?.preferred_positions || [];
+  if (prefs.length === 0 && player) {
+    // Backward compat: derive from legacy fields
+    if (player.gk_status === "specialist") prefs = ["GK"];
+    else {
+      prefs = [];
+      if (!player.def_restricted) prefs.push("DEF");
+      prefs.push("MID", "FWD");
+      if (["preferred", "can_play"].includes(player.gk_status)) prefs.push("GK");
+    }
+  }
   document.querySelectorAll("#position-checkboxes input").forEach(cb => {
     cb.checked = prefs.includes(cb.value);
   });
@@ -301,13 +315,30 @@ document.getElementById("player-form").addEventListener("click", e => {
 document.querySelector("#player-form form").addEventListener("submit", async e => {
   e.preventDefault();
   const preferred = [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
+  const bestPos = document.getElementById("input-best-position").value;
+
+  // Derive gk_status from position selections
+  let gkStatus;
+  if (preferred.includes("GK") && preferred.length === 1) {
+    gkStatus = "specialist"; // GK only
+  } else if (bestPos === "GK") {
+    gkStatus = "preferred"; // GK is their best position
+  } else if (preferred.includes("GK")) {
+    gkStatus = "can_play"; // Can play GK among other positions
+  } else {
+    gkStatus = "emergency_only"; // GK not selected
+  }
+
+  // Derive def_restricted: if positions are specified and DEF isn't among them
+  const defRestricted = preferred.length > 0 && !preferred.includes("DEF");
+
   const data = {
     name:                document.getElementById("input-name").value.trim(),
-    gk_status:           document.getElementById("input-gk-status").value,
-    def_restricted:      document.getElementById("input-def-restricted").checked,
+    gk_status:           gkStatus,
+    def_restricted:      defRestricted,
     skill_rating:        parseInt(document.getElementById("input-skill").value, 10),
     preferred_positions: preferred,
-    best_position:       document.getElementById("input-best-position").value,
+    best_position:       bestPos,
   };
   if (!data.name) return;
 

@@ -90,28 +90,8 @@
           Name
           <input type="text" id="input-name" placeholder="Player name" autocomplete="off" required />
         </label>
-        <label>
-          GK Status
-          <select id="input-gk-status">
-            <option value="specialist">Specialist (GK only)</option>
-            <option value="preferred">Preferred</option>
-            <option value="can_play" selected>Can Play</option>
-            <option value="emergency_only">Emergency Only</option>
-          </select>
-        </label>
-        <label class="toggle-row">
-          <span class="toggle-text">DEF Restricted <span class="toggle-hint">(never plays DEF)</span></span>
-          <span class="toggle-wrap">
-            <input type="checkbox" id="input-def-restricted" class="toggle-input" />
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </span>
-        </label>
-        <label>
-          Skill Rating (1–5)
-          <input type="number" id="input-skill" min="1" max="5" value="3" />
-        </label>
 
-        <label>Can Play Positions</label>
+        <label>Can Play</label>
         <div class="position-checkboxes" id="position-checkboxes">
           <label class="pos-check"><input type="checkbox" value="GK" /> GK</label>
           <label class="pos-check"><input type="checkbox" value="DEF" /> DEF</label>
@@ -124,6 +104,11 @@
           <select id="input-best-position">
             <option value="">Not set</option>
           </select>
+        </label>
+
+        <label>
+          Skill Rating (1–5)
+          <input type="number" id="input-skill" min="1" max="5" value="3" />
         </label>
 
         <div class="form-actions">

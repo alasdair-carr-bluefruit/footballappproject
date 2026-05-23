@@ -667,7 +667,7 @@ html, body {
   font-weight: 500;
 }
 
-.form-card input,
+.form-card input:not([type="checkbox"]):not([type="range"]),
 .form-card select {
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.15);
@@ -679,13 +679,14 @@ html, body {
   -webkit-appearance: none;
 }
 
-.form-card input:focus,
+.form-card input:not([type="checkbox"]):not([type="range"]):focus,
 .form-card select:focus {
   outline: none;
   border-color: var(--btn-primary);
 }
 
 .form-card input[type="number"] { width: 80px; }
+.form-card input[type="checkbox"] { width: auto; }
 
 /* ── Team size picker ────────────────────────────────────────────── */
 
@@ -770,8 +771,14 @@ html, body {
 /* ── Best position badge ─────────────────────────────────────────── */
 
 .badge-pos {
-  background: rgba(33,150,243,0.2);
+  background: rgba(255,255,255,0.1);
+  color: var(--text-dim);
+}
+
+.badge-pos.badge-best {
+  background: rgba(33,150,243,0.25);
   color: #64b5f6;
+  font-weight: 700;
 }
 
 .form-actions {
