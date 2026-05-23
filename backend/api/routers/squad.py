@@ -82,6 +82,11 @@ def list_players(session: Session = Depends(get_session)) -> list[PlayerRead]:
 @router.post("/players", response_model=PlayerRead, status_code=201)
 def add_player(player: PlayerCreate, session: Session = Depends(get_session)) -> PlayerRead:
     squad = get_or_create_squad(session)
+    existing = session.exec(
+        select(PlayerDB).where(PlayerDB.squad_id == squad.id, PlayerDB.name == player.name)
+    ).first()
+    if existing:
+        raise HTTPException(status_code=422, detail=f"A player named '{player.name}' already exists. Add an initial or surname to make names unique.")
     data = player.model_dump()
     data["preferred_positions"] = json.dumps(data["preferred_positions"])
     db_player = PlayerDB(squad_id=squad.id, **data)
