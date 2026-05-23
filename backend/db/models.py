@@ -22,6 +22,7 @@ class PlayerDB(SQLModel, table=True):
     skill_rating: int = 3
     preferred_positions: str = "[]"  # JSON list of position types e.g. '["DEF","MID"]'
     best_position: str = ""  # e.g. "DEF", "MID", "FWD", or "" for unset
+    shirt_number: int | None = None  # optional squad number (1–99)
 
 
 class MatchDB(SQLModel, table=True):

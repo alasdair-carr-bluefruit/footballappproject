@@ -14,6 +14,17 @@ let gameConfigs = null; // cached from /api/matches/config/game-configs
 let selectedSize = 5;
 let selectedHomeAway = "home";
 let teamInfo = { team_name: "My Team", team_logo: "" }; // cached squad info
+let shirtNumbers = {}; // { playerName: shirtNumber } — populated from squad API
+
+// Returns true if this player's shirt number is shared and they are the LATER entry
+// (i.e. the "duplicate" — their number shows in red)
+function isShirtConflict(name) {
+  const num = shirtNumbers[name];
+  if (num == null) return false;
+  const allNames = Object.keys(shirtNumbers);
+  const firstOwner = allNames.find(n => shirtNumbers[n] === num);
+  return firstOwner !== name;
+}
 
 // ── Screen management ─────────────────────────────────────────────────────────
 function showScreen(id) {
@@ -136,6 +147,12 @@ function enterPitchView(data) {
 }
 
 async function openMatch(matchId) {
+  // Ensure shirt numbers are current
+  api.getPlayers().then(players => {
+    shirtNumbers = {};
+    players.forEach(p => { if (p.shirt_number != null) shirtNumbers[p.name] = p.shirt_number; });
+  }).catch(() => {});
+
   const data = await api.getMatch(matchId).catch(err => { alert(err.message); return null; });
   if (!data) return;
 
@@ -348,6 +365,21 @@ async function loadSquad() {
   }
 
   const players = await api.getPlayers().catch(() => []);
+
+  // Rebuild shirt number map and detect conflicts
+  shirtNumbers = {};
+  const numberCount = {};
+  players.forEach(p => {
+    if (p.shirt_number != null) {
+      shirtNumbers[p.name] = p.shirt_number;
+      numberCount[p.shirt_number] = (numberCount[p.shirt_number] || 0) + 1;
+    }
+  });
+  const conflictNumbers = new Set(Object.entries(numberCount).filter(([, n]) => n > 1).map(([k]) => parseInt(k)));
+
+  // Track which conflict number has already been "claimed" (first occurrence = ok, subsequent = red)
+  const seenNumbers = new Set();
+
   const list = document.getElementById("player-list");
   list.innerHTML = "";
 
@@ -370,12 +402,19 @@ async function loadSquad() {
       if (p.def_restricted) badges.push('<span class="badge badge-def">No DEF</span>');
     }
 
+    let numberBadge = "";
+    if (p.shirt_number != null) {
+      const isConflict = conflictNumbers.has(p.shirt_number) && seenNumbers.has(p.shirt_number);
+      if (conflictNumbers.has(p.shirt_number)) seenNumbers.add(p.shirt_number);
+      numberBadge = `<span class="badge badge-number${isConflict ? " badge-number-conflict" : ""}">#${p.shirt_number}</span>`;
+    }
+
     const li = document.createElement("li");
     li.className = "player-item";
     li.innerHTML = `
       <div class="player-item-info">
         <span class="player-item-name">${p.name}</span>
-        <span class="player-item-badges">${badges.join("")}</span>
+        <span class="player-item-badges">${numberBadge}${badges.join("")}</span>
       </div>
       <div class="player-item-actions">
         <button class="btn-sm" data-edit="${p.id}">Edit</button>
@@ -398,6 +437,7 @@ function openPlayerForm(player = null) {
   document.getElementById("form-title").textContent = player ? "Edit Player" : "Add Player";
   document.getElementById("input-name").value = player?.name ?? "";
   document.getElementById("input-skill").value = player?.skill_rating ?? 3;
+  document.getElementById("input-shirt-number").value = player?.shirt_number ?? "";
 
   // Position checkboxes — derive from preferred_positions or legacy gk_status/def_restricted
   let prefs = player?.preferred_positions || [];
@@ -501,6 +541,7 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
   // Derive def_restricted: if positions are specified and DEF isn't among them
   const defRestricted = preferred.length > 0 && !preferred.includes("DEF");
 
+  const shirtRaw = document.getElementById("input-shirt-number").value.trim();
   const data = {
     name:                document.getElementById("input-name").value.trim(),
     gk_status:           gkStatus,
@@ -508,6 +549,7 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
     skill_rating:        parseInt(document.getElementById("input-skill").value, 10),
     preferred_positions: preferred,
     best_position:       bestPos,
+    shirt_number:        shirtRaw !== "" ? parseInt(shirtRaw, 10) : null,
   };
   if (!data.name) return;
 
@@ -559,9 +601,11 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
   if (isGk) div.classList.add("is-gk");
 
   const goals = goalCounts[name] || 0;
-  const initials = name.slice(0, 3).toUpperCase();
+  const shirtNum = shirtNumbers[name];
+  const avatarContent = shirtNum != null ? String(shirtNum) : name.slice(0, 3).toUpperCase();
+  const avatarConflict = shirtNum != null && isShirtConflict(name) ? " number-conflict" : "";
   div.innerHTML = `
-    <div class="circle-avatar">${initials}</div>
+    <div class="circle-avatar${avatarConflict}">${avatarContent}</div>
     <div class="circle-name">${name}</div>
     <div class="circle-role">${role}</div>
   `;

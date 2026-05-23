@@ -11,6 +11,17 @@ def create_db_and_tables() -> None:
 
     SQLModel.metadata.create_all(engine)
 
+    # Additive migrations — safe to re-run on existing DBs
+    with engine.connect() as conn:
+        for stmt in [
+            "ALTER TABLE players ADD COLUMN shirt_number INTEGER",
+        ]:
+            try:
+                conn.execute(__import__("sqlalchemy").text(stmt))
+                conn.commit()
+            except Exception:
+                pass  # column already exists
+
 
 def get_session():
     with Session(engine) as session:

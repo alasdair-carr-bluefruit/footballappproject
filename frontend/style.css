@@ -278,6 +278,12 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 0 0 4px var(--matchday);
 }
 
+/* Conflicting shirt number — red token */
+.circle-avatar.number-conflict {
+  background: #c0392b;
+  color: #fff;
+}
+
 /* GK amber circle */
 .player-circle.is-gk .circle-avatar {
   background: var(--trophy-amber);
@@ -1338,6 +1344,9 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+.badge-number         { background: rgba(255,255,255,0.15); color: var(--chalk); font-variant-numeric: tabular-nums; }
+.badge-number-conflict { background: #c0392b; color: #fff; }
+
 .badge-gk        { background: #1565c0; color: #fff; }
 .badge-gkpref    { background: #1976d2; color: #fff; }
 .badge-gkcan     { background: rgba(255,255,255,0.15); color: var(--text-light); }

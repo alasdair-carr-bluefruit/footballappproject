@@ -44,6 +44,7 @@ class PlayerCreate(BaseModel):
     skill_rating: int = 3
     preferred_positions: list[str] = []
     best_position: str = ""
+    shirt_number: int | None = None
 
 
 class PlayerRead(BaseModel):
@@ -54,6 +55,7 @@ class PlayerRead(BaseModel):
     skill_rating: int
     preferred_positions: list[str] = []
     best_position: str = ""
+    shirt_number: int | None = None
 
 
 def _player_to_read(p: PlayerDB) -> PlayerRead:
@@ -66,6 +68,7 @@ def _player_to_read(p: PlayerDB) -> PlayerRead:
         skill_rating=p.skill_rating,
         preferred_positions=positions,
         best_position=p.best_position,
+        shirt_number=p.shirt_number,
     )
 
 
