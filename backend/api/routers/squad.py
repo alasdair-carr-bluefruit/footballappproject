@@ -5,11 +5,37 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from backend.db.database import get_session
-from backend.db.models import PlayerDB
+from backend.db.models import PlayerDB, SquadDB
 from backend.db.repositories import get_or_create_squad
 
 router = APIRouter()
 
+
+# ── Team info ─────────────────────────────────────────────────────────────────
+
+class TeamInfo(BaseModel):
+    team_name: str = "My Team"
+    team_logo: str = ""  # base64 DataURL
+
+
+@router.get("/info", response_model=TeamInfo)
+def get_team_info(session: Session = Depends(get_session)) -> TeamInfo:
+    squad = get_or_create_squad(session)
+    return TeamInfo(team_name=squad.team_name, team_logo=squad.team_logo)
+
+
+@router.put("/info", response_model=TeamInfo)
+def update_team_info(info: TeamInfo, session: Session = Depends(get_session)) -> TeamInfo:
+    squad = get_or_create_squad(session)
+    squad.team_name = info.team_name
+    squad.team_logo = info.team_logo
+    session.add(squad)
+    session.commit()
+    session.refresh(squad)
+    return TeamInfo(team_name=squad.team_name, team_logo=squad.team_logo)
+
+
+# ── Players ───────────────────────────────────────────────────────────────────
 
 class PlayerCreate(BaseModel):
     name: str

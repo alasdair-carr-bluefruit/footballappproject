@@ -30,6 +30,7 @@ class MatchCreate(BaseModel):
     fairness: str = "equal"
     fairness_value: int = 0
     rotation_intensity: int = 50
+    home_away: str = "home"
 
 
 class MatchRead(BaseModel):
@@ -44,6 +45,8 @@ class MatchRead(BaseModel):
     fairness: str
     fairness_value: int
     rotation_intensity: int
+    home_away: str = "home"
+    opponent_goals: int = 0
 
 
 def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
@@ -59,6 +62,8 @@ def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
         fairness=m.fairness,
         fairness_value=m.fairness_value,
         rotation_intensity=m.rotation_intensity,
+        home_away=m.home_away,
+        opponent_goals=m.opponent_goals,
     )
 
 
@@ -78,6 +83,8 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "fairness": m.fairness,
             "rotation_intensity": m.rotation_intensity,
             "period_label": period_label,
+            "home_away": m.home_away,
+            "opponent_goals": m.opponent_goals,
         },
         "slots": slots,
         "warnings": warnings,
@@ -272,12 +279,17 @@ def adjust_match_rotation(
 
 class GoalsSave(BaseModel):
     goals: dict[str, int]  # {player_name: goal_count}
+    opponent_goals: int = 0
 
 
 @router.post("/{match_id}/goals")
 def save_match_goals(
     match_id: int, body: GoalsSave, session: Session = Depends(get_session),
 ) -> dict[str, str]:
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
     rotation = session.exec(
         select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
     ).first()
@@ -285,9 +297,6 @@ def save_match_goals(
         raise HTTPException(status_code=404, detail="No rotation for this match")
 
     # Convert player names to IDs for storage
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
     players = get_players(session, db_match.squad_id)
     name_to_id = {p.name: p.id for p in players}
     goals_by_id = {
@@ -297,6 +306,11 @@ def save_match_goals(
     }
     rotation.goals_json = json.dumps(goals_by_id)
     session.add(rotation)
+
+    # Save opponent goals on the match
+    db_match.opponent_goals = body.opponent_goals
+    session.add(db_match)
+
     session.commit()
     return {"status": "saved"}
 

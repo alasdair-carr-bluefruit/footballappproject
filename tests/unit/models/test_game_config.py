@@ -37,25 +37,20 @@ class TestFormation:
         assert Formation.parse("4-4-2").team_size == 11
 
     def test_outfield_positions_5v5_default(self):
-        """The default 1-2-1 must produce DEF, MID1, MID2, FWD for backward compat."""
         f = Formation.parse("1-2-1")
-        assert f.outfield_positions() == ["DEF", "MID1", "MID2", "FWD"]
+        assert f.outfield_positions() == ["CB", "LM", "RM", "CF"]
 
     def test_outfield_positions_7v7(self):
         f = Formation.parse("2-3-1")
-        assert f.outfield_positions() == ["DEF", "DEF2", "MID1", "MID2", "MID3", "FWD"]
+        assert f.outfield_positions() == ["CB", "CB2", "LM", "CM", "RM", "CF"]
 
     def test_outfield_positions_9v9(self):
         f = Formation.parse("3-3-2")
-        assert f.outfield_positions() == [
-            "DEF", "DEF2", "DEF3", "MID1", "MID2", "MID3", "FWD", "FWD2",
-        ]
+        assert f.outfield_positions() == ["LB", "CB", "RB", "LM", "CM", "RM", "CF", "CF2"]
 
-    def test_outfield_positions_11v11(self):
+    def test_outfield_positions_4_4_2(self):
         f = Formation.parse("4-4-2")
-        assert f.outfield_positions() == [
-            "DEF", "DEF2", "DEF3", "DEF4", "MID1", "MID2", "MID3", "MID4", "FWD", "FWD2",
-        ]
+        assert f.outfield_positions() == ["LB", "CB", "CB2", "RB", "LM", "CM", "CM2", "RM", "CF", "CF2"]
 
     def test_notation_roundtrip(self):
         assert Formation.parse("2-3-1").notation == "2-3-1"
@@ -80,7 +75,7 @@ class TestGameConfig:
         assert DEFAULT_CONFIG.break_subs == 5
 
     def test_all_positions_5v5(self):
-        assert DEFAULT_CONFIG.all_positions() == ["GK", "DEF", "MID1", "MID2", "FWD"]
+        assert DEFAULT_CONFIG.all_positions() == ["GK", "CB", "LM", "RM", "CF"]
 
     def test_9v9_config(self):
         cfg = get_config(9, "3-3-2")

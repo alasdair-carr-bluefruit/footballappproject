@@ -22,37 +22,43 @@ from backend.models.player import Player
 
 class Position(StrEnum):
     GK = "GK"
-    # DEF positions (DEF is first, DEF2–DEF4 for larger formations)
-    DEF = "DEF"
-    DEF2 = "DEF2"
-    DEF3 = "DEF3"
-    DEF4 = "DEF4"
-    # MID positions (always numbered)
-    MID1 = "MID1"
-    MID2 = "MID2"
-    MID3 = "MID3"
-    MID4 = "MID4"
-    MID5 = "MID5"
-    # FWD positions (FWD is first, FWD2–FWD3 for larger formations)
-    FWD = "FWD"
-    FWD2 = "FWD2"
-    FWD3 = "FWD3"
+    # DEF positions
+    LB = "LB"
+    CB = "CB"
+    CB2 = "CB2"
+    RB = "RB"
+    # MID positions
+    LM = "LM"
+    CM = "CM"
+    CM2 = "CM2"
+    RM = "RM"
+    CAM = "CAM"
+    # FWD positions
+    LW = "LW"
+    CF = "CF"
+    CF2 = "CF2"
+    RW = "RW"
+
+
+_DEF_POSITIONS: frozenset[str] = frozenset({"LB", "CB", "CB2", "RB"})
+_MID_POSITIONS: frozenset[str] = frozenset({"LM", "CM", "CM2", "RM", "CAM"})
+_FWD_POSITIONS: frozenset[str] = frozenset({"LW", "CF", "CF2", "RW"})
 
 
 def normalize_position(pos: str | Position) -> str:
     """Normalize a position to its base type for variety checking.
 
-    DEF, DEF2, DEF3, DEF4 → 'DEF'
-    MID1, MID2, ... MID5  → 'MID'
-    FWD, FWD2, FWD3       → 'FWD'
-    GK                    → 'GK'
+    LB, CB, CB2, RB → 'DEF'
+    LM, CM, CM2, RM, CAM → 'MID'
+    LW, CF, CF2, RW → 'FWD'
+    GK → 'GK'
     """
     s = str(pos)
-    if s.startswith("MID"):
-        return "MID"
-    if s.startswith("DEF"):
+    if s in _DEF_POSITIONS:
         return "DEF"
-    if s.startswith("FWD"):
+    if s in _MID_POSITIONS:
+        return "MID"
+    if s in _FWD_POSITIONS:
         return "FWD"
     return s
 
@@ -62,8 +68,8 @@ def is_def_position(pos: str | Position) -> bool:
     return normalize_position(pos) == "DEF"
 
 
-# Default 5v5 formation slots: 1 GK + 1 DEF + 2 MID + 1 FWD
-OUTFIELD_POSITIONS = [Position.DEF, Position.MID1, Position.MID2, Position.FWD]
+# Default 5v5 formation slots: 1 GK + 1 CB + 2 MID (LM/RM) + 1 CF
+OUTFIELD_POSITIONS = [Position.CB, Position.LM, Position.RM, Position.CF]
 ALL_POSITIONS = [Position.GK] + OUTFIELD_POSITIONS
 
 

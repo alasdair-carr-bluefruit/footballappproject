@@ -14,7 +14,7 @@ from tests.conftest import make_player
 def _make_slot(slot_index: int, gk, outfield: list) -> SlotAssignment:
     slot = SlotAssignment(slot_index=slot_index)
     slot.lineup[Position.GK] = gk
-    positions = [Position.DEF, Position.MID1, Position.MID2, Position.FWD]
+    positions = [Position.CB, Position.LM, Position.RM, Position.CF]
     for pos, player in zip(positions, outfield):
         slot.lineup[pos] = player
     return slot
@@ -92,7 +92,10 @@ class TestBalanceSkills:
         match = Match(date=date(2026, 3, 24))
         plan = generate_rotation(squad, match)
         restricted = next(p for p in squad.available if p.def_restricted)
+        from backend.models.rotation import normalize_position
         for slot in plan.slots:
-            assert slot.lineup.get(Position.DEF) is not restricted, (
-                f"DEF-restricted player found in DEF at slot {slot.slot_index}"
-            )
+            for pos, player in slot.lineup.items():
+                if normalize_position(pos) == "DEF":
+                    assert player is not restricted, (
+                        f"DEF-restricted player found in {pos} at slot {slot.slot_index}"
+                    )

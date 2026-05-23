@@ -89,6 +89,8 @@
         <button class="btn btn-primary" id="btn-go-new-match">+ New Match</button>
         <button class="btn btn-secondary" id="btn-go-squad">Edit Squad</button>
         <button class="btn btn-secondary" id="btn-go-stats">Season Stats</button>
+        <button class="btn-export" id="btn-export-matches-csv">↓ CSV</button>
+        <button class="btn-export btn-sheets" id="btn-export-matches-sheets"><svg class="sheets-icon" viewBox="0 0 24 24"><rect fill="#34A853" width="24" height="24" rx="3"/><rect fill="#fff" x="5" y="7" width="14" height="2"/><rect fill="#fff" x="5" y="11" width="14" height="2"/><rect fill="#fff" x="5" y="15" width="9" height="2"/></svg>Sheets</button>
       </div>
     </header>
     <ul class="match-list" id="match-list"></ul>
@@ -108,6 +110,14 @@
       <label>
         Date
         <input type="date" id="match-date" />
+      </label>
+
+      <label>
+        Venue
+        <div class="home-away-picker" id="home-away-picker">
+          <button type="button" class="ha-btn active" data-ha="home">🏠 Home</button>
+          <button type="button" class="ha-btn" data-ha="away">✈️ Away</button>
+        </div>
       </label>
 
       <label>Team Size</label>
@@ -166,6 +176,22 @@
       <button class="btn-back" id="btn-squad-back">◀ Matches</button>
       <h2>Squad</h2>
     </header>
+
+    <!-- Team info section -->
+    <div class="team-info-card" id="team-info-card">
+      <div class="team-info-logo-wrap">
+        <label class="team-logo-btn" id="team-logo-label" title="Upload team logo">
+          <img id="team-logo-img" class="team-logo-img" src="" alt="" hidden />
+          <span class="team-logo-placeholder" id="team-logo-placeholder">+</span>
+          <input type="file" id="team-logo-input" accept="image/*" hidden />
+        </label>
+      </div>
+      <div class="team-info-name-wrap">
+        <input type="text" id="team-name-input" class="team-name-input" placeholder="Team name" maxlength="30" />
+      </div>
+      <button class="btn btn-secondary btn-sm" id="btn-save-team-info">Save</button>
+    </div>
+
     <ul class="player-list" id="player-list"></ul>
     <div class="squad-footer">
       <button class="btn btn-primary btn-full" id="btn-add-player">+ Add Player</button>
@@ -213,6 +239,10 @@
     <header class="header header-sub">
       <button class="btn-back" id="btn-stats-back">◀ Matches</button>
       <h2>Season Stats</h2>
+      <div class="export-btn-group">
+        <button class="btn-export" id="btn-export-stats-csv">↓ CSV</button>
+        <button class="btn-export btn-sheets" id="btn-export-stats-sheets"><svg class="sheets-icon" viewBox="0 0 24 24"><rect fill="#34A853" width="24" height="24" rx="3"/><rect fill="#fff" x="5" y="7" width="14" height="2"/><rect fill="#fff" x="5" y="11" width="14" height="2"/><rect fill="#fff" x="5" y="15" width="9" height="2"/></svg>Sheets</button>
+      </div>
     </header>
     <ul class="stats-list" id="stats-list"></ul>
   </div>
@@ -236,12 +266,18 @@
 
     <section class="report-section" id="report-section" style="display:none">
       <ul class="report-list" id="report-list"></ul>
+      <div class="export-row" id="export-row" hidden>
+        <button class="btn-export" id="btn-export-report-csv">↓ CSV</button>
+        <button class="btn-export btn-sheets" id="btn-export-report-sheets"><svg class="sheets-icon" viewBox="0 0 24 24"><rect fill="#34A853" width="24" height="24" rx="3"/><rect fill="#fff" x="5" y="7" width="14" height="2"/><rect fill="#fff" x="5" y="11" width="14" height="2"/><rect fill="#fff" x="5" y="15" width="9" height="2"/></svg>Sheets</button>
+      </div>
     </section>
 
     <section class="bench-section">
       <div class="bench-title">Bench</div>
       <ul class="bench-list" id="bench-list"></ul>
     </section>
+
+    <div class="adjust-status" id="adjust-status" hidden>Regenerating plan for other quarters…</div>
 
     <div class="controls">
       <button class="btn btn-prev" id="btn-prev">◀ Back</button>
@@ -271,6 +307,49 @@
     </div>
 
   </div><!-- /screen-pitch -->
+
+  <!-- ── Screen: Full Time ───────────────────────────────────────────────── -->
+  <div id="screen-fulltime" class="screen" hidden>
+    <div class="ft-wrapper">
+      <div class="ft-card" id="ft-card">
+        <div class="ft-badge">Full Time</div>
+
+        <div class="ft-teams">
+          <div class="ft-team-block ft-home-block">
+            <div class="ft-team-logo" id="ft-home-logo"></div>
+            <div class="ft-team-name" id="ft-home-name">My Team</div>
+          </div>
+          <div class="ft-scoreline">
+            <span class="ft-score-num" id="ft-our-score">0</span>
+            <span class="ft-score-sep">–</span>
+            <span class="ft-score-num" id="ft-their-score">0</span>
+          </div>
+          <div class="ft-team-block ft-away-block">
+            <div class="ft-team-name" id="ft-away-name">Opponent</div>
+          </div>
+        </div>
+
+        <div class="ft-meta" id="ft-meta"></div>
+
+        <div class="ft-scorers-section" id="ft-scorers-section" hidden>
+          <div class="ft-scorers-title">⚽ Goal scorers</div>
+          <div class="ft-scorers-list" id="ft-scorers-list"></div>
+        </div>
+      </div>
+
+      <div class="ft-opp-goals-row">
+        <label class="ft-opp-label">
+          Opponent goals
+          <input type="number" id="ft-opp-input" class="ft-opp-input" min="0" value="0" />
+        </label>
+      </div>
+
+      <div class="ft-actions">
+        <button class="btn btn-primary btn-full" id="btn-ft-share">Share Result</button>
+        <button class="btn btn-secondary btn-full" id="btn-ft-done">Done</button>
+      </div>
+    </div>
+  </div>
 
 </div><!-- /app -->
 

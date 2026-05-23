@@ -516,13 +516,16 @@ html, body {
 .btn-next:not(:disabled):active { background: #1f9e55; }
 
 .btn-adjust {
-  background: var(--trophy-amber);
-  color: var(--slate);
-  font-size: 13px;
+  background: transparent;
+  color: var(--trophy-amber);
+  font-size: 11px;
   flex: 0 0 auto;
-  padding: 14px 16px;
+  padding: 6px 10px;
+  border: 1px solid var(--trophy-amber);
+  border-radius: 6px;
+  opacity: 0.75;
 }
-.btn-adjust:active { background: #d9a03c; }
+.btn-adjust:active { opacity: 1; }
 
 /* ── Swap overlay ────────────────────────────────────────────────── */
 
@@ -600,8 +603,10 @@ html, body {
 
 /* ── Edit mode indicators ────────────────────────────────────────── */
 
-.pitch.edit-mode .player-circle { cursor: pointer; }
-.pitch.edit-mode .player-circle:active { transform: scale(0.95); }
+.pitch.edit-mode .player-circle { cursor: grab; }
+.pitch.edit-mode .player-circle:active { transform: scale(0.95); cursor: grabbing; }
+.player-circle.dragging { opacity: 0.4; transform: scale(0.9); }
+.player-circle.drag-over { outline: 2px solid var(--matchday); box-shadow: 0 0 0 4px rgba(46,190,107,0.25); }
 
 .slot-locked-badge {
   display: inline-block;
@@ -1262,6 +1267,81 @@ html, body {
 }
 .btn-sm:active { background: rgba(255,255,255,0.2); }
 
+.btn-export {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 6px;
+  color: var(--text-muted, rgba(255,255,255,0.55));
+  font-size: 12px;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-export:active { background: rgba(255,255,255,0.08); }
+
+.btn-export.btn-sheets {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-color: #34A853;
+  color: #34A853;
+}
+.btn-export.btn-sheets:active { background: rgba(52,168,83,0.12); }
+
+.sheets-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.export-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+
+.export-btn-group {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.sheets-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e2d40;
+  color: #f0f0f0;
+  font-size: 14px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  animation: fadeInUp 0.2s ease;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.adjust-status {
+  text-align: center;
+  font-size: 13px;
+  color: var(--trophy-amber);
+  padding: 6px 16px;
+  letter-spacing: 0.02em;
+  animation: pulse-text 1s ease-in-out infinite alternate;
+}
+@keyframes pulse-text {
+  from { opacity: 0.6; }
+  to   { opacity: 1; }
+}
+
 .btn-danger { color: #e74c3c; }
 .btn-danger:active { background: rgba(231,76,60,0.15); }
 
@@ -1366,3 +1446,262 @@ html, body {
   color: var(--text-dim);
 }
 
+
+/* ── Home/Away picker ────────────────────────────────────────────── */
+
+.home-away-picker {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ha-btn {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.ha-btn.active {
+  border-color: var(--matchday);
+  background: rgba(46,190,107,0.15);
+  color: var(--chalk);
+}
+
+/* ── Team info card (squad screen) ──────────────────────────────── */
+
+.team-info-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.team-logo-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.team-logo-btn:hover { border-color: var(--matchday); }
+
+.team-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.team-logo-placeholder {
+  font-size: 22px;
+  color: rgba(255,255,255,0.3);
+  line-height: 1;
+}
+
+.team-name-input {
+  flex: 1;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--chalk);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.team-name-input:focus {
+  outline: none;
+  border-color: var(--matchday);
+}
+
+.btn-sm {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+/* ── Full time screen ─────────────────────────────────────────────── */
+
+.ft-wrapper {
+  padding: 20px 16px 40px;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ft-card {
+  background: linear-gradient(160deg, var(--pitch-deep) 0%, var(--pitch) 100%);
+  border-radius: 18px;
+  padding: 28px 20px 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.ft-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--matchday);
+  background: rgba(46,190,107,0.15);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.ft-teams {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
+.ft-team-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.ft-team-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--chalk);
+  overflow: hidden;
+}
+
+.ft-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.ft-team-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chalk);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.ft-scoreline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ft-score-num {
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--chalk);
+  line-height: 1;
+  min-width: 40px;
+  text-align: center;
+}
+
+.ft-score-sep {
+  font-size: 36px;
+  font-weight: 300;
+  color: rgba(242,244,238,0.4);
+}
+
+.ft-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.ft-scorers-section {
+  width: 100%;
+  text-align: center;
+}
+
+.ft-scorers-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ft-scorers-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.ft-scorer {
+  background: rgba(46,190,107,0.15);
+  color: var(--matchday);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ft-opp-goals-row {
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.ft-opp-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--chalk);
+  gap: 12px;
+}
+
+.ft-opp-input {
+  width: 70px;
+  padding: 8px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  color: var(--chalk);
+}
+
+.ft-opp-input:focus { outline: none; border-color: var(--matchday); }
+
+.ft-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

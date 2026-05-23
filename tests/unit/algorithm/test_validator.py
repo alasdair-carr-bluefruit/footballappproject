@@ -19,10 +19,13 @@ class TestDEFRestriction:
         ])
         match = Match(date=date(2026, 3, 23))
         plan = generate_rotation(squad, match)
+        from backend.models.rotation import normalize_position
         for slot in plan.slots:
-            assert slot.lineup.get(Position.DEF) is not restricted, (
-                f"DEF-restricted Alice found in DEF at slot {slot.slot_index}"
-            )
+            for pos, player in slot.lineup.items():
+                if normalize_position(pos) == "DEF":
+                    assert player is not restricted, (
+                        f"DEF-restricted Alice found in {pos} at slot {slot.slot_index}"
+                    )
 
 
 class TestGKMidQuarterChange:

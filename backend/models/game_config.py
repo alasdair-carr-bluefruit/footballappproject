@@ -9,6 +9,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+_DEF_KEYS: dict[int, list[str]] = {
+    1: ["CB"],
+    2: ["CB", "CB2"],
+    3: ["LB", "CB", "RB"],
+    4: ["LB", "CB", "CB2", "RB"],
+}
+
+_MID_KEYS: dict[int, list[str]] = {
+    1: ["CM"],
+    2: ["LM", "RM"],
+    3: ["LM", "CM", "RM"],
+    4: ["LM", "CM", "CM2", "RM"],
+    5: ["LM", "CM", "CM2", "RM", "CAM"],
+}
+
+_FWD_KEYS: dict[int, list[str]] = {
+    1: ["CF"],
+    2: ["CF", "CF2"],
+    3: ["LW", "CF", "RW"],
+}
+
+
 @dataclass(frozen=True)
 class Formation:
     """A formation parsed from 'D-M-F' notation (e.g. '2-3-1')."""
@@ -39,28 +61,13 @@ class Formation:
         return f"{self.defense}-{self.midfield}-{self.forward}"
 
     def outfield_positions(self) -> list[str]:
-        """Generate position keys for this formation.
+        """Return real football position keys for this formation.
 
-        Single-count positions use bare names (DEF, FWD).
-        Multi-count positions use numbered names (DEF, DEF2, DEF3; MID1, MID2).
-        This preserves backward compatibility with the original 1-2-1 formation
-        which used DEF, MID1, MID2, FWD.
+        Defense:  1→[CB]  2→[CB,CB2]  3→[LB,CB,RB]  4→[LB,CB,CB2,RB]
+        Midfield: 1→[CM]  2→[LM,RM]  3→[LM,CM,RM]  4→[LM,CM,CM2,RM]  5→[LM,CM,CM2,RM,CAM]
+        Forward:  1→[CF]  2→[CF,CF2]  3→[LW,CF,RW]
         """
-        positions: list[str] = []
-
-        # DEF positions: DEF, DEF2, DEF3, DEF4
-        for i in range(1, self.defense + 1):
-            positions.append("DEF" if i == 1 else f"DEF{i}")
-
-        # MID positions: always numbered MID1, MID2, ...
-        for i in range(1, self.midfield + 1):
-            positions.append(f"MID{i}")
-
-        # FWD positions: FWD, FWD2, FWD3
-        for i in range(1, self.forward + 1):
-            positions.append("FWD" if i == 1 else f"FWD{i}")
-
-        return positions
+        return _DEF_KEYS[self.defense] + _MID_KEYS[self.midfield] + _FWD_KEYS[self.forward]
 
     def __str__(self) -> str:
         return self.notation

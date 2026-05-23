@@ -7,10 +7,13 @@ let showingChanges = false;
 let editMode = false;
 let lockedSlots = new Set(); // slot indices locked by coach edits
 let pendingSwap = null; // {slotIndex, posKey, currentPlayerName}
+let dragState = null; // {slotIndex, posKey, playerName} for drag-and-drop
 let matchData = null; // { match, slots, warnings }
 const goalCounts = {}; // { playerName: count }
 let gameConfigs = null; // cached from /api/matches/config/game-configs
 let selectedSize = 5;
+let selectedHomeAway = "home";
+let teamInfo = { team_name: "My Team", team_logo: "" }; // cached squad info
 
 // ── Screen management ─────────────────────────────────────────────────────────
 function showScreen(id) {
@@ -24,21 +27,32 @@ function parseFormation(notation) {
   return { defense: d, midfield: m, forward: f };
 }
 
+const DEF_KEYS = { 1: ["CB"], 2: ["CB","CB2"], 3: ["LB","CB","RB"], 4: ["LB","CB","CB2","RB"] };
+const MID_KEYS = { 1: ["CM"], 2: ["LM","RM"], 3: ["LM","CM","RM"], 4: ["LM","CM","CM2","RM"], 5: ["LM","CM","CM2","RM","CAM"] };
+const FWD_KEYS = { 1: ["CF"], 2: ["CF","CF2"], 3: ["LW","CF","RW"] };
+const _DEF_SET = new Set(["LB","CB","CB2","RB"]);
+const _MID_SET = new Set(["LM","CM","CM2","RM","CAM"]);
+const _FWD_SET = new Set(["LW","CF","CF2","RW"]);
+
 function formationPositions(notation) {
   const { defense, midfield, forward } = parseFormation(notation);
-  const positions = [];
-  for (let i = 1; i <= defense; i++) positions.push(i === 1 ? "DEF" : `DEF${i}`);
-  for (let i = 1; i <= midfield; i++) positions.push(`MID${i}`);
-  for (let i = 1; i <= forward; i++) positions.push(i === 1 ? "FWD" : `FWD${i}`);
-  return positions;
+  return [...(DEF_KEYS[defense] || []), ...(MID_KEYS[midfield] || []), ...(FWD_KEYS[forward] || [])];
 }
 
 function normalizePos(pos) {
-  if (pos.startsWith("MID")) return "MID";
-  if (pos.startsWith("DEF")) return "DEF";
-  if (pos.startsWith("FWD")) return "FWD";
+  if (_DEF_SET.has(pos)) return "DEF";
+  if (_MID_SET.has(pos)) return "MID";
+  if (_FWD_SET.has(pos)) return "FWD";
   return pos;
 }
+
+function slotCountForPlayer(playerName) {
+  if (!matchData) return 0;
+  return matchData.slots.filter(s => Object.values(s.lineup).some(p => p.name === playerName)).length;
+}
+
+// Load team info once on startup
+api.getTeamInfo().then(info => { if (info) teamInfo = info; }).catch(() => {});
 
 // ── Landing screen ────────────────────────────────────────────────────────────
 document.getElementById("btn-season-mode").addEventListener("click", () => loadHome());
@@ -187,6 +201,13 @@ document.getElementById("size-picker").addEventListener("click", e => {
   if (btn) selectSize(parseInt(btn.dataset.size));
 });
 
+document.getElementById("home-away-picker").addEventListener("click", e => {
+  const btn = e.target.closest(".ha-btn");
+  if (!btn) return;
+  selectedHomeAway = btn.dataset.ha;
+  document.querySelectorAll(".ha-btn").forEach(b => b.classList.toggle("active", b === btn));
+});
+
 function updateFairnessLabel(value) {
   const el = document.getElementById("fairness-value");
   const warn = document.getElementById("fairness-warning");
@@ -238,6 +259,7 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
   pendingMatchConfig = {
     date, opponent, team_size: selectedSize, formation,
     fairness, fairness_value: fairnessVal, rotation_intensity,
+    home_away: selectedHomeAway,
   };
 
   // Load players and show availability panel
@@ -301,6 +323,24 @@ let editingPlayerId = null;
 async function loadSquad() {
   showScreen("screen-squad");
   closePlayerForm();
+
+  // Populate team info fields
+  const info = await api.getTeamInfo().catch(() => null);
+  if (info) {
+    teamInfo = info;
+    document.getElementById("team-name-input").value = info.team_name || "";
+    const img = document.getElementById("team-logo-img");
+    const placeholder = document.getElementById("team-logo-placeholder");
+    if (info.team_logo) {
+      img.src = info.team_logo;
+      img.hidden = false;
+      placeholder.hidden = true;
+    } else {
+      img.hidden = true;
+      placeholder.hidden = false;
+    }
+  }
+
   const players = await api.getPlayers().catch(() => []);
   const list = document.getElementById("player-list");
   list.innerHTML = "";
@@ -398,6 +438,36 @@ function closePlayerForm() {
 }
 
 document.getElementById("btn-squad-back").addEventListener("click", loadHome);
+
+// Team logo file input → preview
+document.getElementById("team-logo-input").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    const img = document.getElementById("team-logo-img");
+    img.src = dataUrl;
+    img.hidden = false;
+    document.getElementById("team-logo-placeholder").hidden = true;
+  };
+  reader.readAsDataURL(file);
+});
+
+// Save team name + logo
+document.getElementById("btn-save-team-info").addEventListener("click", async () => {
+  const name = document.getElementById("team-name-input").value.trim() || "My Team";
+  const logo = document.getElementById("team-logo-img").hidden ? "" : document.getElementById("team-logo-img").src;
+  const btn = document.getElementById("btn-save-team-info");
+  btn.textContent = "Saving…";
+  try {
+    teamInfo = await api.updateTeamInfo({ team_name: name, team_logo: logo });
+    btn.textContent = "Saved ✓";
+    setTimeout(() => { btn.textContent = "Save"; }, 1500);
+  } catch {
+    btn.textContent = "Save";
+  }
+});
 document.getElementById("btn-add-player").addEventListener("click", () => openPlayerForm());
 document.getElementById("btn-cancel-player").addEventListener("click", closePlayerForm);
 
@@ -476,7 +546,7 @@ function outgoingSubs(cur, nxt) {
 }
 
 // ── Pitch rendering ───────────────────────────────────────────────────────────
-function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapClick = null) {
+function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapClick = null, dragData = null) {
   const div = document.createElement("div");
   div.className = "player-circle tappable";
   if (isIncoming) div.classList.add("incoming");
@@ -546,6 +616,41 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
     });
   }
 
+  // Drag-and-drop for same-slot position swaps in edit mode
+  if (dragData) {
+    div.draggable = true;
+    div.addEventListener("dragstart", e => {
+      dragState = { slotIndex: dragData.slotIndex, posKey: dragData.posKey, playerName: name };
+      e.dataTransfer.effectAllowed = "move";
+      setTimeout(() => div.classList.add("dragging"), 0);
+    });
+    div.addEventListener("dragover", e => {
+      if (dragState && dragState.slotIndex === dragData.slotIndex && dragState.posKey !== dragData.posKey) {
+        e.preventDefault();
+        div.classList.add("drag-over");
+      }
+    });
+    div.addEventListener("dragleave", () => div.classList.remove("drag-over"));
+    div.addEventListener("dragend", () => {
+      div.classList.remove("dragging");
+      dragState = null;
+    });
+    div.addEventListener("drop", e => {
+      e.preventDefault();
+      div.classList.remove("drag-over");
+      if (!dragState || dragState.slotIndex !== dragData.slotIndex || dragState.posKey === dragData.posKey) return;
+      // Same slot, different position — swap locally
+      const slot = matchData.slots[dragData.slotIndex];
+      const playerA = slot.lineup[dragState.posKey];
+      const playerB = slot.lineup[dragData.posKey];
+      slot.lineup[dragState.posKey] = playerB;
+      slot.lineup[dragData.posKey] = playerA;
+      lockedSlots.add(dragData.slotIndex);
+      dragState = null;
+      render();
+    });
+  }
+
   return div;
 }
 
@@ -607,36 +712,26 @@ function render() {
 
   const { defense, midfield, forward } = parseFormation(formation);
 
-  // Build rows: FWD, MID, DEF, GK (top to bottom)
+  // Build rows: FWD, MID, DEF, GK (top to bottom on screen)
   const rows = [
-    { type: "FWD", count: forward },
-    { type: "MID", count: midfield },
-    { type: "DEF", count: defense },
-    { type: "GK", count: 1 },
+    { keys: FWD_KEYS[forward] || [] },
+    { keys: MID_KEYS[midfield] || [] },
+    { keys: DEF_KEYS[defense] || [] },
+    { keys: ["GK"] },
   ];
 
   rows.forEach(row => {
     const rowEl = document.createElement("div");
     rowEl.className = "pitch-row";
-    if (row.count > 1) rowEl.classList.add("multi-row");
+    if (row.keys.length > 1) rowEl.classList.add("multi-row");
 
-    for (let i = 1; i <= row.count; i++) {
-      let posKey;
-      if (row.type === "GK") {
-        posKey = "GK";
-      } else if (row.type === "MID") {
-        posKey = `MID${i}`;
-      } else if (row.type === "DEF") {
-        posKey = i === 1 ? "DEF" : `DEF${i}`;
-      } else {
-        posKey = i === 1 ? "FWD" : `FWD${i}`;
-      }
+    row.keys.forEach(posKey => {
       const name = slot.lineup[posKey]?.name ?? "?";
-      const displayRole = row.type;
-      const isGk = row.type === "GK";
+      const isGk = posKey === "GK";
       const swapHandler = editMode && !isGk ? () => openSwapPicker(currentSlot, posKey, name) : null;
-      rowEl.appendChild(playerCircle(name, displayRole, incoming.has(name), outgoing.has(name), isGk, swapHandler));
-    }
+      const dragData = editMode && !isGk ? { slotIndex: currentSlot, posKey } : null;
+      rowEl.appendChild(playerCircle(name, posKey, incoming.has(name), outgoing.has(name), isGk, swapHandler, dragData));
+    });
 
     pitch.appendChild(rowEl);
   });
@@ -733,6 +828,7 @@ function renderChanges() {
   document.querySelector(".pitch-wrapper").style.display = "none";
   document.querySelector(".bench-section").style.display = "none";
   document.getElementById("report-section").style.display = "block";
+  document.getElementById("export-row").hidden = true;
 
   const list = document.getElementById("report-list");
   list.innerHTML = "";
@@ -851,8 +947,9 @@ function renderReport() {
   list.appendChild(skillLi);
 
   document.getElementById("btn-prev").disabled = false;
-  document.getElementById("btn-next").disabled = true;
-  document.getElementById("btn-next").textContent = "Full time";
+  document.getElementById("btn-next").disabled = false;
+  document.getElementById("btn-next").textContent = "Full Time ▶";
+  document.getElementById("export-row").hidden = false;
 }
 
 function showMatch() {
@@ -861,13 +958,17 @@ function showMatch() {
   document.querySelector(".pitch-wrapper").style.display = "";
   document.querySelector(".bench-section").style.display = "";
   document.getElementById("report-section").style.display = "none";
+  document.getElementById("export-row").hidden = true;
   document.getElementById("progress-dots").style.display = "";
   render();
 }
 
 // ── Pitch controls ────────────────────────────────────────────────────────────
-document.getElementById("btn-next").addEventListener("click", () => {
-  if (showingReport) return;
+document.getElementById("btn-next").addEventListener("click", async () => {
+  if (showingReport) {
+    await showFulltime();
+    return;
+  }
   if (showingChanges) {
     showingChanges = false;
     showMatch();
@@ -926,9 +1027,10 @@ function openSwapPicker(slotIndex, posKey, currentPlayerName) {
 
   // Show bench players as swap options
   slot.bench.forEach(p => {
+    const count = slotCountForPlayer(p.name);
     const li = document.createElement("li");
     li.className = "swap-item";
-    li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">Bench</span>`;
+    li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">Bench · ${count} slot${count !== 1 ? "s" : ""}</span>`;
     li.addEventListener("click", () => executeSwap(p.id, p.name));
     list.appendChild(li);
   });
@@ -936,9 +1038,10 @@ function openSwapPicker(slotIndex, posKey, currentPlayerName) {
   // Also show other on-pitch players (position swap)
   Object.entries(slot.lineup).forEach(([pos, p]) => {
     if (p.name !== currentPlayerName && pos !== "GK") {
+      const count = slotCountForPlayer(p.name);
       const li = document.createElement("li");
       li.className = "swap-item";
-      li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">${pos}</span>`;
+      li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">${pos} · ${count} slot${count !== 1 ? "s" : ""}</span>`;
       li.addEventListener("click", () => executeSwap(p.id, p.name));
       list.appendChild(li);
     }
@@ -959,22 +1062,30 @@ async function executeSwap(newPlayerId, newPlayerName) {
   const isOnPitch = Object.entries(slot.lineup).find(([, p]) => p.name === newPlayerName);
 
   if (isOnPitch) {
-    // Position swap: swap the two players' positions
+    // Position-only swap: both players already in this slot, just swap their positions.
+    // No playing time changes for anyone — handle locally, no API call needed.
     const [otherPos] = isOnPitch;
     const currentPlayer = slot.lineup[posKey];
-    edits[slotIndex] = {
-      [posKey]: newPlayerId,
-      [otherPos]: currentPlayer.id,
-    };
-  } else {
-    // Bench swap: replace current player with bench player
-    edits[slotIndex] = { [posKey]: newPlayerId };
+    slot.lineup[posKey] = slot.lineup[otherPos];
+    slot.lineup[otherPos] = currentPlayer;
+    lockedSlots.add(slotIndex);
+    pendingSwap = null;
+    render();
+    return;
   }
+
+  // Bench swap: replace current player with bench player
+  edits[slotIndex] = { [posKey]: newPlayerId };
+
+  const statusEl = document.getElementById("adjust-status");
+  statusEl.hidden = false;
 
   try {
     const result = await api.adjustRotation(
       matchData.match.id, edits, [...lockedSlots],
     );
+
+    statusEl.hidden = true;
 
     // Check for fairness warnings
     if (result.fairness_warnings && result.fairness_warnings.length > 0) {
@@ -984,6 +1095,7 @@ async function executeSwap(newPlayerId, newPlayerName) {
 
     applyAdjustResult(result);
   } catch (err) {
+    statusEl.hidden = true;
     alert("Could not adjust: " + err.message);
   }
   pendingSwap = null;
@@ -1005,7 +1117,11 @@ function showFairnessWarning(result) {
   const confirmBtn = document.getElementById("btn-fairness-confirm");
   const handler = () => {
     document.getElementById("fairness-overlay").hidden = true;
-    applyAdjustResult(result);
+    document.getElementById("adjust-status").hidden = false;
+    setTimeout(() => {
+      applyAdjustResult(result);
+      document.getElementById("adjust-status").hidden = true;
+    }, 600);
     confirmBtn.removeEventListener("click", handler);
   };
   confirmBtn.addEventListener("click", handler);
@@ -1022,17 +1138,85 @@ function applyAdjustResult(result) {
   render();
 }
 
-// Save goals when leaving pitch view
+// Save goals when leaving pitch view via back button (no opponent goals known yet)
 async function saveGoalsIfNeeded() {
   if (!matchData || !matchData.match.id) return;
   const hasGoals = Object.values(goalCounts).some(v => v > 0);
   if (hasGoals) {
-    await api.saveGoals(matchData.match.id, goalCounts).catch(() => {});
+    await api.saveGoals(matchData.match.id, goalCounts, matchData.match.opponent_goals || 0).catch(() => {});
   }
 }
 
 document.getElementById("btn-pitch-back").addEventListener("click", async () => {
   await saveGoalsIfNeeded();
+  loadHome();
+});
+
+// ── Full time screen ───────────────────────────────────────────────────────────
+async function showFulltime() {
+  const match = matchData.match;
+  const ourGoals = Object.values(goalCounts).reduce((sum, n) => sum + n, 0);
+  const oppGoals = match.opponent_goals || 0;
+
+  const isHome = (match.home_away || "home") === "home";
+  const ourName = teamInfo.team_name || "My Team";
+  const oppName = match.opponent || "Opponent";
+
+  // Populate team blocks depending on home/away
+  document.getElementById("ft-home-name").textContent = isHome ? ourName : oppName;
+  document.getElementById("ft-away-name").textContent = isHome ? oppName : ourName;
+  document.getElementById("ft-our-score").textContent = isHome ? ourGoals : oppGoals;
+  document.getElementById("ft-their-score").textContent = isHome ? oppGoals : ourGoals;
+
+  // Team logo
+  const logoEl = document.getElementById("ft-home-logo");
+  if (isHome && teamInfo.team_logo) {
+    logoEl.innerHTML = `<img src="${teamInfo.team_logo}" alt="${ourName}" class="ft-logo-img" />`;
+  } else {
+    logoEl.textContent = isHome ? ourName.slice(0, 2).toUpperCase() : oppName.slice(0, 2).toUpperCase();
+  }
+
+  // Date + venue
+  const date = new Date(match.date + "T12:00:00");
+  const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const venue = isHome ? "Home" : "Away";
+  document.getElementById("ft-meta").textContent = `${dateStr}  ·  ${venue}`;
+
+  // Opponent goals input
+  document.getElementById("ft-opp-input").value = oppGoals;
+
+  // Goal scorers
+  const scorers = Object.entries(goalCounts).filter(([, n]) => n > 0);
+  const scorersSection = document.getElementById("ft-scorers-section");
+  const scorersList = document.getElementById("ft-scorers-list");
+  if (scorers.length > 0) {
+    scorers.sort((a, b) => b[1] - a[1]);
+    scorersList.innerHTML = scorers.map(([name, n]) =>
+      `<span class="ft-scorer">${name}${n > 1 ? ` (×${n})` : ""}</span>`
+    ).join("");
+    scorersSection.hidden = false;
+  } else {
+    scorersSection.hidden = true;
+  }
+
+  showScreen("screen-fulltime");
+}
+
+// Update score display live as opponent goals change
+document.getElementById("ft-opp-input").addEventListener("input", e => {
+  const oppGoals = Math.max(0, parseInt(e.target.value) || 0);
+  const ourGoals = Object.values(goalCounts).reduce((sum, n) => sum + n, 0);
+  const isHome = (matchData?.match.home_away || "home") === "home";
+  document.getElementById("ft-our-score").textContent = isHome ? ourGoals : oppGoals;
+  document.getElementById("ft-their-score").textContent = isHome ? oppGoals : ourGoals;
+});
+
+
+document.getElementById("btn-ft-done").addEventListener("click", async () => {
+  const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
+  if (matchData?.match.id) {
+    await api.saveGoals(matchData.match.id, goalCounts, oppGoals).catch(() => {});
+  }
   loadHome();
 });
 
@@ -1074,6 +1258,228 @@ async function loadStats() {
     list.appendChild(li);
   });
 }
+
+// ── Export utilities ──────────────────────────────────────────────────────────
+function downloadCsv(filename, rows) {
+  const csv = rows.map(r => r.map(cell => {
+    const s = String(cell ?? "");
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function openInSheets(rows, filename) {
+  const csv = rows.map(r => r.map(cell => {
+    const s = String(cell ?? "");
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(",")).join("\n");
+  const file = new File([csv], filename || "export.csv", { type: "text/csv" });
+
+  // On mobile (Android/iOS) — native share sheet shows Google Sheets, Drive, etc.
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: "Open in Google Sheets" }).catch(() => {});
+    return;
+  }
+
+  // Desktop fallback: copy as TSV (pastes natively into Sheets) + open sheets.new
+  const tsv = rows.map(r => r.map(cell => String(cell ?? "").replace(/\t/g, " ")).join("\t")).join("\n");
+  await navigator.clipboard.writeText(tsv).catch(() => {});
+  window.open("https://sheets.new", "_blank");
+  const toast = document.createElement("div");
+  toast.className = "sheets-toast";
+  toast.textContent = "Data copied \u2014 paste with Ctrl+V / \u2318V into the new sheet";
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+function buildReportRows() {
+  const match = matchData.match;
+  const pLabel = (match.period_label || "Quarter") === "Half" ? "H" : "Q";
+  const totalSlots = matchData.slots.length;
+  const slotLabels = Array.from({ length: totalSlots }, (_, i) => {
+    const p = Math.floor(i / 2) + 1;
+    const h = i % 2 === 0 ? "a" : "b";
+    return `${pLabel}${p}${h}`;
+  });
+  const allPlayers = [
+    ...Object.values(matchData.slots[0].lineup),
+    ...matchData.slots[0].bench,
+  ].sort((a, b) => a.name.localeCompare(b.name));
+  const perSlot = {};
+  allPlayers.forEach(p => { perSlot[p.name] = Array(totalSlots).fill(""); });
+  matchData.slots.forEach(slot => {
+    Object.entries(slot.lineup).forEach(([pos, p]) => {
+      perSlot[p.name][slot.slot_index] = normalizePos(pos);
+    });
+  });
+  const rows = [["Player", ...slotLabels, "Slots", "Goals"]];
+  allPlayers.forEach(({ name }) => {
+    const slots = perSlot[name];
+    rows.push([name, ...slots, slots.filter(Boolean).length, goalCounts[name] || 0]);
+  });
+  return rows;
+}
+
+async function buildMatchesRows() {
+  const matches = await api.getMatches().catch(() => []);
+  return [
+    ["Date", "Opponent", "Size", "Formation", "Home/Away", "Has Rotation"],
+    ...matches.map(m => {
+      const d = new Date(m.date + "T12:00:00");
+      return [
+        d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+        m.opponent || "", `${m.team_size || 5}v${m.team_size || 5}`,
+        m.formation || "", m.home_away || "home", m.has_rotation ? "Yes" : "No",
+      ];
+    }),
+  ];
+}
+
+async function buildStatsRows() {
+  const stats = await api.getSeasonStats().catch(() => []);
+  return [
+    ["Player", "Matches Available", "Slots Played", "Goals"],
+    ...stats.map(s => [s.name, s.matches_available, s.slots_played, s.goals || 0]),
+  ];
+}
+
+document.getElementById("btn-export-report-csv").addEventListener("click", () => {
+  if (!matchData) return;
+  const opp = matchData.match.opponent || "match";
+  downloadCsv(`${matchData.match.date}-vs-${opp}.csv`, buildReportRows());
+});
+document.getElementById("btn-export-report-sheets").addEventListener("click", () => {
+  if (!matchData) return;
+  const opp = matchData.match.opponent || "match";
+  openInSheets(buildReportRows(), `${matchData.match.date}-vs-${opp}.csv`);
+});
+
+document.getElementById("btn-export-matches-csv").addEventListener("click", async () => {
+  downloadCsv("season-matches.csv", await buildMatchesRows());
+});
+document.getElementById("btn-export-matches-sheets").addEventListener("click", async () => {
+  openInSheets(await buildMatchesRows(), "season-matches.csv");
+});
+
+document.getElementById("btn-export-stats-csv").addEventListener("click", async () => {
+  downloadCsv("season-stats.csv", await buildStatsRows());
+});
+document.getElementById("btn-export-stats-sheets").addEventListener("click", async () => {
+  openInSheets(await buildStatsRows(), "season-stats.csv");
+});
+
+// ── Share result (canvas image) ───────────────────────────────────────────────
+document.getElementById("btn-ft-share").addEventListener("click", () => {
+  const match = matchData.match;
+  const ourGoals = Object.values(goalCounts).reduce((sum, n) => sum + n, 0);
+  const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
+  const isHome = (match.home_away || "home") === "home";
+  const ourName = teamInfo.team_name || "My Team";
+  const oppName = match.opponent || "Opponent";
+  const homeTeam = isHome ? ourName : oppName;
+  const awayTeam = isHome ? oppName : ourName;
+  const homeGoals = isHome ? ourGoals : oppGoals;
+  const awayGoals = isHome ? oppGoals : ourGoals;
+
+  const date = new Date(match.date + "T12:00:00");
+  const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const scorers = Object.entries(goalCounts).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+
+  const W = 600;
+  const H = 300 + Math.max(0, scorers.length) * 38;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, "#1e2d40");
+  grad.addColorStop(1, "#111c2a");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Top amber bar
+  ctx.fillStyle = "#f0b429";
+  ctx.fillRect(0, 0, W, 5);
+
+  // FULL TIME label
+  ctx.fillStyle = "#f0b429";
+  ctx.font = "bold 18px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("FULL TIME", W / 2, 45);
+
+  // Date
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.font = "15px system-ui, sans-serif";
+  ctx.fillText(dateStr, W / 2, 68);
+
+  // Divider
+  ctx.strokeStyle = "rgba(255,255,255,0.1)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(50, 85); ctx.lineTo(W - 50, 85); ctx.stroke();
+
+  // Team names
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 24px system-ui, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(homeTeam, W / 2 - 50, 155);
+  ctx.textAlign = "left";
+  ctx.fillText(awayTeam, W / 2 + 50, 155);
+
+  // Score
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 72px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${homeGoals}–${awayGoals}`, W / 2, 165);
+
+  // Scorers
+  if (scorers.length > 0) {
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.beginPath(); ctx.moveTo(50, 190); ctx.lineTo(W - 50, 190); ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.font = "17px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    let y = 222;
+    scorers.forEach(([name, n]) => {
+      ctx.fillText(`\u26BD  ${name}${n > 1 ? `  \xD7${n}` : ""}`, W / 2, y);
+      y += 38;
+    });
+  }
+
+  // Watermark
+  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Gaffr \u2014 Football Squad Rotation", W / 2, H - 14);
+
+  canvas.toBlob(async (blob) => {
+    const file = new File([blob], "result.png", { type: "image/png" });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `FT: ${homeTeam} ${homeGoals}\u2013${awayGoals} ${awayTeam}`,
+      }).catch(() => {});
+    } else if (navigator.share) {
+      await navigator.share({
+        title: `FT: ${homeTeam} ${homeGoals}\u2013${awayGoals} ${awayTeam}`,
+        text: `FULL TIME\n${homeTeam} ${homeGoals}\u2013${awayGoals} ${awayTeam}\n${dateStr}`,
+      }).catch(() => {});
+    } else {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `FT-${match.date}.png`;
+      a.click();
+    }
+  }, "image/png");
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 showScreen("screen-landing");

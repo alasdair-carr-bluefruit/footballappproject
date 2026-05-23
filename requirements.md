@@ -273,3 +273,11 @@ Feature: Team balance
 | **v0.5** | Player history and position tracking |
 | **v0.6** | Manual override with rule validation warnings; mid-match player removal and re-calculation |
 | **v1.0** | Persistent storage, stable for real match use |
+
+
+Extra features:
+
+- Coach ability to add custom formations (include name positions e.g. LW, CDM etc.)
+- Export available on the final slot in a match to CSV or Google Sheets
+- Export available on Season Mode page (where all the matches are shown)
+- Export available on the 'Season stats' page

@@ -9,7 +9,7 @@ from pytest_bdd import given, scenarios, then, when
 from backend.algorithm.rotation_engine import generate_rotation
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier
-from backend.models.rotation import Position, RotationPlan
+from backend.models.rotation import Position, RotationPlan, normalize_position
 from tests.conftest import make_player
 
 pytestmark = pytest.mark.bdd
@@ -53,11 +53,12 @@ def no_def_restricted_in_def(context):
     plan: RotationPlan = context["plan"]
     restricted = [p for p in context["squad"].available if p.def_restricted]
     for slot in plan.slots:
-        def_player = slot.lineup.get(Position.DEF)
-        for r in restricted:
-            assert def_player is not r, (
-                f"DEF-restricted player {r.name} assigned DEF at slot {slot.slot_index}"
-            )
+        for pos, player in slot.lineup.items():
+            if normalize_position(pos) == "DEF":
+                for r in restricted:
+                    assert player is not r, (
+                        f"DEF-restricted player {r.name} assigned {pos} at slot {slot.slot_index}"
+                    )
 
 
 @then("no player should appear in more than 2 different positions across all slots")
@@ -69,7 +70,7 @@ def no_player_over_2_positions(context):
     max_types = 4  # 3 outfield + GK
     for player in context["squad"].available:
         raw = {pos for slot in plan.slots for pos, p in slot.lineup.items() if p is player}
-        normalised = {"MID" if pos in (Position.MID1, Position.MID2) else pos.value for pos in raw}
+        normalised = {normalize_position(pos) for pos in raw}
         assert len(normalised) <= max_types, (
             f"{player.name} plays {len(normalised)} positions {normalised} (max {max_types})"
         )

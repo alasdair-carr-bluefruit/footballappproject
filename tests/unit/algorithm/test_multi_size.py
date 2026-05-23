@@ -75,7 +75,7 @@ class TestMultiSize7v7:
         match = _match_with_config(7, "2-3-1")
         squad = Squad(players=_squad(12))
         plan = generate_rotation(squad, match)
-        expected = {"GK", "DEF", "DEF2", "MID1", "MID2", "MID3", "FWD"}
+        expected = {"GK", "CB", "CB2", "LM", "CM", "RM", "CF"}
         for slot in plan.slots:
             pos_names = {p.value for p in slot.lineup.keys()}
             assert pos_names == expected, f"Slot {slot.slot_index}: {pos_names}"
@@ -128,7 +128,7 @@ class TestMultiSize9v9:
         match = _match_with_config(9, "3-3-2")
         squad = Squad(players=_squad(14))
         plan = generate_rotation(squad, match)
-        expected = {"GK", "DEF", "DEF2", "DEF3", "MID1", "MID2", "MID3", "FWD", "FWD2"}
+        expected = {"GK", "LB", "CB", "RB", "LM", "CM", "RM", "CF", "CF2"}
         for slot in plan.slots:
             pos_names = {p.value for p in slot.lineup.keys()}
             assert pos_names == expected, f"Slot {slot.slot_index}: {pos_names}"

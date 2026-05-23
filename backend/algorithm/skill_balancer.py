@@ -57,7 +57,7 @@ def balance_skills(plan: RotationPlan, config: GameConfig | None = None) -> Rota
 # ---------------------------------------------------------------------------
 
 def _copy_slot(slot: SlotAssignment) -> SlotAssignment:
-    new = SlotAssignment(slot_index=slot.slot_index)
+    new = SlotAssignment(slot_index=slot.slot_index, locked=slot.locked)
     new.lineup = dict(slot.lineup)
     return new
 
@@ -76,6 +76,10 @@ def _try_best_swap(slots: list, i: int, j: int, mid_period_subs: int = 2) -> boo
     """
     slot_i = slots[i]
     slot_j = slots[j]
+
+    # Never touch slots locked by manual coach edits
+    if slot_i.locked or slot_j.locked:
+        return False
 
     best_delta = 0.0
     best_swap = None

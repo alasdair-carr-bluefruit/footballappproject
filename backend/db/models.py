@@ -7,6 +7,8 @@ class SquadDB(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = "My Squad"
+    team_name: str = "My Team"
+    team_logo: str = ""  # base64 DataURL or empty string
 
 
 class PlayerDB(SQLModel, table=True):
@@ -36,6 +38,8 @@ class MatchDB(SQLModel, table=True):
     fairness: str = "equal"  # "equal" or "competitive"
     fairness_value: int = 0  # 0-100 slider raw value
     rotation_intensity: int = 50  # 0 = specialist, 100 = all-rounder
+    home_away: str = "home"  # "home" or "away"
+    opponent_goals: int = 0
 
 
 class RotationPlanDB(SQLModel, table=True):

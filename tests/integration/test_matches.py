@@ -49,7 +49,7 @@ def test_generate_rotation(client: TestClient, squad_10: None) -> None:
     data = resp.json()
     assert len(data["slots"]) == 8
     slot = data["slots"][0]
-    assert set(slot["lineup"].keys()) == {"GK", "DEF", "MID1", "MID2", "FWD"}
+    assert set(slot["lineup"].keys()) == {"GK", "CB", "LM", "RM", "CF"}
     assert len(slot["bench"]) == 5  # 10 players - 5 on pitch
 
 

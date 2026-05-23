@@ -16,10 +16,12 @@ async function request(path, options = {}) {
 
 export const api = {
   // Squad
+  getTeamInfo:   ()           => request("/squad/info"),
+  updateTeamInfo:(data)       => request("/squad/info",           { method: "PUT",    body: data }),
   getPlayers:    ()           => request("/squad/players"),
-  addPlayer:     (data)       => request("/squad/players",       { method: "POST",   body: data }),
-  updatePlayer:  (id, data)   => request(`/squad/players/${id}`, { method: "PUT",    body: data }),
-  deletePlayer:  (id)         => request(`/squad/players/${id}`, { method: "DELETE" }),
+  addPlayer:     (data)       => request("/squad/players",        { method: "POST",   body: data }),
+  updatePlayer:  (id, data)   => request(`/squad/players/${id}`,  { method: "PUT",    body: data }),
+  deletePlayer:  (id)         => request(`/squad/players/${id}`,  { method: "DELETE" }),
 
   // Matches
   getMatches:        ()   => request("/matches/"),
@@ -28,7 +30,7 @@ export const api = {
   generateRotation:  (id, body) => request(`/matches/${id}/rotation`, { method: "POST", body: body || {} }),
   adjustRotation:    (id, edits, lockedSlots) => request(`/matches/${id}/adjust`, { method: "POST", body: { edits, locked_slots: lockedSlots } }),
   deleteMatch:       (id) => request(`/matches/${id}`,          { method: "DELETE" }),
-  saveGoals:         (id, goals) => request(`/matches/${id}/goals`, { method: "POST", body: { goals } }),
+  saveGoals:         (id, goals, opponentGoals) => request(`/matches/${id}/goals`, { method: "POST", body: { goals, opponent_goals: opponentGoals || 0 } }),
   getSeasonStats:    ()   => request("/matches/stats/season"),
 
   // Config

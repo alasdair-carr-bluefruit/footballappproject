@@ -156,14 +156,6 @@ def adjust_rotation(
             plan.warnings = ["VIOLATION: " + v for v in violations]
         return plan, _fairness_diff(original_counts, plan, players)
 
-    # Count how many slots each player already uses in locked slots
-    locked_counts: dict = defaultdict(int)
-    for s in new_slots:
-        if s.locked:
-            for p in s.players:
-                locked_counts[p] += 1
-
-    # Compute targets and subtract locked usage to get remaining budget
     rotation_intensity = match.rotation_intensity
     num_slots = config.total_slots
     total_player_slots = num_slots * config.players_per_slot
@@ -187,40 +179,21 @@ def adjust_rotation(
         fairness=match.fairness, fairness_value=fairness_value,
     )
 
-    # Adjust targets: subtract locked slot appearances
-    adjusted_targets = {p: max(0, targets[p] - locked_counts.get(p, 0)) for p in players}
-
-    # Count unlocked player-slots needed
-    unlocked_player_slots = len(unlocked_indices) * config.players_per_slot
-    # GK for unlocked slots — reuse original GK assignments
-    gk_for_unlocked = [gk_assignments_orig[i] for i in unlocked_indices]
-
-    # Build only the unlocked slots using the algorithm
+    # GK for all slots — reuse original GK assignments
     future_gk: dict = defaultdict(int)
-    for gk in gk_for_unlocked:
+    for gk in gk_assignments_orig:
         if gk is not None:
             future_gk[id(gk)] += 1
 
-    unlocked_plan = _build_slots(
-        players, [gk_assignments_orig[i] for i in range(num_slots)],
-        adjusted_targets, future_gk, num_slots, config, rotation_intensity,
+    # Build full plan: locked slots are pre-filled (counts tracked correctly),
+    # unlocked slots are regenerated using full targets.
+    locked_slot_map = {s.slot_index: s for s in new_slots if s.locked}
+    merged_plan = _build_slots(
+        players, gk_assignments_orig, targets, future_gk, num_slots, config, rotation_intensity,
+        pre_filled_slots=locked_slot_map,
     )
 
-    # Merge: locked slots stay, unlocked slots get replaced
-    final_slots = []
-    unlocked_iter = iter(s for s in unlocked_plan.slots if s.slot_index in set(unlocked_indices))
-    for s in new_slots:
-        if s.locked:
-            final_slots.append(s)
-        else:
-            regen = next(unlocked_iter, None)
-            if regen:
-                regen.slot_index = s.slot_index
-                final_slots.append(regen)
-            else:
-                final_slots.append(s)
-
-    plan = RotationPlan(slots=final_slots, warnings=[])
+    plan = RotationPlan(slots=merged_plan.slots, warnings=[])
 
     # Skill balance on unlocked slots only
     plan = balance_skills(plan, config)
@@ -266,6 +239,9 @@ def _align_mid_quarter_positions(
     for period in range(len(plan.slots) // 2):
         h1 = plan.slots[period * 2]
         h2 = plan.slots[period * 2 + 1]
+        # Skip periods where either slot was manually edited by the coach
+        if h1.locked or h2.locked:
+            continue
         for pos_key in outfield_pos_keys:
             pos = Position(pos_key)
             h1_player = h1.lineup.get(pos)
@@ -309,15 +285,35 @@ def _build_slots(
     num_slots: int,
     config: GameConfig,
     rotation_intensity: int = 50,
+    pre_filled_slots: dict | None = None,
 ) -> RotationPlan:
-    """Assign players to all slots respecting constraints."""
+    """Assign players to all slots respecting constraints.
+
+    pre_filled_slots: optional dict[slot_index → SlotAssignment] for locked slots.
+    Locked slots are inserted as-is and their players are counted into slot_counts
+    so the algorithm correctly budgets the remaining unlocked slots.
+    """
     outfield_count = config.formation.outfield_count
     slot_counts: dict = defaultdict(int)
     position_sets: dict = defaultdict(set)
     slots: list = []
     remaining_gk = dict(future_gk)
+    pre_filled = pre_filled_slots or {}
+
+    # Pre-populate counts from locked slots so the algorithm knows about them
+    for pre_slot in pre_filled.values():
+        for pos, player in pre_slot.lineup.items():
+            slot_counts[player] += 1
+            position_sets[player].add(normalize_position(pos))
+            if pos == Position.GK:
+                remaining_gk[id(player)] = max(0, remaining_gk.get(id(player), 0) - 1)
 
     for slot_index in range(num_slots):
+        # Use pre-filled (locked) slot as-is, counts already recorded above
+        if slot_index in pre_filled:
+            slots.append(pre_filled[slot_index])
+            continue
+
         gk_player = gk_assignments[slot_index]
         slot = SlotAssignment(slot_index=slot_index)
 
