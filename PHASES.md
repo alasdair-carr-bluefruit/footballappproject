@@ -50,42 +50,80 @@ Acceptance: Manual browser test on mobile. App usable offline.
 
 ---
 
-## v0.5 — FastAPI + SQLite Persistence ← CURRENT
+## v0.5 — FastAPI + SQLite Persistence ✓ DONE
 **Goal:** Data survives browser close / phone restart.
 
 New:
 - `backend/api/` — FastAPI routers for squads, matches, rotations
 - `backend/db/` — SQLite via SQLModel
 - `tests/integration/` — DB + HTTP endpoint tests
+- Render deployment
 
 Acceptance: Integration tests green. Data persists across sessions.
 
 ---
 
-## v0.6 — Player History, Manual Override & Mid-Match Re-Calculation
-**Goal:** Coach can track development, override plans, and handle mid-match changes.
+## v0.6 — Multi-Size, Formations, Fairness & Match Day ✓ DONE
+**Goal:** Support team sizes beyond 5v5, configurable match structure, and a polished match-day experience.
 
 New:
-- Position history tracking per player per match + cumulative
-- Minutes played counter
-- Per-player summary view
-- Manual override with rule-violation warnings
-- Mid-match player removal: mark a player unavailable from a given slot onward, re-generate remaining slots
-- Player reinstatement: restore a removed player and re-calculate again
-- `tests/bdd/features/squad_management.feature`
-- `tests/bdd/features/mid_match_recalculation.feature`
+- **Multi-size rotation** — 5v5 through 9v9 with configurable formations (1-2-1, 2-3-1, 3-3-2, etc.)
+- **Formation model** — `GameConfig`, `Formation`, `PRESET_CONFIGS` with per-size sub limits
+- **Position names** — LB/CB/RB, LM/CM/RM, CAM, LW/CF/RW (derived from formation shape)
+- **Fairness slider** — equal (0-15) → competitive (16-100) with skill-weighted distribution
+- **Rotation intensity slider** — specialist (0) → balanced (50) → all-rounder (100)
+- **Player position preferences** — `preferred_positions`, `best_position` (hard constraints)
+- **Tinkering mode** — manual override with paper texture, SVG wobble rings, drag-and-drop position swaps, slot locking, partial re-calculation
+- **Shirt numbers** — optional per player, displayed in tokens, conflict detection for duplicates
+- **Match-day features** — goal recording (long-press), home/away, opponent goals
+- **Full Time share image** — canvas-rendered PNG with team logo, score, scorers (Web Share API)
+- **Season mode stats** — cumulative slots, goals per player
+- **Branding** — Gaffer identity, brand guidelines (BRAND.md), icon, wordmark
+- **Duplicate name rejection** — API returns 422 for same-name players
+- **105 tests** — unit, BDD, integration
 
-Acceptance: History BDD scenarios pass. Override warnings shown correctly. Mid-match re-calculation produces a valid plan for remaining slots.
+Acceptance: Multi-size BDD scenarios pass. Real-world match tested at 7v7.
 
 ---
 
-## v1.0 — Stable for Real Match Use
-**Goal:** Reliable enough to use every match week.
+## v0.7 — Match Day Polish ← NEXT
+**Goal:** Lock match state, handle mid-match disruptions, and track player history.
 
-New:
-- Bug fixes from real-world use
-- UI polish
-- All BDD + integration tests green
-- No known data-loss scenarios
+Planned:
+- **Start Match** — explicit "Start Match ▶" button; past slots auto-locked, not editable
+- **Mid-match player removal** (FR-30-34) — mark player unavailable from a slot onward, re-calculate remaining slots
+- **Player reinstatement** (FR-35) — restore removed player and re-calculate
+- **Player history** — per-player summary view: positions played, slots, goals across matches
+- **Export** — CSV/Google Sheets from season mode (re-add once stable)
 
-Acceptance: Full test suite green. Used successfully in at least one real match.
+Acceptance: Start Match locks past slots. Removal/reinstatement produces valid plans. History view shows cumulative stats.
+
+---
+
+## v0.8 — Tournament Mode
+**Goal:** Manage back-to-back short matches at tournament days with cross-match minute tracking.
+
+Planned:
+- Tournament entity grouping multiple matches
+- Cross-match cumulative minutes tracking
+- "Start strong" competitive default for short matches
+- Knockout stage support (configurable count)
+- 8-a-side support
+
+Acceptance: Tournament day with 4+ group matches produces fair cumulative minutes.
+
+---
+
+## v1.0 — Multi-User & Auth
+**Goal:** Multiple coaches, multiple teams, shared access.
+
+Planned:
+- User accounts (email/password or OAuth)
+- User → Team → Squad → Players/Matches data model
+- Invite-based team sharing (edit access for all coaches)
+- JWT/session auth middleware on all API endpoints
+- PostgreSQL migration (SQLite → Postgres for concurrent access)
+- Hosting: evaluate Render Postgres vs Supabase/Railway/Fly.io
+- Data migration for existing single-squad data
+
+Acceptance: Two coaches can independently manage their own teams. Invited coaches see shared squad/matches.
