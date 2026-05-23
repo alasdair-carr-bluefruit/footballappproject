@@ -40,6 +40,7 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
         ValueError: if the squad is too small to fill a lineup
     """
     config = _resolve_config(match)
+    rotation_intensity = match.rotation_intensity
     players = squad.available
     n = len(players)
     num_slots = config.total_slots
@@ -74,7 +75,7 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
             future_gk[id(gk)] += 1
 
     # Step 3: Build slot assignments
-    plan = _build_slots(players, gk_assignments, targets, future_gk, num_slots, config)
+    plan = _build_slots(players, gk_assignments, targets, future_gk, num_slots, config, rotation_intensity)
     plan.warnings.extend(warnings)
 
     # Step 4: Skill balance optimisation (soft preference)
@@ -146,6 +147,7 @@ def _build_slots(
     future_gk: dict,
     num_slots: int,
     config: GameConfig,
+    rotation_intensity: int = 50,
 ) -> RotationPlan:
     """Assign players to all slots respecting constraints."""
     outfield_count = config.formation.outfield_count
@@ -181,7 +183,7 @@ def _build_slots(
             )
 
         _assign_outfield_positions(
-            slot, outfield_players, position_sets, slot_counts, config,
+            slot, outfield_players, position_sets, slot_counts, config, rotation_intensity,
         )
         slots.append(slot)
 
@@ -325,6 +327,7 @@ def _assign_outfield_positions(
     position_sets: dict,
     slot_counts: dict,
     config: GameConfig,
+    rotation_intensity: int = 50,
 ) -> None:
     """Assign outfield positions to selected players.
 
@@ -341,7 +344,11 @@ def _assign_outfield_positions(
 
     # How many distinct outfield position types exist in this formation
     outfield_types = {normalize_position(k) for k in pos_keys}
-    max_pos_types = len(outfield_types)  # e.g. 3 for DEF/MID/FWD
+    num_outfield_types = len(outfield_types)  # e.g. 3 for DEF/MID/FWD
+
+    # rotation_intensity controls how many position types a player can accumulate:
+    # 0 (specialist) → 1 type, 50 → ~2 types, 100 (all-rounder) → all types
+    max_pos_types = max(1, round(1 + (num_outfield_types - 1) * rotation_intensity / 100))
 
     def free_candidates(pos_label: str, pool: list) -> list:
         """Players who can take pos_label without exceeding the position type limit."""
@@ -361,7 +368,9 @@ def _assign_outfield_positions(
         pos_label = remaining.pop(0)
 
         pool = pool_for(pos_label)
-        player = _pick_for_position(pos_label, pool, position_sets, max_pos_types)
+        # High rotation → prefer new positions; low rotation → prefer familiar
+        prefer_variety = rotation_intensity >= 40
+        player = _pick_for_position(pos_label, pool, position_sets, max_pos_types, prefer_variety)
         assigned[pos_enum[pos_label]] = player
         unassigned.remove(player)
 
@@ -372,30 +381,38 @@ def _assign_outfield_positions(
 
 
 def _pick_for_position(
-    pos_label: str, candidates: list, position_sets: dict, max_pos_types: int = 3,
+    pos_label: str, candidates: list, position_sets: dict,
+    max_pos_types: int = 3, prefer_variety: bool = True,
 ) -> Player:
-    """Pick the best candidate for a position, favouring variety.
+    """Pick the best candidate for a position.
 
-    Priority:
-    1. Players who HAVEN'T played this position yet but can absorb it
-       (gives them experience in a new position)
-    2. Players who already play this position (no new type introduced)
-    3. Anyone remaining (validator will flag if over the limit)
+    When prefer_variety is True (high rotation):
+      1. Players who HAVEN'T played this position yet (new experience)
+      2. Players who already play this position
+    When prefer_variety is False (specialist/low rotation):
+      1. Players who already play this position (consistency)
+      2. Players who can absorb a new type
     """
     norm_label = normalize_position(pos_label)
 
-    # Prefer players who can absorb a NEW position type (promotes variety)
-    new_experience = [
-        p for p in candidates
-        if norm_label not in position_sets[p] and len(position_sets[p]) < max_pos_types
-    ]
-    if new_experience:
-        return min(new_experience, key=lambda p: len(position_sets[p]))
+    if prefer_variety:
+        # Prefer new experience
+        new_experience = [
+            p for p in candidates
+            if norm_label not in position_sets[p] and len(position_sets[p]) < max_pos_types
+        ]
+        if new_experience:
+            return min(new_experience, key=lambda p: len(position_sets[p]))
+    else:
+        # Prefer familiar position (specialist mode)
+        already_plays = [p for p in candidates if norm_label in position_sets[p]]
+        if already_plays:
+            return min(already_plays, key=lambda p: len(position_sets[p]))
 
-    # Fall back to players already playing this position
-    already_plays = [p for p in candidates if norm_label in position_sets[p]]
-    if already_plays:
-        return min(already_plays, key=lambda p: len(position_sets[p]))
+    # Common fallback: anyone who can absorb without violation
+    can_absorb = [p for p in candidates if len(position_sets[p]) < max_pos_types]
+    if can_absorb:
+        return min(can_absorb, key=lambda p: len(position_sets[p]))
 
     # Last resort
     return min(candidates, key=lambda p: len(position_sets[p]))

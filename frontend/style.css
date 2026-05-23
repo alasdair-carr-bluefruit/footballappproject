@@ -764,6 +764,10 @@ html, body {
   margin-bottom: 4px;
 }
 
+.rotation-track {
+  background: linear-gradient(to right, #42a5f5, var(--btn-primary), #ab47bc) !important;
+}
+
 /* ── Position checkboxes (pill toggles) ──────────────────────────── */
 
 .position-checkboxes {

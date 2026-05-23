@@ -27,6 +27,7 @@ class MatchCreate(BaseModel):
     team_size: int = 5
     formation: str = "1-2-1"
     fairness: str = "equal"
+    rotation_intensity: int = 50
 
 
 class MatchRead(BaseModel):
@@ -39,6 +40,7 @@ class MatchRead(BaseModel):
     team_size: int
     formation: str
     fairness: str
+    rotation_intensity: int
 
 
 def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
@@ -52,6 +54,7 @@ def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
         team_size=m.team_size,
         formation=m.formation,
         fairness=m.fairness,
+        rotation_intensity=m.rotation_intensity,
     )
 
 
@@ -69,6 +72,7 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "team_size": m.team_size,
             "formation": m.formation,
             "fairness": m.fairness,
+            "rotation_intensity": m.rotation_intensity,
             "period_label": period_label,
         },
         "slots": slots,

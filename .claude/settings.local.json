@@ -37,7 +37,18 @@
       "Bash(.venv/bin/pytest -q)",
       "Bash(.venv/bin/ruff check:*)",
       "Bash(/Users/ali/.local/bin/uv run:*)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(pip3 install:*)",
+      "Bash(python3.12 -m pip install -e \".[dev]\" -q)",
+      "Bash(python3.12 -m pip install -e \".[dev]\" -q --break-system-packages)",
+      "Bash(python3.12 -m pytest --tb=short -q 2>&1)",
+      "Bash(python3.12 -m pytest -m bdd --tb=short -v 2>&1)",
+      "Bash(python3.12 -m pytest -m bdd -v --tb=short 2>&1)",
+      "Bash(done)",
+      "Bash(python3.12 -c \"\nfrom datetime import date\nfrom backend.algorithm.rotation_engine import generate_rotation\nfrom backend.models.match import Match, Squad\nfrom backend.models.player import GKTier\nfrom backend.models.rotation import Position\nfrom tests.conftest import make_player\n\ndef run\\(\\):\n    squad = Squad\\(players=[\n        make_player\\('Preferred', GKTier.PREFERRED\\),\n        *[make_player\\(f'Player{i}'\\) for i in range\\(2, 10\\)],\n    ]\\)\n    match = Match\\(date=date\\(2026, 3, 23\\)\\)\n    plan = generate_rotation\\(squad, match\\)\n    \n    for player in squad.available:\n        raw = {pos for slot in plan.slots for pos, p in slot.lineup.items\\(\\) if p is player}\n        normalised = {'MID' if pos in \\(Position.MID1, Position.MID2\\) else pos.value for pos in raw}\n        if len\\(normalised\\) > 2:\n            print\\(f'VIOLATION: {player.name} plays {normalised}'\\)\n            for slot in plan.slots:\n                for pos, p in slot.lineup.items\\(\\):\n                    if p is player:\n                        print\\(f'  slot {slot.slot_index}: {pos}'\\)\n            return True\n    return False\n\nfor i in range\\(100\\):\n    if run\\(\\):\n        break\nelse:\n    print\\('No violations found in 100 runs'\\)\n\" 2>&1)",
+      "Bash(python3.12 -c \"\nimport random\nfrom datetime import date\nfrom backend.algorithm.rotation_engine import generate_rotation\nfrom backend.models.match import Match, Squad\nfrom backend.models.player import GKTier\nfrom backend.models.rotation import Position\nfrom tests.conftest import make_player\n\nviolations = {'position': 0, 'sub_limit': 0, 'other': 0}\nfor seed in range\\(500\\):\n    random.seed\\(seed\\)\n    squad = Squad\\(players=[\n        make_player\\('Preferred', GKTier.PREFERRED\\),\n        *[make_player\\(f'P{i}'\\) for i in range\\(2, 10\\)],\n    ]\\)\n    plan = generate_rotation\\(squad, Match\\(date=date\\(2026,3,23\\)\\)\\)\n    \n    pos_violation = False\n    for player in squad.available:\n        raw = {pos for slot in plan.slots for pos, p in slot.lineup.items\\(\\) if p is player}\n        norm = {'MID' if pos in \\(Position.MID1, Position.MID2\\) else pos.value for pos in raw}\n        if len\\(norm\\) > 2:\n            pos_violation = True\n    \n    if pos_violation:\n        violations['position'] += 1\n    elif any\\('sub limit' in w for w in plan.warnings\\):\n        violations['sub_limit'] += 1\n\nprint\\('Violations over 500 runs:', violations\\)\n\" 2>&1)",
+      "Skill(update-config)",
+      "Bash(git checkout:*)"
     ]
   }
 }

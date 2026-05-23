@@ -127,6 +127,8 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
   document.getElementById("fairness-slider").value = 0;
   updateFairnessLabel(0);
+  document.getElementById("rotation-slider").value = 50;
+  updateRotationLabel(50);
 
   // Load game configs if not cached
   if (!gameConfigs) {
@@ -188,6 +190,20 @@ document.getElementById("fairness-slider").addEventListener("input", e => {
   updateFairnessLabel(e.target.value);
 });
 
+function updateRotationLabel(value) {
+  const el = document.getElementById("rotation-value");
+  const v = parseInt(value);
+  if (v <= 15) el.textContent = "Specialist — players stay in one position";
+  else if (v <= 40) el.textContent = "Mostly fixed — occasional position changes";
+  else if (v <= 60) el.textContent = "Balanced — regular position rotation";
+  else if (v <= 85) el.textContent = "High rotation — players try most positions";
+  else el.textContent = "All-rounder — everyone plays everywhere";
+}
+
+document.getElementById("rotation-slider").addEventListener("input", e => {
+  updateRotationLabel(e.target.value);
+});
+
 document.getElementById("btn-go-squad").addEventListener("click", loadSquad);
 
 // ── New match screen ──────────────────────────────────────────────────────────
@@ -204,10 +220,11 @@ document.getElementById("new-match-form").addEventListener("submit", async e => 
   const formation = document.getElementById("formation-select").value;
   const fairnessVal = parseInt(document.getElementById("fairness-slider").value);
   const fairness = fairnessVal <= 15 ? "equal" : "competitive";
+  const rotation_intensity = parseInt(document.getElementById("rotation-slider").value);
 
   try {
     const match = await api.createMatch({
-      date, opponent, team_size: selectedSize, formation, fairness,
+      date, opponent, team_size: selectedSize, formation, fairness, rotation_intensity,
     });
     const data = await api.generateRotation(match.id);
     enterPitchView(data);

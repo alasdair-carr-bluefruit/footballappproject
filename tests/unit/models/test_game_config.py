@@ -92,12 +92,6 @@ class TestGameConfig:
         assert cfg.break_subs is None
         assert cfg.players_per_slot == 9
 
-    def test_11v11_config(self):
-        cfg = get_config(11, "4-4-2")
-        assert cfg.total_slots == 4
-        assert cfg.players_per_slot == 11
-        assert cfg.mid_period_subs == 4
-
     def test_7v7_config(self):
         cfg = get_config(7, "2-3-1")
         assert cfg.total_slots == 8
@@ -107,17 +101,16 @@ class TestGameConfig:
 
 class TestPresets:
     def test_all_team_sizes_have_presets(self):
-        assert set(PRESET_CONFIGS.keys()) == {5, 6, 7, 9, 11}
+        assert set(PRESET_CONFIGS.keys()) == {5, 6, 7, 9}
 
     def test_all_team_sizes_have_defaults(self):
-        assert set(DEFAULT_FORMATIONS.keys()) == {5, 6, 7, 9, 11}
+        assert set(DEFAULT_FORMATIONS.keys()) == {5, 6, 7, 9}
 
     @pytest.mark.parametrize("team_size,formation", [
         (5, "1-2-1"), (5, "2-1-1"),
         (6, "1-3-1"), (6, "2-2-1"), (6, "1-2-2"),
         (7, "2-3-1"), (7, "1-3-2"), (7, "2-2-2"),
         (9, "3-3-2"), (9, "2-4-2"), (9, "3-2-3"),
-        (11, "4-4-2"), (11, "4-3-3"), (11, "3-5-2"),
     ])
     def test_formation_team_size_matches(self, team_size, formation):
         cfg = get_config(team_size, formation)

@@ -146,31 +146,6 @@ class TestMultiSize9v9:
 
 
 @pytest.mark.unit
-class TestMultiSize11v11:
-    def test_11v11_generates_4_slots(self):
-        match = _match_with_config(11, "4-4-2")
-        squad = Squad(players=_squad(16))
-        plan = generate_rotation(squad, match)
-        assert len(plan.slots) == 4
-
-    def test_11v11_each_slot_has_11_players(self):
-        match = _match_with_config(11, "4-4-2")
-        squad = Squad(players=_squad(16))
-        plan = generate_rotation(squad, match)
-        for slot in plan.slots:
-            assert len(slot.players) == 11, f"Slot {slot.slot_index} has {len(slot.players)} players"
-
-    def test_11v11_correct_positions(self):
-        match = _match_with_config(11, "4-4-2")
-        squad = Squad(players=_squad(16))
-        plan = generate_rotation(squad, match)
-        expected = {"GK", "DEF", "DEF2", "DEF3", "DEF4", "MID1", "MID2", "MID3", "MID4", "FWD", "FWD2"}
-        for slot in plan.slots:
-            pos_names = {p.value for p in slot.lineup.keys()}
-            assert pos_names == expected, f"Slot {slot.slot_index}: {pos_names}"
-
-
-@pytest.mark.unit
 class TestMinimumSquad:
     def test_squad_too_small_for_7v7(self):
         match = _match_with_config(7, "2-3-1")
@@ -178,8 +153,3 @@ class TestMinimumSquad:
         with pytest.raises(ValueError, match="need at least 7"):
             generate_rotation(squad, match)
 
-    def test_squad_too_small_for_11v11(self):
-        match = _match_with_config(11, "4-4-2")
-        squad = Squad(players=_squad(10))
-        with pytest.raises(ValueError, match="need at least 11"):
-            generate_rotation(squad, match)

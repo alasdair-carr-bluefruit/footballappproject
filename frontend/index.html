@@ -48,7 +48,6 @@
         <button type="button" class="size-btn" data-size="6">6v6</button>
         <button type="button" class="size-btn" data-size="7">7v7</button>
         <button type="button" class="size-btn" data-size="9">9v9</button>
-        <button type="button" class="size-btn" data-size="11">11v11</button>
       </div>
 
       <label>
@@ -64,6 +63,16 @@
           <span class="fairness-label">Competitive</span>
         </div>
         <div class="fairness-value" id="fairness-value">Equal play</div>
+      </label>
+
+      <label>
+        Position Rotation
+        <div class="fairness-row">
+          <span class="fairness-label">Specialist</span>
+          <input type="range" id="rotation-slider" min="0" max="100" step="1" value="50" class="rotation-track" />
+          <span class="fairness-label">All-rounder</span>
+        </div>
+        <div class="fairness-value" id="rotation-value">Balanced rotation</div>
       </label>
 
       <button class="btn btn-primary btn-full" type="submit" id="btn-generate">

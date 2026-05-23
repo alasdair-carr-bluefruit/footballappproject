@@ -34,6 +34,7 @@ class MatchDB(SQLModel, table=True):
     team_size: int = 5
     formation: str = "1-2-1"
     fairness: str = "equal"  # "equal" or "competitive"
+    rotation_intensity: int = 50  # 0 = specialist, 100 = all-rounder
 
 
 class RotationPlanDB(SQLModel, table=True):
