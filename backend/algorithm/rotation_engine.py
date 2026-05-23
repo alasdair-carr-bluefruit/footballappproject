@@ -361,16 +361,25 @@ def _assign_outfield_positions(
     remaining = list(pos_enum.keys())
     while remaining and unassigned:
         def pool_for(lbl: str) -> list:
-            p = [x for x in unassigned if not (is_def_position(lbl) and x.def_restricted)]
-            return p if p else unassigned  # fallback: validator will flag
+            norm = normalize_position(lbl)
+            # Filter by preferred_positions (hard constraint) and DEF restriction
+            p = [
+                x for x in unassigned
+                if not (is_def_position(lbl) and x.def_restricted)
+                and _can_play_position(x, norm)
+            ]
+            # Fallback: if nobody's preferred_positions match, use anyone eligible
+            if not p:
+                p = [x for x in unassigned if not (is_def_position(lbl) and x.def_restricted)]
+            return p if p else unassigned
 
         remaining.sort(key=lambda lbl: len(free_candidates(lbl, pool_for(lbl))))
         pos_label = remaining.pop(0)
 
         pool = pool_for(pos_label)
-        # High rotation → prefer new positions; low rotation → prefer familiar
-        prefer_variety = rotation_intensity >= 40
-        player = _pick_for_position(pos_label, pool, position_sets, max_pos_types, prefer_variety)
+        player = _pick_for_position(
+            pos_label, pool, position_sets, max_pos_types, rotation_intensity,
+        )
         assigned[pos_enum[pos_label]] = player
         unassigned.remove(player)
 
@@ -380,36 +389,51 @@ def _assign_outfield_positions(
         slot_counts[player] += 1
 
 
+def _can_play_position(player: Player, norm_pos: str) -> bool:
+    """Return True if a player's preferred_positions allow this position type.
+
+    Players with empty preferred_positions can play anything (backward compat).
+    """
+    if not player.preferred_positions:
+        return True
+    return norm_pos in player.preferred_positions
+
+
 def _pick_for_position(
     pos_label: str, candidates: list, position_sets: dict,
-    max_pos_types: int = 3, prefer_variety: bool = True,
+    max_pos_types: int = 3, rotation_intensity: int = 50,
 ) -> Player:
     """Pick the best candidate for a position.
 
-    When prefer_variety is True (high rotation):
-      1. Players who HAVEN'T played this position yet (new experience)
-      2. Players who already play this position
-    When prefer_variety is False (specialist/low rotation):
-      1. Players who already play this position (consistency)
-      2. Players who can absorb a new type
+    Low rotation (specialist): prefer players whose best_position matches,
+    then players who already play this position.
+    High rotation (all-rounder): prefer players who HAVEN'T played this
+    position yet, spreading experience across preferred positions.
     """
     norm_label = normalize_position(pos_label)
 
-    if prefer_variety:
-        # Prefer new experience
+    if rotation_intensity < 40:
+        # Low rotation: prefer best_position match, then already plays
+        best_match = [
+            p for p in candidates
+            if p.best_position and normalize_position(p.best_position) == norm_label
+        ]
+        if best_match:
+            return min(best_match, key=lambda p: len(position_sets[p]))
+
+        already_plays = [p for p in candidates if norm_label in position_sets[p]]
+        if already_plays:
+            return min(already_plays, key=lambda p: len(position_sets[p]))
+    else:
+        # High rotation: prefer new experience
         new_experience = [
             p for p in candidates
             if norm_label not in position_sets[p] and len(position_sets[p]) < max_pos_types
         ]
         if new_experience:
             return min(new_experience, key=lambda p: len(position_sets[p]))
-    else:
-        # Prefer familiar position (specialist mode)
-        already_plays = [p for p in candidates if norm_label in position_sets[p]]
-        if already_plays:
-            return min(already_plays, key=lambda p: len(position_sets[p]))
 
-    # Common fallback: anyone who can absorb without violation
+    # Fallback: anyone who can absorb without exceeding the type limit
     can_absorb = [p for p in candidates if len(position_sets[p]) < max_pos_types]
     if can_absorb:
         return min(can_absorb, key=lambda p: len(position_sets[p]))
