@@ -784,7 +784,7 @@ function render() {
   // Adjust plan button (always visible on pitch view)
   const btnAdjust = document.getElementById("btn-adjust");
   btnAdjust.hidden = false;
-  btnAdjust.textContent = editMode ? "Done editing" : "Adjust Plan";
+  btnAdjust.textContent = editMode ? "Done" : "Tinker";
 
   // Show locked badge in slot label
   const slotLabelEl = document.getElementById("slot-label");
@@ -1015,7 +1015,7 @@ document.getElementById("btn-prev").addEventListener("click", () => {
 document.getElementById("btn-adjust").addEventListener("click", () => {
   editMode = !editMode;
   const btn = document.getElementById("btn-adjust");
-  btn.textContent = editMode ? "Done editing" : "Adjust Plan";
+  btn.textContent = editMode ? "Done" : "Tinker";
   render();
 });
 
