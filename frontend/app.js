@@ -723,7 +723,7 @@ function render() {
   const benchSection = document.querySelector(".bench-section");
   pitchWrapper?.classList.toggle("whiteboard", editMode);
   benchSection?.classList.toggle("whiteboard", editMode);
-  document.getElementById("edit-mode-badge").hidden = !editMode;
+  document.getElementById("edit-mode-badge").classList.toggle("visible", editMode);
 
   const { defense, midfield, forward } = parseFormation(formation);
 
