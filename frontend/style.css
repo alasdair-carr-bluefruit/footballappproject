@@ -135,9 +135,15 @@ html, body {
 
 /* ── Tinkering mode ────────────────────────────────────────────────── */
 
-/* Lighter green base so multiply blend produces a lighter result */
+/* Lighter green base + suppress pitch lines in tinkering mode */
 .pitch-wrapper.whiteboard {
-  background-color: #4A9A70;
+  background-color: #72C49A;
+  background-image: none; /* remove stripe texture */
+  --pitch-line: transparent;
+}
+
+.pitch-wrapper.whiteboard::after {
+  opacity: 0; /* hide centre circle hint */
 }
 
 /* Paper texture overlay — real JPG multiplied over the lighter green */
@@ -202,7 +208,7 @@ html, body {
   gap: 6px;
   background: #2EBE6B;
   color: #0E3A29;
-  font-family: 'Caveat', cursive;
+  font-family: 'Cabin Sketch', cursive;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.03em;
