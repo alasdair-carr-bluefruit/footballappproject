@@ -1341,7 +1341,7 @@ document.getElementById("btn-ft-share").addEventListener("click", () => {
   ctx.fillStyle = "rgba(255,255,255,0.18)";
   ctx.font = "12px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("Gaffr \u2014 Football Squad Rotation", W / 2, H - 14);
+  ctx.fillText("Gaffer \u2014 Football Squad Rotation", W / 2, H - 14);
 
   canvas.toBlob(async (blob) => {
     const file = new File([blob], "result.png", { type: "image/png" });

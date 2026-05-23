@@ -3,7 +3,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* ── Brand tokens (Gaffr v1.0) ──────────────────────────── */
+  /* ── Brand tokens (Gaffer v1.1) ──────────────────────────── */
   --pitch:         #1A5C42;
   --pitch-deep:    #0E3A29;
   --matchday:      #2EBE6B;
