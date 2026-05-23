@@ -616,8 +616,9 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
 
   if (onSwapClick) {
     div.addEventListener("click", (e) => {
-      if (pressTimer !== null) {
-        // Was a short tap, not a long press
+      // In edit mode there's no pressTimer (goal recording disabled), so always fire.
+      // In live mode only fire on short tap, not after a long-press goal.
+      if (editMode || pressTimer !== null) {
         onSwapClick();
       }
     });
@@ -772,7 +773,7 @@ function render() {
   });
 
   // Buttons
-  document.getElementById("btn-prev").disabled = currentSlot === 0;
+  document.getElementById("btn-prev").disabled = currentSlot === 0 || editMode;
   const btnNext = document.getElementById("btn-next");
   btnNext.disabled = editMode;
   if (currentSlot === matchData.slots.length - 1) {

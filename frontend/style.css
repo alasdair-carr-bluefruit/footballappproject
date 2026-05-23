@@ -185,8 +185,9 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* Sub arrow badges must sit above the wobble ring ::after */
-.sub-badge {
+/* Sub arrows and GK gloves must sit above the wobble ring ::after */
+.sub-badge,
+.gk-gloves {
   z-index: 2;
 }
 
