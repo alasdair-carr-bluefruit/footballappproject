@@ -7,15 +7,15 @@
 
 ## Project Summary
 
-A mobile-first Progressive Web App for a youth football coach to manage fair player rotation across a match. The system generates a full rotation plan (who plays where, when) across 8 half-quarter slots per match, enforcing GK tier priorities, DEF restrictions, equal playing time, and soft skill-balance goals.
+A mobile-first Progressive Web App for grassroots youth football coaches to manage fair player rotation across a match. The system generates a full rotation plan (who plays where, when) across configurable match structures, enforcing GK tier priorities, DEF restrictions, position preferences, equal/competitive playing time, and soft skill-balance goals.
 
-**Owner:** Personal project — single coach, no login required for v1.
+**Owner:** Personal project — multiple grassroots coaches, no login required for v1.
 
 ---
 
 ## Current Phase
 
-**v0.5 complete — FastAPI + SQLite + Render deployment + Web UI**
+**v0.6 in progress — Multi-size support, configurable fairness & rotation**
 
 Completed phases:
 - v0.1: Core rotation algorithm (Python only)
@@ -23,8 +23,9 @@ Completed phases:
 - v0.3: Skill balancing
 - v0.4: Web UI, pitch view, match day controls
 - v0.5: FastAPI backend, SQLite persistence (SQLModel), Render deployment, integration tests
+- v0.6 (partial): Multi-size (5v5–9v9), formations, fairness slider, position rotation slider, player position preferences
 
-Next: **v0.6 — Manual override + warnings + mid-match player removal & re-calculation**
+Next: **v0.6 completion — edge cases, real-world testing**
 
 ---
 
@@ -32,10 +33,10 @@ Next: **v0.6 — Manual override + warnings + mid-match player removal & re-calc
 
 | Layer | Choice |
 |---|---|
-| Backend | Python 3.12, FastAPI (v0.5+) |
+| Backend | Python 3.12, FastAPI |
 | Algorithm | Pure Python, no I/O dependencies |
-| Database | SQLite via SQLModel (v0.5+) |
-| Frontend | Vanilla JS (ES modules), Pico.css, PWA/Service Worker (v0.4+) |
+| Database | SQLite via SQLModel |
+| Frontend | Vanilla JS (ES modules), Pico.css, PWA/Service Worker |
 | Testing | pytest + pytest-bdd (Gherkin), pytest-asyncio |
 | Linting | ruff, mypy |
 
@@ -44,19 +45,10 @@ Next: **v0.6 — Manual override + warnings + mid-match player removal & re-calc
 ## Key Commands
 
 ```bash
-# Install dev dependencies
 pip install -e ".[dev]"
-
-# Run all tests
-pytest
-
-# Run only unit tests (fast, no DB/server)
-pytest -m unit
-
-# Run BDD scenarios
-pytest -m bdd
-
-# Run linter
+pytest                    # all tests
+pytest -m unit            # fast, no DB/server
+pytest -m bdd             # Gherkin BDD scenarios
 ruff check .
 ```
 
@@ -66,62 +58,90 @@ ruff check .
 
 ```
 football-rotation/
-├── CLAUDE.md                  ← YOU ARE HERE
-├── requirements.md            ← Full functional + non-functional spec
-├── PHASES.md                  ← Phase roadmap v0.1 → v1.0
+├── CLAUDE.md
+├── requirements.md
+├── PHASES.md
 ├── pyproject.toml
+├── main.py                    ← FastAPI app entry point
 │
 ├── backend/
-│   ├── models/                ← Pure data shapes (Player, Match, RotationPlan…)
-│   ├── algorithm/             ← Core engine — pure functions, zero I/O
-│   ├── api/                   ← FastAPI routers (v0.5+)
-│   └── db/                    ← SQLite repositories (v0.5+)
+│   ├── models/
+│   │   ├── player.py          ← Player, GKTier, preferred_positions, best_position
+│   │   ├── match.py           ← Match, Squad, game_config, fairness
+│   │   ├── rotation.py        ← Position enum, SlotAssignment, RotationPlan, normalize_position
+│   │   └── game_config.py     ← Formation, GameConfig, PRESET_CONFIGS
+│   ├── algorithm/
+│   │   ├── rotation_engine.py ← generate_rotation (parameterised for any team size)
+│   │   ├── gk_selector.py
+│   │   ├── time_balancer.py   ← equal + competitive modes
+│   │   ├── skill_balancer.py
+│   │   └── validator.py       ← configurable sub limits, position variety
+│   ├── api/                   ← FastAPI routers
+│   └── db/                    ← SQLite repositories
 │
-├── frontend/                  ← Vanilla JS PWA (v0.4+)
+├── frontend/                  ← Vanilla JS PWA
 │
 └── tests/
-    ├── unit/                  ← Fast, isolated tests for algorithm + models
-    ├── integration/           ← DB + HTTP endpoint tests (v0.5+)
-    └── bdd/                   ← Gherkin feature files + step definitions
-        ├── features/
+    ├── unit/
+    │   ├── algorithm/         ← test_multi_size.py, test_fairness.py
+    │   └── models/            ← test_game_config.py
+    ├── integration/
+    └── bdd/
+        ├── features/          ← multi_size.feature
         └── steps/
 ```
 
 ---
 
-## Algorithm Constraints (critical — read before touching `algorithm/`)
+## Supported Team Sizes
 
-### Match structure
-- 4 quarters × 2 half-quarters = **8 slots** total
-- 5 players on pitch per slot: 1 GK + 4 outfield (1 DEF, 2 MID, 1 FWD)
-- Total player-slots per match: 8 × 5 = **40**
+| Size | Formation options | Match structure | Mid-period subs | Break subs |
+|------|-------------------|-----------------|-----------------|------------|
+| 5v5  | 1-2-1, 2-1-1 | 4 quarters × 2 = 8 slots | 2 | 5 |
+| 6v6  | 1-3-1, 2-2-1, 1-2-2 | 4 quarters × 2 = 8 slots | 2 | 5 |
+| 7v7  | 2-3-1, 1-3-2, 2-2-2 | 4 quarters × 2 = 8 slots | 3 | 4 |
+| 9v9  | 3-3-2, 2-4-2, 3-2-3, 3-4-1, 4-3-1 | 2 halves × 2 = 4 slots | 4 | full squad |
 
-### Substitution rules (hard)
-- Mid-quarter (between half-quarter 1→2 within a quarter): **max 2 player changes**
-- Full quarter break (between quarter N→N+1): **max 5 player changes**
-- GK **never** changes mid-quarter — only at full quarter breaks
+---
 
-### GK tier priority (hard)
-1. `specialist` — GK only, never outfield
-   - Squad = 10: plays 4 slots (2 full quarters), sits out 4 slots
-   - Squad < 10: plays all 8 GK slots
-2. `preferred` — first choice when specialist absent
-3. `can_play` — second choice
-4. `emergency_only` — last resort; system must warn the coach
+## Algorithm Constraints
 
-### Playing time (hard, with tolerance)
-- Target: equal half-quarter slots for all available players
-- Max difference between most-played and least-played: **1 slot** (unless forced by GK constraints)
-- Extra slots (when equal division is impossible): first to players who covered non-specialist GK slots that match
+### Position naming
+- DEF positions: DEF, DEF2, DEF3, DEF4
+- MID positions: MID1, MID2, MID3, MID4, MID5 (always numbered)
+- FWD positions: FWD, FWD2, FWD3
+- All normalize via `normalize_position()` to "DEF"/"MID"/"FWD"/"GK" for variety checking
 
-### Position rules (hard)
-- `def_restricted = True` → player **never** assigned DEF
-- Each player plays **≤ 2 different positions** in a single match
+### Player position preferences (hard constraints)
+- `preferred_positions: list[str]` — positions the player CAN play (empty = any)
+- `best_position: str` — their strongest position
+- Algorithm never assigns a player outside their preferred_positions (when set)
+- `def_restricted` and `gk_status` are derived from position selections in the UI
+
+### Position rotation intensity (configurable, 0-100)
+- 0 (Specialist): players stay in best_position, max 1 position type
+- 50 (Balanced): regular rotation through preferred positions
+- 100 (All-rounder): experience all preferred positions
+- Controls `max_pos_types` and whether algorithm prefers variety vs consistency
+
+### Playing time fairness (configurable, 0-100)
+- 0-15 (Equal): max 1 slot difference between any two players
+- 16-100 (Competitive): skill_rating weighted distribution, guaranteed minimum ~floor(total/n)-1
+
+### GK tier priority (derived from position preferences)
+1. `specialist` — only GK checked, never outfield
+2. `preferred` — GK is best_position
+3. `can_play` — GK checked among other positions
+4. `emergency_only` — GK not checked
+
+### Substitution rules (configurable per team size via GameConfig)
+- Mid-period: `config.mid_period_subs` (2 for 5/6v5, 3 for 7v7, 4 for 9v9)
+- Period break: `config.break_subs` (5 for 5/6v5, 4 for 7v7, unlimited for 9v9)
+- GK never changes mid-period
 
 ### Skill balance (soft)
-- Outfield skill total should be as equal as possible across all 8 slots
-- GK slot excluded from skill calculation
-- Algorithm optimises for balance but does not reject unbalanceable solutions
+- Outfield skill total balanced across slots via iterative pairwise swaps
+- GK excluded from skill calculation
 
 ---
 
@@ -129,49 +149,44 @@ football-rotation/
 
 ```
 Player
-  name: str
-  gk_status: GKTier  (specialist | preferred | can_play | emergency_only)
-  def_restricted: bool
-  skill_rating: int (1–5)  ← never displayed in UI after setup
-  position_history: dict   ← slots per position, per match and cumulative
+  name, gk_status (derived), def_restricted (derived)
+  skill_rating: int (1–5)
+  preferred_positions: list[str]  ← ["DEF","MID","FWD"] etc.
+  best_position: str | None
 
 Match
-  date: date
-  opponent: str (optional)
-  quarters: int (default 4)
-  quarter_length_mins: int (default 10)
+  date, opponent, quarters, quarter_length_mins
+  game_config: GameConfig | None
+  fairness: str, fairness_value: int (0-100)
+  rotation_intensity: int (0-100)
 
-RotationPlan
-  match_id
-  slots: list[SlotAssignment]  ← 8 items
+Formation
+  defense: int, midfield: int, forward: int
+  → outfield_positions(), team_size, notation
 
-SlotAssignment
-  slot_index: int  (0–7; 0=Q1H1, 1=Q1H2, 2=Q2H1, …)
-  lineup: dict[Position, Player]
+GameConfig
+  team_size, formation, periods, period_length_mins
+  mid_period_subs, break_subs, period_label
 ```
 
 ---
 
 ## Non-Obvious Conventions
 
-- `slot_index` runs 0–7. Quarter boundary = when `slot_index % 2 == 0` (start of a new quarter). Mid-quarter point = when `slot_index % 2 == 1` (second half of a quarter).
-- Skill balance is computed over the **outfield 4** only; GK is excluded.
-- "Quarter break" means the transition from slot 1→2, 3→4, 5→6 (i.e. between even-indexed slots).
-- "Mid-quarter" means the transition from slot 0→1, 2→3, 4→5, 6→7.
-- Position codes: `GK`, `DEF`, `MID`, `FWD`
-- Formation is **1-2-1**: 1 DEF, 2 MID, 1 FWD outfield
+- `slot_index` runs 0–N. Period boundary = `slot_index % 2 == 0`. Mid-period = `slot_index % 2 == 1`.
+- Period labels: "Quarter" for 5/6/7v5, "Half" for 9v9
+- Position codes vary by formation — always use `config.formation.outfield_positions()`
+- `normalize_position()` converts DEF2→"DEF", MID3→"MID", etc.
 - Keep commit messages to terse one line comments
 
 ---
 
 ## Phase Gates
 
-| Phase | What's built | Tests required to pass |
+| Phase | What's built | Tests |
 |---|---|---|
-| v0.1 | Algorithm + models | `tests/unit/algorithm/`, core BDD features |
-| v0.2 | Half-quarter subs, mid-quarter lock | Sub limit + GK lock BDD scenarios |
-| v0.3 | Skill balancing | Skill balance BDD scenario |
+| v0.1–v0.3 | Algorithm + models + skill balance | unit + BDD |
 | v0.4 | Web UI + pitch view | Manual browser test |
-| v0.5 | FastAPI + SQLite | `tests/integration/` |
-| v0.6 | Manual override + warnings | Override BDD scenarios |
-| v1.0 | Full stable product | All BDD + integration tests green |
+| v0.5 | FastAPI + SQLite | integration tests |
+| v0.6 | Multi-size, fairness, rotation, positions | multi_size.feature, test_fairness.py, test_multi_size.py |
+| v1.0 | Stable for real match use | All tests green |
