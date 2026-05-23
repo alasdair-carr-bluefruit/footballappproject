@@ -828,7 +828,6 @@ function renderChanges() {
   document.querySelector(".pitch-wrapper").style.display = "none";
   document.querySelector(".bench-section").style.display = "none";
   document.getElementById("report-section").style.display = "block";
-  document.getElementById("export-row").hidden = true;
 
   const list = document.getElementById("report-list");
   list.innerHTML = "";
@@ -949,7 +948,6 @@ function renderReport() {
   document.getElementById("btn-prev").disabled = false;
   document.getElementById("btn-next").disabled = false;
   document.getElementById("btn-next").textContent = "Full Time ▶";
-  document.getElementById("export-row").hidden = false;
 }
 
 function showMatch() {
@@ -958,7 +956,6 @@ function showMatch() {
   document.querySelector(".pitch-wrapper").style.display = "";
   document.querySelector(".bench-section").style.display = "";
   document.getElementById("report-section").style.display = "none";
-  document.getElementById("export-row").hidden = true;
   document.getElementById("progress-dots").style.display = "";
   render();
 }
@@ -1259,120 +1256,6 @@ async function loadStats() {
   });
 }
 
-// ── Export utilities ──────────────────────────────────────────────────────────
-function downloadCsv(filename, rows) {
-  const csv = rows.map(r => r.map(cell => {
-    const s = String(cell ?? "");
-    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
-  }).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function openInSheets(rows, filename) {
-  const csv = rows.map(r => r.map(cell => {
-    const s = String(cell ?? "");
-    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
-  }).join(",")).join("\n");
-  const file = new File([csv], filename || "export.csv", { type: "text/csv" });
-
-  // On mobile (Android/iOS) — native share sheet shows Google Sheets, Drive, etc.
-  if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: "Open in Google Sheets" }).catch(() => {});
-    return;
-  }
-
-  // Desktop fallback: copy as TSV (pastes natively into Sheets) + open sheets.new
-  const tsv = rows.map(r => r.map(cell => String(cell ?? "").replace(/\t/g, " ")).join("\t")).join("\n");
-  await navigator.clipboard.writeText(tsv).catch(() => {});
-  window.open("https://sheets.new", "_blank");
-  const toast = document.createElement("div");
-  toast.className = "sheets-toast";
-  toast.textContent = "Data copied \u2014 paste with Ctrl+V / \u2318V into the new sheet";
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
-}
-
-function buildReportRows() {
-  const match = matchData.match;
-  const pLabel = (match.period_label || "Quarter") === "Half" ? "H" : "Q";
-  const totalSlots = matchData.slots.length;
-  const slotLabels = Array.from({ length: totalSlots }, (_, i) => {
-    const p = Math.floor(i / 2) + 1;
-    const h = i % 2 === 0 ? "a" : "b";
-    return `${pLabel}${p}${h}`;
-  });
-  const allPlayers = [
-    ...Object.values(matchData.slots[0].lineup),
-    ...matchData.slots[0].bench,
-  ].sort((a, b) => a.name.localeCompare(b.name));
-  const perSlot = {};
-  allPlayers.forEach(p => { perSlot[p.name] = Array(totalSlots).fill(""); });
-  matchData.slots.forEach(slot => {
-    Object.entries(slot.lineup).forEach(([pos, p]) => {
-      perSlot[p.name][slot.slot_index] = normalizePos(pos);
-    });
-  });
-  const rows = [["Player", ...slotLabels, "Slots", "Goals"]];
-  allPlayers.forEach(({ name }) => {
-    const slots = perSlot[name];
-    rows.push([name, ...slots, slots.filter(Boolean).length, goalCounts[name] || 0]);
-  });
-  return rows;
-}
-
-async function buildMatchesRows() {
-  const matches = await api.getMatches().catch(() => []);
-  return [
-    ["Date", "Opponent", "Size", "Formation", "Home/Away", "Has Rotation"],
-    ...matches.map(m => {
-      const d = new Date(m.date + "T12:00:00");
-      return [
-        d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
-        m.opponent || "", `${m.team_size || 5}v${m.team_size || 5}`,
-        m.formation || "", m.home_away || "home", m.has_rotation ? "Yes" : "No",
-      ];
-    }),
-  ];
-}
-
-async function buildStatsRows() {
-  const stats = await api.getSeasonStats().catch(() => []);
-  return [
-    ["Player", "Matches Available", "Slots Played", "Goals"],
-    ...stats.map(s => [s.name, s.matches_available, s.slots_played, s.goals || 0]),
-  ];
-}
-
-document.getElementById("btn-export-report-csv").addEventListener("click", () => {
-  if (!matchData) return;
-  const opp = matchData.match.opponent || "match";
-  downloadCsv(`${matchData.match.date}-vs-${opp}.csv`, buildReportRows());
-});
-document.getElementById("btn-export-report-sheets").addEventListener("click", () => {
-  if (!matchData) return;
-  const opp = matchData.match.opponent || "match";
-  openInSheets(buildReportRows(), `${matchData.match.date}-vs-${opp}.csv`);
-});
-
-document.getElementById("btn-export-matches-csv").addEventListener("click", async () => {
-  downloadCsv("season-matches.csv", await buildMatchesRows());
-});
-document.getElementById("btn-export-matches-sheets").addEventListener("click", async () => {
-  openInSheets(await buildMatchesRows(), "season-matches.csv");
-});
-
-document.getElementById("btn-export-stats-csv").addEventListener("click", async () => {
-  downloadCsv("season-stats.csv", await buildStatsRows());
-});
-document.getElementById("btn-export-stats-sheets").addEventListener("click", async () => {
-  openInSheets(await buildStatsRows(), "season-stats.csv");
-});
 
 // ── Share result (canvas image) ───────────────────────────────────────────────
 document.getElementById("btn-ft-share").addEventListener("click", () => {

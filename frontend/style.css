@@ -1267,67 +1267,6 @@ html, body {
 }
 .btn-sm:active { background: rgba(255,255,255,0.2); }
 
-.btn-export {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 6px;
-  color: var(--text-muted, rgba(255,255,255,0.55));
-  font-size: 12px;
-  padding: 5px 10px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.btn-export:active { background: rgba(255,255,255,0.08); }
-
-.btn-export.btn-sheets {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border-color: #34A853;
-  color: #34A853;
-}
-.btn-export.btn-sheets:active { background: rgba(52,168,83,0.12); }
-
-.sheets-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  border-radius: 2px;
-}
-
-.export-row {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 8px 0 4px;
-}
-
-.export-btn-group {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-
-.sheets-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1e2d40;
-  color: #f0f0f0;
-  font-size: 14px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.15);
-  z-index: 9999;
-  white-space: nowrap;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  animation: fadeInUp 0.2s ease;
-}
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
 
 .adjust-status {
   text-align: center;
