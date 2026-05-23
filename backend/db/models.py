@@ -45,3 +45,5 @@ class RotationPlanDB(SQLModel, table=True):
     match_id: int = Field(foreign_key="matches.id", unique=True)
     slots_json: str  # JSON list of {slot_index, lineup: {pos: player_id}}
     warnings_json: str = "[]"
+    goals_json: str = "{}"  # JSON dict: {player_id: goal_count}
+    available_player_ids_json: str = "[]"  # JSON list of player IDs selected for this match

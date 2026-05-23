@@ -664,6 +664,85 @@ html, body {
 
 .bug-report:active { color: var(--text-light); }
 
+/* ── Player availability panel ────────────────────────────────────── */
+
+.avail-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-light);
+  padding: 0 0 12px;
+}
+
+.avail-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.avail-item { padding: 0; }
+
+.avail-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--text-light);
+}
+
+.avail-label input { accent-color: var(--btn-primary); width: auto; }
+
+.avail-name { font-weight: 500; }
+
+.avail-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.avail-actions .btn { flex: 1; }
+
+/* ── Stats screen ────────────────────────────────────────────────── */
+
+.stats-list {
+  list-style: none;
+  padding: 0 16px;
+}
+
+.stats-header, .stats-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.stats-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats-row {
+  font-size: 14px;
+  color: var(--text-light);
+}
+
+.stats-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.stats-col {
+  width: 60px;
+  text-align: center;
+}
+
 .home-title-row {
   display: flex;
   align-items: center;

@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -133,9 +134,15 @@ def get_match(match_id: int, session: Session = Depends(get_session)) -> dict[st
     return _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
 
 
+class RotationRequest(BaseModel):
+    available_player_ids: list[int] | None = None  # None = all players
+
+
 @router.post("/{match_id}/rotation")
 def generate_match_rotation(
-    match_id: int, session: Session = Depends(get_session)
+    match_id: int,
+    body: RotationRequest | None = None,
+    session: Session = Depends(get_session),
 ) -> dict[str, Any]:
     db_match = session.get(MatchDB, match_id)
     if not db_match:
@@ -143,7 +150,15 @@ def generate_match_rotation(
 
     config = get_config(db_match.team_size, db_match.formation)
 
-    players_db = get_players(session, db_match.squad_id)
+    all_players = get_players(session, db_match.squad_id)
+
+    # Filter to available players if specified
+    if body and body.available_player_ids is not None:
+        available_ids = set(body.available_player_ids)
+        players_db = [p for p in all_players if p.id in available_ids]
+    else:
+        players_db = all_players
+
     if len(players_db) < config.players_per_slot:
         raise HTTPException(
             status_code=400,
@@ -155,13 +170,104 @@ def generate_match_rotation(
 
     save_rotation(session, match_id, plan, players_db)
 
-    id_to_player = {p.id: p for p in players_db if p.id is not None}
+    # Store which players were available
     rotation = session.exec(
         select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
     ).first()
     assert rotation is not None
+    rotation.available_player_ids_json = json.dumps([p.id for p in players_db])
+    session.add(rotation)
+    session.commit()
+
+    id_to_player = {p.id: p for p in players_db if p.id is not None}
     plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
     return _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
+
+
+class GoalsSave(BaseModel):
+    goals: dict[str, int]  # {player_name: goal_count}
+
+
+@router.post("/{match_id}/goals")
+def save_match_goals(
+    match_id: int, body: GoalsSave, session: Session = Depends(get_session),
+) -> dict[str, str]:
+    rotation = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+    if not rotation:
+        raise HTTPException(status_code=404, detail="No rotation for this match")
+
+    # Convert player names to IDs for storage
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    players = get_players(session, db_match.squad_id)
+    name_to_id = {p.name: p.id for p in players}
+    goals_by_id = {
+        str(name_to_id[name]): count
+        for name, count in body.goals.items()
+        if name in name_to_id and count > 0
+    }
+    rotation.goals_json = json.dumps(goals_by_id)
+    session.add(rotation)
+    session.commit()
+    return {"status": "saved"}
+
+
+@router.get("/stats/season")
+def get_season_stats(session: Session = Depends(get_session)) -> list[dict[str, Any]]:
+    """Aggregate stats across all matches: goals, matches available, slots played."""
+    squad = get_or_create_squad(session)
+    players = get_players(session, squad.id)
+    matches = list(
+        session.exec(select(MatchDB).where(MatchDB.squad_id == squad.id)).all()
+    )
+    rotations = {
+        r.match_id: r
+        for r in session.exec(select(RotationPlanDB)).all()
+        if r.match_id in {m.id for m in matches}
+    }
+
+    stats: dict[int, dict[str, Any]] = {}
+    for p in players:
+        stats[p.id] = {  # type: ignore[index]
+            "id": p.id,
+            "name": p.name,
+            "matches_available": 0,
+            "slots_played": 0,
+            "goals": 0,
+        }
+
+    for m in matches:
+        r = rotations.get(m.id)
+        if not r:
+            continue
+
+        # Count available players
+        available_ids = json.loads(r.available_player_ids_json) if r.available_player_ids_json != "[]" else []
+        if not available_ids:
+            # Legacy: assume all players were available
+            available_ids = [p.id for p in players]
+        for pid in available_ids:
+            if pid in stats:
+                stats[pid]["matches_available"] += 1
+
+        # Count slots played per player
+        slots_data = json.loads(r.slots_json)
+        for slot in slots_data:
+            for pos, pid in slot["lineup"].items():
+                if pid in stats:
+                    stats[pid]["slots_played"] += 1
+
+        # Count goals
+        goals = json.loads(r.goals_json) if r.goals_json != "{}" else {}
+        for pid_str, count in goals.items():
+            pid = int(pid_str)
+            if pid in stats:
+                stats[pid]["goals"] += count
+
+    return sorted(stats.values(), key=lambda s: s["name"])
 
 
 @router.delete("/{match_id}", status_code=204)

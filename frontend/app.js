@@ -213,17 +213,16 @@ document.getElementById("rotation-slider").addEventListener("input", e => {
 });
 
 document.getElementById("btn-go-squad").addEventListener("click", loadSquad);
+document.getElementById("btn-go-stats").addEventListener("click", loadStats);
 document.getElementById("btn-home-back").addEventListener("click", () => showScreen("screen-landing"));
 
 // ── New match screen ──────────────────────────────────────────────────────────
 document.getElementById("btn-new-match-back").addEventListener("click", loadHome);
 
-document.getElementById("new-match-form").addEventListener("submit", async e => {
-  e.preventDefault();
-  const btn = document.getElementById("btn-generate");
-  btn.disabled = true;
-  btn.textContent = "Generating…";
+let pendingMatchConfig = null; // stored between config step and player selection step
 
+// Step 1: Config form → show player availability
+document.getElementById("btn-select-players").addEventListener("click", async () => {
   const date = document.getElementById("match-date").value || new Date().toISOString().split("T")[0];
   const opponent = document.getElementById("opponent-input").value.trim();
   const formation = document.getElementById("formation-select").value;
@@ -231,12 +230,55 @@ document.getElementById("new-match-form").addEventListener("submit", async e => 
   const fairness = fairnessVal <= 15 ? "equal" : "competitive";
   const rotation_intensity = parseInt(document.getElementById("rotation-slider").value);
 
+  pendingMatchConfig = {
+    date, opponent, team_size: selectedSize, formation,
+    fairness, fairness_value: fairnessVal, rotation_intensity,
+  };
+
+  // Load players and show availability panel
+  const players = await api.getPlayers().catch(() => []);
+  const list = document.getElementById("avail-list");
+  list.innerHTML = "";
+  players.forEach(p => {
+    const li = document.createElement("li");
+    li.className = "avail-item";
+    li.innerHTML = `
+      <label class="avail-label">
+        <input type="checkbox" value="${p.id}" checked />
+        <span class="avail-name">${p.name}</span>
+      </label>
+    `;
+    list.appendChild(li);
+  });
+
+  document.getElementById("new-match-form").hidden = true;
+  document.getElementById("availability-panel").hidden = false;
+});
+
+// Back from availability to config
+document.getElementById("btn-avail-back").addEventListener("click", () => {
+  document.getElementById("availability-panel").hidden = true;
+  document.getElementById("new-match-form").hidden = false;
+});
+
+// Step 2: Generate with selected players
+document.getElementById("btn-generate").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-generate");
+  btn.disabled = true;
+  btn.textContent = "Generating…";
+
+  const selectedIds = [...document.querySelectorAll("#avail-list input:checked")].map(
+    cb => parseInt(cb.value)
+  );
+
   try {
-    const match = await api.createMatch({
-      date, opponent, team_size: selectedSize, formation,
-      fairness, fairness_value: fairnessVal, rotation_intensity,
-    });
-    const data = await api.generateRotation(match.id);
+    const match = await api.createMatch(pendingMatchConfig);
+    const data = await api.generateRotation(match.id, { available_player_ids: selectedIds });
+    // Reset form state
+    document.getElementById("availability-panel").hidden = true;
+    document.getElementById("new-match-form").hidden = false;
+    btn.disabled = false;
+    btn.textContent = "Generate Rotation ▶";
     enterPitchView(data);
   } catch (err) {
     alert("Error: " + err.message);
@@ -244,6 +286,9 @@ document.getElementById("new-match-form").addEventListener("submit", async e => 
     btn.textContent = "Generate Rotation ▶";
   }
 });
+
+// Prevent actual form submission
+document.getElementById("new-match-form").addEventListener("submit", e => e.preventDefault());
 
 // ── Squad screen ──────────────────────────────────────────────────────────────
 let editingPlayerId = null;
@@ -826,7 +871,58 @@ document.getElementById("btn-prev").addEventListener("click", () => {
   if (currentSlot > 0) { currentSlot--; render(); }
 });
 
-document.getElementById("btn-pitch-back").addEventListener("click", loadHome);
+// Save goals when leaving pitch view
+async function saveGoalsIfNeeded() {
+  if (!matchData || !matchData.match.id) return;
+  const hasGoals = Object.values(goalCounts).some(v => v > 0);
+  if (hasGoals) {
+    await api.saveGoals(matchData.match.id, goalCounts).catch(() => {});
+  }
+}
+
+document.getElementById("btn-pitch-back").addEventListener("click", async () => {
+  await saveGoalsIfNeeded();
+  loadHome();
+});
+
+// ── Stats screen ──────────────────────────────────────────────────────────────
+document.getElementById("btn-stats-back").addEventListener("click", loadHome);
+
+async function loadStats() {
+  showScreen("screen-stats");
+  const list = document.getElementById("stats-list");
+  list.innerHTML = "<li class='loading'>Loading…</li>";
+
+  const stats = await api.getSeasonStats().catch(() => []);
+  list.innerHTML = "";
+
+  if (stats.length === 0) {
+    list.innerHTML = "<li class='empty-state'>No stats yet — play some matches first</li>";
+    return;
+  }
+
+  const header = document.createElement("li");
+  header.className = "stats-header";
+  header.innerHTML = `
+    <span class="stats-name">Player</span>
+    <span class="stats-col">Matches</span>
+    <span class="stats-col">Slots</span>
+    <span class="stats-col">Goals</span>
+  `;
+  list.appendChild(header);
+
+  stats.forEach(s => {
+    const li = document.createElement("li");
+    li.className = "stats-row";
+    li.innerHTML = `
+      <span class="stats-name">${s.name}</span>
+      <span class="stats-col">${s.matches_available}</span>
+      <span class="stats-col">${s.slots_played}</span>
+      <span class="stats-col">${s.goals || "–"}</span>
+    `;
+    list.appendChild(li);
+  });
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 showScreen("screen-landing");

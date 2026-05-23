@@ -25,8 +25,10 @@ export const api = {
   getMatches:        ()   => request("/matches/"),
   createMatch:       (d)  => request("/matches/",              { method: "POST",   body: d }),
   getMatch:          (id) => request(`/matches/${id}`),
-  generateRotation:  (id) => request(`/matches/${id}/rotation`, { method: "POST" }),
+  generateRotation:  (id, body) => request(`/matches/${id}/rotation`, { method: "POST", body: body || {} }),
   deleteMatch:       (id) => request(`/matches/${id}`,          { method: "DELETE" }),
+  saveGoals:         (id, goals) => request(`/matches/${id}/goals`, { method: "POST", body: { goals } }),
+  getSeasonStats:    ()   => request("/matches/stats/season"),
 
   // Config
   getGameConfigs:    ()   => request("/matches/config/game-configs"),
