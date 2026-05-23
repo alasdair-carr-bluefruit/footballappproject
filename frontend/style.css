@@ -513,6 +513,25 @@ html, body {
   min-height: 100dvh;
   background: linear-gradient(170deg, #162e16 0%, #1e4d1e 40%, #2d6a2d 100%);
   padding: 0 20px env(safe-area-inset-bottom);
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+
+.pitch-svg {
+  width: 90%;
+  max-width: 360px;
+  height: auto;
+  opacity: 0.7;
+  transform: rotate(-5deg) scale(1.15);
 }
 
 .landing-hero {
@@ -523,6 +542,8 @@ html, body {
   align-items: center;
   text-align: center;
   padding: 40px 0 20px;
+  position: relative;
+  z-index: 1;
 }
 
 .landing-title {
@@ -552,6 +573,8 @@ html, body {
   flex-direction: column;
   gap: 12px;
   padding-bottom: 32px;
+  position: relative;
+  z-index: 1;
 }
 
 .mode-card {
