@@ -178,12 +178,14 @@ document.getElementById("size-picker").addEventListener("click", e => {
 
 function updateFairnessLabel(value) {
   const el = document.getElementById("fairness-value");
+  const warn = document.getElementById("fairness-warning");
   const v = parseInt(value);
   if (v <= 15) el.textContent = "Equal play — everyone gets the same time";
   else if (v <= 40) el.textContent = "Mostly fair — slight edge for stronger players";
   else if (v <= 60) el.textContent = "Balanced — skill matters but everyone plays";
   else if (v <= 85) el.textContent = "Competitive — best players get more time";
   else el.textContent = "Win mode — strongest lineup prioritised";
+  warn.hidden = v <= 85;
 }
 
 document.getElementById("fairness-slider").addEventListener("input", e => {
