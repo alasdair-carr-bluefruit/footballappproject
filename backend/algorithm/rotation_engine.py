@@ -66,7 +66,15 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
 
     # Step 2: Compute target slot counts per player
     total_player_slots = num_slots * config.players_per_slot
-    targets = compute_target_slots(players, total_player_slots, non_specialist_gk_players)
+    # Parse fairness_value from the slider (stored as 0-100 on match)
+    fairness_value = getattr(match, "fairness_value", 0)
+    # If match only has string fairness, derive a value
+    if fairness_value == 0 and match.fairness == "competitive":
+        fairness_value = 60
+    targets = compute_target_slots(
+        players, total_player_slots, non_specialist_gk_players,
+        fairness=match.fairness, fairness_value=fairness_value,
+    )
 
     # Pre-compute future GK slots for each player (slots not yet processed).
     future_gk: dict = defaultdict(int)

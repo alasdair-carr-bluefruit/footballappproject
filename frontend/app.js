@@ -224,7 +224,8 @@ document.getElementById("new-match-form").addEventListener("submit", async e => 
 
   try {
     const match = await api.createMatch({
-      date, opponent, team_size: selectedSize, formation, fairness, rotation_intensity,
+      date, opponent, team_size: selectedSize, formation,
+      fairness, fairness_value: fairnessVal, rotation_intensity,
     });
     const data = await api.generateRotation(match.id);
     enterPitchView(data);

@@ -17,6 +17,7 @@ class Match:
     quarter_length_mins: int = 10
     game_config: GameConfig | None = None  # None → DEFAULT_CONFIG
     fairness: str = "equal"  # "equal" or "competitive"
+    fairness_value: int = 0  # 0-100 slider value
     rotation_intensity: int = 50  # 0 = specialist, 100 = all-rounder
 
     @property

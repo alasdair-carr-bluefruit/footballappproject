@@ -27,6 +27,7 @@ class MatchCreate(BaseModel):
     team_size: int = 5
     formation: str = "1-2-1"
     fairness: str = "equal"
+    fairness_value: int = 0
     rotation_intensity: int = 50
 
 
@@ -40,6 +41,7 @@ class MatchRead(BaseModel):
     team_size: int
     formation: str
     fairness: str
+    fairness_value: int
     rotation_intensity: int
 
 
@@ -54,6 +56,7 @@ def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
         team_size=m.team_size,
         formation=m.formation,
         fairness=m.fairness,
+        fairness_value=m.fairness_value,
         rotation_intensity=m.rotation_intensity,
     )
 

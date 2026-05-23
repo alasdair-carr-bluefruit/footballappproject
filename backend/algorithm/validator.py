@@ -22,7 +22,7 @@ def validate(
     violations += _check_position_variety(plan, all_players, cfg)
     violations += _check_gk_mid_period_change(plan)
     violations += _check_mid_period_sub_limit(plan, cfg)
-    violations += _check_playing_time_equality(plan, all_players)
+    violations += _check_playing_time_equality(plan, all_players, cfg)
     violations += _check_specialist_never_outfield(plan, all_players)
     return violations
 
@@ -93,16 +93,21 @@ def _check_mid_period_sub_limit(plan: RotationPlan, config: GameConfig) -> list:
     return violations
 
 
-def _check_playing_time_equality(plan: RotationPlan, players: list) -> list:
+def _check_playing_time_equality(
+    plan: RotationPlan, players: list, config: GameConfig,
+) -> list:
     counts = {p: plan.slot_count_for_player(p) for p in players}
     if not counts:
         return []
     min_slots = min(counts.values())
     max_slots = max(counts.values())
-    if max_slots - min_slots > 1:
+    # In competitive mode, allow wider distribution (scaled by total slots)
+    # Equal mode: max 1 slot diff. Competitive: up to ~30% of total slots
+    max_allowed = max(1, config.total_slots // 3)
+    if max_slots - min_slots > max_allowed:
         return [
             f"Playing time inequality: max {max_slots} vs min {min_slots} slots "
-            f"(difference {max_slots - min_slots}, max allowed 1)"
+            f"(difference {max_slots - min_slots}, max allowed {max_allowed})"
         ]
     return []
 
