@@ -36,6 +36,7 @@ export const api = {
   deleteMatch:       (id) => request(`/matches/${id}`,          { method: "DELETE" }),
   saveGoals:         (id, goals, opponentGoals) => request(`/matches/${id}/goals`, { method: "POST", body: { goals, opponent_goals: opponentGoals || 0 } }),
   getSeasonStats:    ()   => request("/matches/stats/season"),
+  getPlayerHistory:  (id) => request(`/matches/stats/player/${id}`),
 
   // Config
   getGameConfigs:    ()   => request("/matches/config/game-configs"),

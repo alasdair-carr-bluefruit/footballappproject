@@ -997,6 +997,99 @@ html, body {
   text-align: center;
 }
 
+.stats-row-tap {
+  cursor: pointer;
+}
+.stats-row-tap:active {
+  background: rgba(255,255,255,0.05);
+}
+.stats-chevron {
+  width: 20px;
+  text-align: right;
+  color: var(--text-dim);
+  font-size: 18px;
+}
+
+/* ── Player history screen ────────────────────────────────────────── */
+
+.history-totals {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.history-total-grid {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.history-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.history-stat-val {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.history-stat-lbl {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.history-pos-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.history-pos-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.history-pos-badge.pos-gk  { background: rgba(230,126,34,0.25); color: #e67e22; }
+.history-pos-badge.pos-def { background: rgba(52,152,219,0.25); color: #3498db; }
+.history-pos-badge.pos-mid { background: rgba(46,204,113,0.25); color: #2ecc71; }
+.history-pos-badge.pos-fwd { background: rgba(231,76,60,0.25);  color: #e74c3c; }
+
+.history-list {
+  list-style: none;
+  padding: 0 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.history-match-row {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.history-match-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.history-match-date { color: var(--text-dim); font-size: 12px; min-width: 50px; }
+.history-match-opp  { flex: 1; color: #fff; font-weight: 500; }
+.history-match-goals { color: var(--text-dim); font-size: 13px; }
+.history-match-slots { font-size: 12px; color: var(--text-dim); }
+
+.history-match-pos { display: flex; flex-wrap: wrap; gap: 4px; }
+.history-bench { font-size: 12px; color: var(--text-dim); font-style: italic; }
+
 .home-title-row {
   display: flex;
   align-items: center;

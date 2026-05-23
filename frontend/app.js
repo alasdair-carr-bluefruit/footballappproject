@@ -1456,17 +1456,78 @@ async function loadStats() {
 
   stats.forEach(s => {
     const li = document.createElement("li");
-    li.className = "stats-row";
+    li.className = "stats-row stats-row-tap";
     li.innerHTML = `
       <span class="stats-name">${s.name}</span>
       <span class="stats-col">${s.matches_available}</span>
       <span class="stats-col">${s.slots_played}</span>
       <span class="stats-col">${s.goals || "–"}</span>
+      <span class="stats-chevron">›</span>
     `;
+    li.addEventListener("click", () => loadPlayerHistory(s.id, s.name));
     list.appendChild(li);
   });
 }
 
+
+// ── Player history screen ─────────────────────────────────────────────────────
+document.getElementById("btn-history-back").addEventListener("click", loadStats);
+
+async function loadPlayerHistory(playerId, playerName) {
+  showScreen("screen-player-history");
+  document.getElementById("history-player-name").textContent = playerName;
+  document.getElementById("history-totals").innerHTML = "<div class='loading'>Loading…</div>";
+  document.getElementById("history-list").innerHTML = "";
+
+  const data = await api.getPlayerHistory(playerId).catch(() => null);
+  if (!data) {
+    document.getElementById("history-totals").innerHTML = "<div class='empty-state'>Could not load history</div>";
+    return;
+  }
+
+  const t = data.totals;
+  const posEntries = Object.entries(t.positions).filter(([, n]) => n > 0);
+  const posHtml = posEntries.map(([pos, n]) =>
+    `<span class="history-pos-badge pos-${pos.toLowerCase()}">${pos} ×${n}</span>`
+  ).join("");
+
+  document.getElementById("history-totals").innerHTML = `
+    <div class="history-total-grid">
+      <div class="history-stat"><span class="history-stat-val">${t.matches_available}</span><span class="history-stat-lbl">Matches</span></div>
+      <div class="history-stat"><span class="history-stat-val">${t.slots_played}</span><span class="history-stat-lbl">Slots</span></div>
+      <div class="history-stat"><span class="history-stat-val">${t.goals}</span><span class="history-stat-lbl">Goals</span></div>
+    </div>
+    ${posHtml ? `<div class="history-pos-row">${posHtml}</div>` : ""}
+  `;
+
+  const list = document.getElementById("history-list");
+  if (data.matches.length === 0) {
+    list.innerHTML = "<li class='empty-state'>No matches played yet</li>";
+    return;
+  }
+
+  data.matches.forEach(m => {
+    const date = new Date(m.date + "T12:00:00");
+    const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const posChips = m.positions.map(pos =>
+      `<span class="slot-chip pos-${pos.toLowerCase()}">${pos}</span>`
+    ).join("");
+    const goalsHtml = m.goals > 0 ? `<span class="history-match-goals">⚽ ${m.goals}</span>` : "";
+
+    const li = document.createElement("li");
+    li.className = "history-match-row";
+    li.innerHTML = `
+      <div class="history-match-header">
+        <span class="history-match-date">${dateStr}</span>
+        <span class="history-match-opp">vs ${m.opponent}</span>
+        ${goalsHtml}
+        <span class="history-match-slots">${m.slots_played} slot${m.slots_played !== 1 ? "s" : ""}</span>
+      </div>
+      <div class="history-match-pos">${posChips || "<span class='history-bench'>Did not play</span>"}</div>
+    `;
+    list.appendChild(li);
+  });
+}
 
 // ── Share result (canvas image) ───────────────────────────────────────────────
 function buildResultBlob() {

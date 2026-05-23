@@ -380,6 +380,72 @@ def get_season_stats(session: Session = Depends(get_session)) -> list[dict[str, 
     return sorted(stats.values(), key=lambda s: s["name"])
 
 
+@router.get("/stats/player/{player_id}")
+def get_player_history(player_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Return per-match history for a single player: slots, positions, goals per match."""
+    squad = get_or_create_squad(session)
+    players = get_players(session, squad.id)
+    player_db = next((p for p in players if p.id == player_id), None)
+    if not player_db:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    matches = list(
+        session.exec(select(MatchDB).where(MatchDB.squad_id == squad.id).order_by(MatchDB.date.asc())).all()  # type: ignore[arg-type]
+    )
+    rotations = {
+        r.match_id: r
+        for r in session.exec(select(RotationPlanDB)).all()
+        if r.match_id in {m.id for m in matches}
+    }
+
+    _pos_normalize = {"LB": "DEF", "CB": "DEF", "CB2": "DEF", "RB": "DEF",
+                      "LM": "MID", "CM": "MID", "CM2": "MID", "RM": "MID", "CAM": "MID",
+                      "LW": "FWD", "CF": "FWD", "CF2": "FWD", "RW": "FWD", "GK": "GK"}
+
+    match_history = []
+    totals: dict[str, Any] = {"matches_available": 0, "slots_played": 0, "goals": 0,
+                               "positions": {"GK": 0, "DEF": 0, "MID": 0, "FWD": 0}}
+
+    for m in matches:
+        r = rotations.get(m.id)
+        if not r:
+            continue
+        avail_ids = json.loads(r.available_player_ids_json) if r.available_player_ids_json != "[]" else []
+        if player_id not in avail_ids and avail_ids:
+            continue
+
+        totals["matches_available"] += 1
+        slots_data = json.loads(r.slots_json)
+        positions_this_match: list[str] = []
+        for slot in slots_data:
+            for pos, pid in slot["lineup"].items():
+                if pid == player_id:
+                    norm = _pos_normalize.get(pos, pos)
+                    positions_this_match.append(norm)
+                    totals["positions"][norm] = totals["positions"].get(norm, 0) + 1
+
+        goals_data = json.loads(r.goals_json) if r.goals_json != "{}" else {}
+        player_goals = goals_data.get(str(player_id), 0)
+
+        totals["slots_played"] += len(positions_this_match)
+        totals["goals"] += player_goals
+
+        match_history.append({
+            "match_id": m.id,
+            "date": m.date,
+            "opponent": m.opponent or "Unknown",
+            "slots_played": len(positions_this_match),
+            "goals": player_goals,
+            "positions": positions_this_match,
+        })
+
+    return {
+        "player": {"id": player_db.id, "name": player_db.name},
+        "matches": match_history,
+        "totals": totals,
+    }
+
+
 @router.post("/{match_id}/start")
 def start_match(match_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Mark match as in_progress. Idempotent if already started."""
