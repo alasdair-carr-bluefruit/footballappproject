@@ -89,8 +89,10 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
     # Step 4: Skill balance optimisation (soft preference)
     plan = balance_skills(plan, config)
 
-    # Step 4b: Restore position consistency — carried players should keep their H1 position
-    plan = _align_mid_quarter_positions(plan, config)
+    # Step 4b: Restore position consistency — skip only at high rotation.
+    # High rotation (70+) intentionally shuffles positions between H1 and H2.
+    if rotation_intensity < 70:
+        plan = _align_mid_quarter_positions(plan, config)
 
     # Step 5: Validate
     violations = validate(plan, players, config)
