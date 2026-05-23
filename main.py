@@ -15,7 +15,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
-app = FastAPI(title="Gaffer", lifespan=lifespan)
+app = FastAPI(title="Gaffr", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,4 +27,5 @@ app.add_middleware(
 app.include_router(squad_router, prefix="/api/squad", tags=["squad"])
 app.include_router(match_router, prefix="/api/matches", tags=["matches"])
 
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

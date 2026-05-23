@@ -7,8 +7,11 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Gaffer</title>
+  <title>Gaffr</title>
   <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -33,45 +36,27 @@
           <rect x="110" y="480" width="180" height="100" rx="2" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
           <rect x="150" y="540" width="100" height="40" rx="2" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="2"/>
           <!-- Tactical dots (player positions) -->
-          <circle cx="200" cy="80" r="8" fill="rgba(76,175,80,0.15)" stroke="rgba(76,175,80,0.25)" stroke-width="1.5"/>
-          <circle cx="130" cy="180" r="8" fill="rgba(76,175,80,0.12)" stroke="rgba(76,175,80,0.2)" stroke-width="1.5"/>
-          <circle cx="270" cy="180" r="8" fill="rgba(76,175,80,0.12)" stroke="rgba(76,175,80,0.2)" stroke-width="1.5"/>
-          <circle cx="200" cy="240" r="8" fill="rgba(76,175,80,0.12)" stroke="rgba(76,175,80,0.2)" stroke-width="1.5"/>
+          <circle cx="200" cy="80" r="8" fill="rgba(46,190,107,0.15)" stroke="rgba(46,190,107,0.25)" stroke-width="1.5"/>
+          <circle cx="130" cy="180" r="8" fill="rgba(46,190,107,0.12)" stroke="rgba(46,190,107,0.2)" stroke-width="1.5"/>
+          <circle cx="270" cy="180" r="8" fill="rgba(46,190,107,0.12)" stroke="rgba(46,190,107,0.2)" stroke-width="1.5"/>
+          <circle cx="200" cy="240" r="8" fill="rgba(46,190,107,0.12)" stroke="rgba(46,190,107,0.2)" stroke-width="1.5"/>
           <circle cx="150" cy="400" r="8" fill="rgba(255,193,7,0.12)" stroke="rgba(255,193,7,0.2)" stroke-width="1.5"/>
           <circle cx="250" cy="400" r="8" fill="rgba(255,193,7,0.12)" stroke="rgba(255,193,7,0.2)" stroke-width="1.5"/>
           <circle cx="200" cy="480" r="8" fill="rgba(255,193,7,0.12)" stroke="rgba(255,193,7,0.2)" stroke-width="1.5"/>
           <!-- Tactical arrows -->
-          <path d="M135 175 L195 245" stroke="rgba(76,175,80,0.1)" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
-          <path d="M265 175 L205 245" stroke="rgba(76,175,80,0.1)" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
+          <path d="M135 175 L195 245" stroke="rgba(46,190,107,0.1)" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
+          <path d="M265 175 L205 245" stroke="rgba(46,190,107,0.1)" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
           <path d="M155 395 L195 475" stroke="rgba(255,193,7,0.08)" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
           <path d="M245 395 L205 475" stroke="rgba(255,193,7,0.08)" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
         </svg>
       </div>
       <div class="landing-hero">
-        <div class="landing-logo" aria-label="Gaffer logo">
-          <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" class="logo-svg">
-            <!-- Whistle cord -->
-            <path d="M22 18 Q40 8 58 18" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-linecap="round"/>
-            <!-- Clipboard body -->
-            <rect x="16" y="24" width="48" height="52" rx="5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
-            <!-- Clipboard clip -->
-            <rect x="30" y="19" width="20" height="10" rx="3" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-            <!-- Mini pitch on clipboard -->
-            <rect x="22" y="34" width="36" height="36" rx="2" fill="rgba(76,175,80,0.3)" stroke="rgba(76,175,80,0.5)" stroke-width="1"/>
-            <!-- Pitch halfway line -->
-            <line x1="22" y1="52" x2="58" y2="52" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
-            <!-- Pitch center circle -->
-            <circle cx="40" cy="52" r="6" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
-            <!-- Player dots -->
-            <circle cx="40" cy="40" r="2.5" fill="#ffd54f"/>
-            <circle cx="32" cy="47" r="2.5" fill="#ffd54f"/>
-            <circle cx="48" cy="47" r="2.5" fill="#ffd54f"/>
-            <circle cx="40" cy="55" r="2.5" fill="#90caf9"/>
-            <circle cx="33" cy="62" r="2.5" fill="#90caf9"/>
-            <circle cx="47" cy="62" r="2.5" fill="#90caf9"/>
-          </svg>
+        <div class="landing-logo" aria-label="Gaffr app icon">
+          <img src="/assets/brand/icon-app.svg" alt="Gaffr" class="logo-svg" />
         </div>
-        <h1 class="landing-title">Gaffer</h1>
+        <div class="landing-wordmark">
+          <img src="/assets/brand/logo-gaffr-reversed.svg" alt="Gaffr" class="wordmark-svg" />
+        </div>
         <p class="landing-subtitle">Fair play made simple for grassroots coaches</p>
         <p class="landing-desc">Generate balanced rotation plans so every player gets game time. Track goals, manage minutes across the season, and create match plans in seconds — on the pitch, on your phone.</p>
       </div>
