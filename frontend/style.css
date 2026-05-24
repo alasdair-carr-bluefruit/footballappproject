@@ -2285,6 +2285,30 @@ html, body {
   margin: -4px 0 4px;
 }
 
+.inline-pair {
+  display: flex;
+  gap: 12px;
+}
+
+.inline-pair label {
+  flex: 1;
+}
+
+.inline-pair input[type="number"] {
+  width: 100%;
+}
+
+.screen-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  padding: 8px 16px 4px;
+  margin: 0;
+}
+
+.avail-list.padded {
+  padding: 0 16px;
+}
+
 .form-section { margin: 8px 0; }
 
 .form-section-label {

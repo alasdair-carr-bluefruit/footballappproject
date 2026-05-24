@@ -1974,30 +1974,7 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   updateTournamentRotationLabel(50);
   document.getElementById("tournament-num-matches").value = "4";
   tournamentSelectSize(5);
-
-  // Load player checklist
-  const playerList = document.getElementById("new-tournament-player-list");
-  playerList.innerHTML = "<li class='loading'>Loading players…</li>";
   showScreen("screen-new-tournament");
-
-  const players = await api.getPlayers().catch(() => []);
-  playerList.innerHTML = "";
-  if (players.length === 0) {
-    playerList.innerHTML = "<li class='empty-state'>No players in squad yet</li>";
-  } else {
-    players.forEach(p => {
-      const li = document.createElement("li");
-      li.className = "avail-item";
-      li.innerHTML = `
-        <label class="avail-label">
-          <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
-          <span class="avail-name">${p.name}</span>
-          <span class="avail-skill">★${p.skill_rating}</span>
-        </label>
-      `;
-      playerList.appendChild(li);
-    });
-  }
 });
 
 // ── New tournament form ────────────────────────────────────────────────────────
@@ -2065,6 +2042,9 @@ document.getElementById("tournament-rotation-slider").addEventListener("input", 
   updateTournamentRotationLabel(e.target.value);
 });
 
+let pendingTournamentId = null;
+let pendingNumMatches = 4;
+
 document.getElementById("new-tournament-form").addEventListener("submit", async e => {
   e.preventDefault();
   const name = document.getElementById("tournament-name-input").value.trim();
@@ -2074,11 +2054,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
   const hasHalftime = document.getElementById("tournament-halftime").checked;
   const fairnessValue = parseInt(document.getElementById("tournament-fairness-slider").value);
   const rotationIntensity = parseInt(document.getElementById("tournament-rotation-slider").value);
-  const numMatches = Math.max(1, parseInt(document.getElementById("tournament-num-matches").value) || 1);
-
-  const availablePlayerIds = Array.from(
-    document.querySelectorAll("#new-tournament-player-list .avail-check:checked")
-  ).map(cb => parseInt(cb.dataset.pid));
+  pendingNumMatches = Math.max(1, parseInt(document.getElementById("tournament-num-matches").value) || 1);
 
   if (!name) {
     document.getElementById("tournament-name-input").focus();
@@ -2100,25 +2076,113 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     rotation_intensity: rotationIntensity,
   }).catch(err => { alert(err.message); return null; });
 
-  if (!tournament) {
-    btn.disabled = false;
-    btn.textContent = "Create & Generate ▶";
+  btn.disabled = false;
+  btn.textContent = "Next: Select Players →";
+
+  if (!tournament) return;
+  pendingTournamentId = tournament.id;
+  loadTournamentSquadScreen(tournament.id, pendingNumMatches);
+});
+
+// ── Tournament Squad Selection ────────────────────────────────────────────────
+async function loadTournamentSquadScreen(tournamentId, numMatches) {
+  activeTournamentId = tournamentId;
+  showScreen("screen-tournament-squad");
+
+  const desc = document.getElementById("tournament-squad-desc");
+  desc.textContent = `Select who's available today. ${numMatches} match${numMatches !== 1 ? "es" : ""} will be generated.`;
+
+  const ul = document.getElementById("tournament-squad-list");
+  ul.innerHTML = "<li class='loading'>Loading players…</li>";
+
+  const players = await api.getPlayers().catch(() => []);
+  ul.innerHTML = "";
+
+  if (players.length === 0) {
+    ul.innerHTML = "<li class='empty-state'>No players in squad — add some in Squad Management first</li>";
     return;
   }
 
-  // Batch-generate group matches
-  for (let i = 1; i <= numMatches; i++) {
-    btn.textContent = `Generating match ${i} of ${numMatches}…`;
-    await api.addTournamentMatch(tournament.id, {
+  players.forEach(p => {
+    const li = document.createElement("li");
+    li.className = "avail-item";
+    li.innerHTML = `
+      <label class="avail-label">
+        <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
+        <span class="avail-name">${p.name}</span>
+        <span class="avail-skill">★${p.skill_rating}</span>
+      </label>
+    `;
+    ul.appendChild(li);
+  });
+
+  // Also show any guest players already added
+  renderTournamentSquadGuests(tournamentId);
+}
+
+async function renderTournamentSquadGuests(tournamentId) {
+  const data = await api.getTournament(tournamentId).catch(() => null);
+  if (!data) return;
+  const guests = data.guest_players || [];
+  const ul = document.getElementById("tournament-squad-list");
+  // Remove any previously rendered guest rows
+  ul.querySelectorAll(".avail-item-guest").forEach(el => el.remove());
+  guests.forEach(p => {
+    const li = document.createElement("li");
+    li.className = "avail-item avail-item-guest";
+    li.innerHTML = `
+      <label class="avail-label">
+        <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
+        <span class="avail-name">${p.name}</span>
+        <span class="avail-guest-tag">Guest</span>
+        <span class="avail-skill">★${p.skill_rating}</span>
+        <button class="btn-icon avail-remove-guest" data-pid="${p.id}" title="Remove">✕</button>
+      </label>
+    `;
+    li.querySelector(".avail-remove-guest").addEventListener("click", async e => {
+      e.preventDefault(); e.stopPropagation();
+      await api.removeGuestPlayer(tournamentId, p.id).catch(() => {});
+      renderTournamentSquadGuests(tournamentId);
+    });
+    ul.appendChild(li);
+  });
+}
+
+document.getElementById("btn-tournament-squad-back").addEventListener("click", loadTournamentHome);
+
+document.getElementById("btn-tournament-add-guest").addEventListener("click", () => {
+  document.getElementById("guest-name").value = "";
+  document.getElementById("guest-skill").value = "3";
+  document.getElementById("guest-gk-status").value = "can_play";
+  document.getElementById("guest-form-overlay").hidden = false;
+  document.getElementById("guest-name").focus();
+});
+
+document.getElementById("btn-generate-all-matches").addEventListener("click", async () => {
+  const checkedBoxes = document.querySelectorAll("#tournament-squad-list .avail-check:checked");
+  const availablePlayerIds = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.pid));
+  const teamSize = activeTournamentData?.tournament?.team_size || tournamentSelectedSize || 5;
+
+  if (availablePlayerIds.length < teamSize) {
+    alert(`Select at least ${teamSize} players.`);
+    return;
+  }
+
+  const btn = document.getElementById("btn-generate-all-matches");
+  btn.disabled = true;
+
+  for (let i = 1; i <= pendingNumMatches; i++) {
+    btn.textContent = `Generating ${i} of ${pendingNumMatches}…`;
+    await api.addTournamentMatch(activeTournamentId, {
       opponent: `Match ${i}`,
       stage: "group",
       available_player_ids: availablePlayerIds,
-    }).catch(() => {}); // best-effort; lobby will show what succeeded
+    }).catch(() => {});
   }
 
   btn.disabled = false;
-  btn.textContent = "Create & Generate ▶";
-  loadTournamentLobby(tournament.id);
+  btn.textContent = "Generate Matches ▶";
+  loadTournamentLobby(activeTournamentId);
 });
 
 // ── Tournament Lobby ──────────────────────────────────────────────────────────

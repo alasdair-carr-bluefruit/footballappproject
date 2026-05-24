@@ -370,10 +370,16 @@
         Formation
         <select id="tournament-formation-select"></select>
       </label>
-      <label>
-        Match Duration (minutes per match)
-        <input type="number" id="tournament-duration" min="5" max="45" value="10" />
-      </label>
+      <div class="inline-pair">
+        <label>
+          Match Duration (mins)
+          <input type="number" id="tournament-duration" min="5" max="45" value="10" />
+        </label>
+        <label>
+          Number of matches
+          <input type="number" id="tournament-num-matches" min="1" max="20" value="4" />
+        </label>
+      </div>
       <label class="label-row">
         <input type="checkbox" id="tournament-halftime" />
         Matches have a half-time break
@@ -388,18 +394,22 @@
         <input type="range" id="tournament-rotation-slider" min="0" max="100" value="50" />
         <span id="tournament-rotation-value" class="slider-label"></span>
       </label>
-      <div class="form-section">
-        <p class="form-section-label">Available players</p>
-        <ul class="avail-list" id="new-tournament-player-list">
-          <li class="loading">Loading players…</li>
-        </ul>
-      </div>
-      <label>
-        Number of group matches to generate
-        <input type="number" id="tournament-num-matches" min="1" max="20" value="4" />
-      </label>
-      <button class="btn btn-primary btn-full" type="submit" id="btn-create-tournament">Create &amp; Generate ▶</button>
+      <button class="btn btn-primary btn-full" type="submit" id="btn-create-tournament">Next: Select Players →</button>
     </form>
+  </div>
+
+  <!-- ── Screen: Tournament Squad Selection ───────────────────────────────── -->
+  <div id="screen-tournament-squad" class="screen" hidden>
+    <header class="header header-sub">
+      <button class="btn-back" id="btn-tournament-squad-back">◀ Tournaments</button>
+      <h2>Select Players</h2>
+    </header>
+    <p class="screen-desc" id="tournament-squad-desc">Select who's available today.</p>
+    <ul class="avail-list padded" id="tournament-squad-list"></ul>
+    <div class="squad-footer">
+      <button class="btn btn-secondary btn-full" id="btn-tournament-add-guest">+ Add temporary player</button>
+      <button class="btn btn-primary btn-full" id="btn-generate-all-matches">Generate Matches ▶</button>
+    </div>
   </div>
 
   <!-- ── Screen: Tournament Lobby ─────────────────────────────────────────── -->
@@ -416,34 +426,6 @@
     <div class="lobby-guest-section" id="lobby-guest-section">
       <div class="lobby-guest-list" id="lobby-guest-list"></div>
       <button type="button" class="btn btn-secondary btn-sm" id="btn-show-add-guest">+ Add temporary player</button>
-    </div>
-
-    <!-- Add Guest Player overlay -->
-    <div class="form-overlay" id="guest-form-overlay" hidden>
-      <form class="form-card" id="guest-player-form">
-        <h3>Add Temporary Player</h3>
-        <p class="form-hint">This player will only be available for this tournament.</p>
-        <label>
-          Name
-          <input type="text" id="guest-name" placeholder="Player name" autocomplete="off" required />
-        </label>
-        <label>Can Play GK?
-          <select id="guest-gk-status">
-            <option value="can_play">Can play GK</option>
-            <option value="preferred">Prefers GK</option>
-            <option value="specialist">GK specialist</option>
-            <option value="emergency_only">No GK</option>
-          </select>
-        </label>
-        <label>
-          Skill Rating (1–5)
-          <input type="number" id="guest-skill" min="1" max="5" value="3" />
-        </label>
-        <div class="form-actions">
-          <button class="btn btn-secondary" type="button" id="btn-add-guest-cancel">Cancel</button>
-          <button class="btn btn-primary" type="submit" id="btn-add-guest-confirm">Add Player</button>
-        </div>
-      </form>
     </div>
 
     <div class="lobby-add-section">
@@ -474,6 +456,34 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- ── Modal: Add Guest Player (shared by squad-select + lobby) ────────── -->
+  <div class="form-overlay" id="guest-form-overlay" hidden>
+    <form class="form-card" id="guest-player-form">
+      <h3>Add Temporary Player</h3>
+      <p class="form-hint">This player is only available for this tournament.</p>
+      <label>
+        Name
+        <input type="text" id="guest-name" placeholder="Player name" autocomplete="off" required />
+      </label>
+      <label>Can Play GK?
+        <select id="guest-gk-status">
+          <option value="can_play">Can play GK</option>
+          <option value="preferred">Prefers GK</option>
+          <option value="specialist">GK specialist</option>
+          <option value="emergency_only">No GK</option>
+        </select>
+      </label>
+      <label>
+        Skill Rating (1–5)
+        <input type="number" id="guest-skill" min="1" max="5" value="3" />
+      </label>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" id="btn-add-guest-cancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="btn-add-guest-confirm">Add Player</button>
+      </div>
+    </form>
   </div>
 
   <!-- ── Modal: Delete Player confirmation ────────────────────────────────── -->
