@@ -361,7 +361,7 @@ document.getElementById("btn-new-match-back").addEventListener("click", loadHome
 
 let pendingMatchConfig = null; // stored between config step and player selection step
 
-// Step 1: Config form → show player availability
+// Step 1: Config form → player selection screen
 document.getElementById("btn-select-players").addEventListener("click", async () => {
   const date = document.getElementById("match-date").value || new Date().toISOString().split("T")[0];
   const opponent = document.getElementById("opponent-input").value.trim();
@@ -376,7 +376,6 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
     home_away: selectedHomeAway,
   };
 
-  // Load players and show availability panel
   const players = await api.getPlayers().catch(() => []);
   const list = document.getElementById("avail-list");
   list.innerHTML = "";
@@ -392,14 +391,12 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
     list.appendChild(li);
   });
 
-  document.getElementById("new-match-form").hidden = true;
-  document.getElementById("availability-panel").hidden = false;
+  showScreen("screen-match-squad");
 });
 
-// Back from availability to config
-document.getElementById("btn-avail-back").addEventListener("click", () => {
-  document.getElementById("availability-panel").hidden = true;
-  document.getElementById("new-match-form").hidden = false;
+// Back from player selection to config
+document.getElementById("btn-match-squad-back").addEventListener("click", () => {
+  showScreen("screen-new-match");
 });
 
 // Step 2: Generate with selected players
@@ -415,9 +412,6 @@ document.getElementById("btn-generate").addEventListener("click", async () => {
   try {
     const match = await api.createMatch(pendingMatchConfig);
     const data = await api.generateRotation(match.id, { available_player_ids: selectedIds });
-    // Reset form state
-    document.getElementById("availability-panel").hidden = true;
-    document.getElementById("new-match-form").hidden = false;
     btn.disabled = false;
     btn.textContent = "Generate Rotation ▶";
     enterPitchView(data);

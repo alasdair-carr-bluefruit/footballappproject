@@ -234,18 +234,21 @@
       </label>
 
       <button class="btn btn-primary btn-full" type="button" id="btn-select-players">
-        Select Available Players ▶
+        Next: Select Players →
       </button>
     </form>
+  </div>
 
-    <!-- Player availability selection -->
-    <div id="availability-panel" hidden>
-      <h3 class="avail-title">Who's available?</h3>
-      <ul class="avail-list" id="avail-list"></ul>
-      <div class="avail-actions">
-        <button class="btn btn-secondary" type="button" id="btn-avail-back">◀ Back</button>
-        <button class="btn btn-primary" type="button" id="btn-generate">Generate Rotation ▶</button>
-      </div>
+  <!-- ── Screen: Match Squad Selection ───────────────────────────────────── -->
+  <div id="screen-match-squad" class="screen" hidden>
+    <header class="header header-sub">
+      <button class="btn-back" id="btn-match-squad-back">◀ Match Setup</button>
+      <h2>Select Players</h2>
+    </header>
+    <p class="screen-desc">Select who's available today.</p>
+    <ul class="avail-list padded" id="avail-list"></ul>
+    <div class="squad-footer">
+      <button class="btn btn-primary btn-full" id="btn-generate">Generate Rotation ▶</button>
     </div>
   </div>
 
