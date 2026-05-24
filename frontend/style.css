@@ -626,7 +626,7 @@ html, body {
 
 /* ── Start Match bar (review mode) ──────────────────────────────── */
 .start-match-bar {
-  padding: 10px 16px 0;
+  padding: 4px 16px 10px;
 }
 .btn-start-match-cta {
   width: 100%;
@@ -1237,6 +1237,42 @@ html, body {
   padding: 1px 6px;
   align-self: flex-start;
 }
+
+.match-badge-done {
+  background: rgba(46,204,113,0.15);
+  color: #2ecc71;
+  font-weight: 600;
+}
+.match-badge-live {
+  background: rgba(231,76,60,0.2);
+  color: #e74c3c;
+  font-weight: 600;
+}
+.match-item-done {
+  opacity: 0.8;
+}
+.match-item-done .match-item-opponent {
+  color: var(--text-dim);
+}
+
+/* ── End Match bar ───────────────────────────────────────────────── */
+.end-match-bar {
+  padding: 4px 16px 10px;
+}
+.btn-end-match {
+  width: 100%;
+  background: transparent;
+  color: #e74c3c;
+  border: 1.5px solid rgba(231,76,60,0.5);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+.btn-end-match:active { background: rgba(231,76,60,0.1); }
+.end-match-bar[hidden] { display: none; }
 
 .match-delete {
   background: none;

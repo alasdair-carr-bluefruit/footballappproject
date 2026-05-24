@@ -314,6 +314,12 @@
 
     <div class="adjust-status" id="adjust-status" hidden>Regenerating plan for other quarters…</div>
 
+    <div class="controls">
+      <button class="btn btn-prev" id="btn-prev">◀ Back</button>
+      <button class="btn btn-adjust" id="btn-adjust" hidden>Tinker</button>
+      <button class="btn btn-next" id="btn-next">Next ▶</button>
+    </div>
+
     <!-- Start Match CTA — visible only in review (pre-match) mode -->
     <div class="start-match-bar" id="start-match-bar" hidden>
       <button class="btn-start-match-cta" id="btn-start-match-cta">
@@ -325,10 +331,9 @@
       </button>
     </div>
 
-    <div class="controls">
-      <button class="btn btn-prev" id="btn-prev">◀ Back</button>
-      <button class="btn btn-adjust" id="btn-adjust" hidden>Tinker</button>
-      <button class="btn btn-next" id="btn-next">Next ▶</button>
+    <!-- End Match bar — visible only in live mode -->
+    <div class="end-match-bar" id="end-match-bar" hidden>
+      <button class="btn-end-match" id="btn-end-match">End Match</button>
     </div>
 
     <!-- Swap picker overlay -->
@@ -348,6 +353,18 @@
         <div class="form-actions">
           <button class="btn btn-secondary" id="btn-fairness-cancel">Cancel</button>
           <button class="btn btn-primary" id="btn-fairness-confirm">Apply anyway</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- End match early confirmation -->
+    <div class="swap-overlay" id="end-match-overlay" hidden>
+      <div class="swap-panel">
+        <h3 class="swap-title">End match early?</h3>
+        <p class="reinstate-info" id="end-match-info">Not all slots have been played. Are you sure you want to end the match now?</p>
+        <div class="player-action-buttons">
+          <button class="btn btn-danger btn-full" id="btn-end-confirm">Yes, end match</button>
+          <button class="btn btn-secondary btn-full" id="btn-end-cancel">Cancel</button>
         </div>
       </div>
     </div>

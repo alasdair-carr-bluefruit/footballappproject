@@ -100,14 +100,29 @@ async function loadHome() {
     const opponent = m.opponent || "Unknown opponent";
     const sizeBadge = `<span class="match-badge size-badge">${m.team_size || 5}v${m.team_size || 5}</span>`;
 
+    let statusBadge = "";
+    if (m.status === "completed") {
+      const isHome = (m.home_away || "home") === "home";
+      const ourG = m.our_goals || 0;
+      const oppG = m.opponent_goals || 0;
+      const homeScore = isHome ? ourG : oppG;
+      const awayScore = isHome ? oppG : ourG;
+      statusBadge = `<span class="match-badge match-badge-done">FT ${homeScore}–${awayScore}</span>`;
+    } else if (m.status === "in_progress") {
+      statusBadge = `<span class="match-badge match-badge-live">● Live</span>`;
+    } else if (!m.has_rotation) {
+      statusBadge = `<span class="match-badge">No rotation</span>`;
+    }
+
     const li = document.createElement("li");
     li.className = "match-item";
+    if (m.status === "completed") li.classList.add("match-item-done");
     li.innerHTML = `
       <div class="match-item-main">
         <span class="match-item-date">${dateStr}</span>
         <span class="match-item-opponent">vs ${opponent}</span>
         ${sizeBadge}
-        ${m.has_rotation ? "" : "<span class='match-badge'>No rotation</span>"}
+        ${statusBadge}
       </div>
       <button class="btn-icon match-delete" data-id="${m.id}" title="Delete match">✕</button>
     `;
@@ -856,31 +871,32 @@ function render() {
   const startMatchBar = document.getElementById("start-match-bar");
   const liveBadge = document.getElementById("live-badge");
 
+  const endMatchBar = document.getElementById("end-match-bar");
+  const isCompleted = matchData.match.status === "completed";
+  const isLastSlot = currentSlot === matchData.slots.length - 1;
+
   if (!matchStarted) {
     // Review mode: coach browses the plan before starting
     startMatchBar.hidden = false;
+    endMatchBar.hidden = true;
     liveBadge.hidden = true;
     btnPrev.disabled = currentSlot === 0 || editMode;
-    // Next cycles slots but never shows Full Time in review mode
-    btnNext.disabled = editMode || currentSlot === matchData.slots.length - 1;
+    btnNext.disabled = editMode || isLastSlot;
     btnNext.textContent = "Next ▶";
     btnAdjust.hidden = false;
     btnAdjust.textContent = editMode ? "Done" : "Tinker";
   } else {
-    // Live mode
+    // Live mode (in_progress or completed)
     startMatchBar.hidden = true;
-    liveBadge.hidden = false;
+    endMatchBar.hidden = isCompleted;
+    liveBadge.hidden = isCompleted;
     btnPrev.disabled = currentSlot === 0 || editMode;
-    btnNext.disabled = editMode;
-    if (currentSlot === matchData.slots.length - 1) {
-      btnNext.textContent = "Full time ▶";
-    } else {
-      btnNext.textContent = "Next ▶";
-    }
+    btnNext.disabled = editMode || (isCompleted && isLastSlot);
+    btnNext.textContent = isLastSlot ? "Match Report ▶" : "Next ▶";
 
     // Past slots (already played) — hide Tinker to prevent editing history
     const isPastSlot = currentSlot < (matchData.match.current_slot || 0);
-    if (isPastSlot) {
+    if (isPastSlot || isCompleted) {
       btnAdjust.hidden = true;
     } else {
       btnAdjust.hidden = false;
@@ -1065,7 +1081,11 @@ function renderReport() {
 
   document.getElementById("btn-prev").disabled = false;
   document.getElementById("btn-next").disabled = false;
-  document.getElementById("btn-next").textContent = "Full Time ▶";
+  document.getElementById("btn-next").textContent = "◀ Back to slots";
+  // End Match bar: visible in live mode on report view
+  const endBar = document.getElementById("end-match-bar");
+  if (endBar) endBar.hidden = !matchStarted || matchData.match.status === "completed";
+  document.getElementById("start-match-bar").hidden = true;
 }
 
 function showMatch() {
@@ -1083,7 +1103,8 @@ document.getElementById("btn-start-match-cta").addEventListener("click", () => d
 
 document.getElementById("btn-next").addEventListener("click", async () => {
   if (showingReport) {
-    await showFulltime();
+    // From report: "Next" just closes report back to last slot (End Match button ends it)
+    showMatch();
     return;
   }
   if (showingChanges) {
@@ -1094,7 +1115,7 @@ document.getElementById("btn-next").addEventListener("click", async () => {
   if (currentSlot < matchData.slots.length - 1) {
     currentSlot++;
     // Persist progress when advancing beyond the furthest reached slot
-    if (currentSlot > (matchData.match.current_slot || 0)) {
+    if (matchStarted && currentSlot > (matchData.match.current_slot || 0)) {
       matchData.match.current_slot = currentSlot;
       api.updateProgress(matchData.match.id, currentSlot).catch(() => {});
     }
@@ -1105,6 +1126,7 @@ document.getElementById("btn-next").addEventListener("click", async () => {
       render();
     }
   } else {
+    // Last slot — show match report
     showingReport = true;
     renderReport();
   }
@@ -1120,6 +1142,38 @@ document.getElementById("btn-prev").addEventListener("click", () => {
   }
   if (currentSlot > 0) { currentSlot--; render(); }
 });
+
+// ── End match ─────────────────────────────────────────────────────────────────
+document.getElementById("btn-end-match").addEventListener("click", () => {
+  const isLastSlot = currentSlot === matchData.slots.length - 1;
+  if (showingReport || isLastSlot) {
+    // At the end of the match — no confirmation needed
+    doEndMatch();
+  } else {
+    // Mid-match early end — ask for confirmation
+    document.getElementById("end-match-overlay").hidden = false;
+  }
+});
+
+document.getElementById("btn-end-cancel").addEventListener("click", () => {
+  document.getElementById("end-match-overlay").hidden = true;
+});
+
+document.getElementById("btn-end-confirm").addEventListener("click", () => {
+  document.getElementById("end-match-overlay").hidden = true;
+  doEndMatch();
+});
+
+async function doEndMatch() {
+  // Save goals and mark match completed, then show Full Time screen
+  if (matchData?.match.id) {
+    const oppGoals = matchData.match.opponent_goals || 0;
+    await api.saveGoals(matchData.match.id, goalCounts, oppGoals).catch(() => {});
+    await api.updateProgress(matchData.match.id, currentSlot, "completed").catch(() => {});
+    matchData.match.status = "completed";
+  }
+  await showFulltime();
+}
 
 // ── Start match ───────────────────────────────────────────────────────────────
 async function doStartMatch() {
@@ -1429,6 +1483,7 @@ document.getElementById("ft-opp-input").addEventListener("input", e => {
 document.getElementById("btn-ft-done").addEventListener("click", async () => {
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   if (matchData?.match.id) {
+    // Always save on Done — this handles score corrections from the FT screen
     await api.saveGoals(matchData.match.id, goalCounts, oppGoals).catch(() => {});
   }
   loadHome();

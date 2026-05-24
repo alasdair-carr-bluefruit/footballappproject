@@ -49,9 +49,10 @@ class MatchRead(BaseModel):
     opponent_goals: int = 0
     status: str = "planned"
     current_slot: int = 0
+    our_goals: int = 0  # sum of all player goals (for match list display)
 
 
-def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
+def _match_read(m: MatchDB, has_rotation: bool, our_goals: int = 0) -> MatchRead:
     return MatchRead(
         id=m.id,  # type: ignore[arg-type]
         date=m.date,
@@ -68,6 +69,7 @@ def _match_read(m: MatchDB, has_rotation: bool) -> MatchRead:
         opponent_goals=m.opponent_goals,
         status=m.status,
         current_slot=m.current_slot,
+        our_goals=our_goals,
     )
 
 
@@ -105,12 +107,20 @@ def list_matches(session: Session = Depends(get_session)) -> list[MatchRead]:
             select(MatchDB).where(MatchDB.squad_id == squad.id).order_by(MatchDB.date.desc())  # type: ignore[arg-type]
         ).all()
     )
+    match_ids = {m.id for m in matches}
     rotations = {
-        r.match_id
+        r.match_id: r
         for r in session.exec(select(RotationPlanDB)).all()
-        if r.match_id in {m.id for m in matches}
+        if r.match_id in match_ids
     }
-    return [_match_read(m, m.id in rotations) for m in matches]
+    result = []
+    for m in matches:
+        r = rotations.get(m.id)
+        our_goals = 0
+        if r and r.goals_json and r.goals_json != "{}":
+            our_goals = sum(json.loads(r.goals_json).values())
+        result.append(_match_read(m, m.id in rotations, our_goals))
+    return result
 
 
 @router.post("/", response_model=MatchRead, status_code=201)

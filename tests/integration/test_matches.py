@@ -304,6 +304,30 @@ def test_player_history_goals_counted(client: TestClient, squad_10: None) -> Non
 
 # ── Full match lifecycle integration test ────────────────────────────────────
 
+def test_match_list_shows_status_and_score(client: TestClient, squad_10: None) -> None:
+    """Match list includes status and our_goals for display."""
+    match_id = client.post("/api/matches/", json={"date": "2026-03-25", "opponent": "City"}).json()["id"]
+    client.post(f"/api/matches/{match_id}/rotation")
+
+    # Planned — default status
+    matches = client.get("/api/matches/").json()
+    m = next(x for x in matches if x["id"] == match_id)
+    assert m["status"] == "planned"
+    assert m["our_goals"] == 0
+
+    # Start and record a goal
+    client.post(f"/api/matches/{match_id}/start")
+    players = client.get("/api/squad/players").json()
+    client.post(f"/api/matches/{match_id}/goals", json={"goals": {players[0]["name"]: 2}, "opponent_goals": 1})
+    client.post(f"/api/matches/{match_id}/progress", json={"current_slot": 7, "status": "completed"})
+
+    matches = client.get("/api/matches/").json()
+    m = next(x for x in matches if x["id"] == match_id)
+    assert m["status"] == "completed"
+    assert m["our_goals"] == 2
+    assert m["opponent_goals"] == 1
+
+
 def test_full_match_lifecycle(client: TestClient, squad_10: None) -> None:
     """End-to-end: create → rotate → start → advance slots → goals → complete."""
     # Create and generate rotation
