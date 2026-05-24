@@ -570,9 +570,15 @@ function closePlayerForm() {
   editingPlayerId = null;
 }
 
-document.getElementById("btn-squad-back").addEventListener("click", () => {
-  if (squadBackContext === "landing") showScreen("screen-landing");
-  else loadHome();
+document.getElementById("btn-squad-back").addEventListener("click", async () => {
+  if (squadBackContext === "landing") {
+    // Dismiss squad tip if any players now exist
+    const players = await api.getPlayers().catch(() => []);
+    if (players.length > 0) dismissSquadTip();
+    showScreen("screen-landing");
+  } else {
+    loadHome();
+  }
 });
 
 // Team logo file input → preview
@@ -650,6 +656,7 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
     await api.updatePlayer(id, data).catch(err => alert(err.message));
   } else {
     await api.addPlayer(data).catch(err => alert(err.message));
+    dismissSquadTip(); // first player added — tip no longer needed
   }
   loadSquad();
 });

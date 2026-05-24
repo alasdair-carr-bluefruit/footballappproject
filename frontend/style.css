@@ -879,42 +879,33 @@ html, body {
 }
 
 .squad-onboarding {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  background: rgba(5, 16, 8, 0.88);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px 220px; /* bottom padding leaves room for mode buttons */
-  pointer-events: none;
-}
-
-.squad-onboarding-msg {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 14px;
-  max-width: 340px;
+  gap: 12px;
+  padding: 16px 4px 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .squad-onboarding-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   color: #fff;
   margin: 0;
 }
 
 .squad-onboarding-body {
-  font-size: 14px;
-  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  color: rgba(255,255,255,0.65);
   line-height: 1.6;
   margin: 0;
+  max-width: 320px;
 }
 
 .squad-onboarding-arrow {
-  font-size: 28px;
+  font-size: 24px;
   color: var(--matchday);
   animation: bounce-arrow 1.4s ease-in-out infinite;
 }
@@ -953,28 +944,22 @@ html, body {
   border-color: var(--btn-primary);
 }
 
-/* applied to #btn-squad-management when onboarding overlay is active */
+.landing--onboarding #btn-season-mode,
+.landing--onboarding #btn-tournament-mode {
+  opacity: 0.08;
+  pointer-events: none;
+  filter: grayscale(1);
+}
+
 .landing--onboarding #btn-squad-management {
-  position: relative;
-  z-index: 4;
   border-color: var(--matchday);
-  box-shadow: 0 0 0 3px rgba(46,190,107,0.35), 0 8px 32px rgba(0,0,0,0.5);
+  background: rgba(46,190,107,0.14);
+  box-shadow: 0 0 0 3px rgba(46,190,107,0.4), 0 8px 32px rgba(0,0,0,0.5);
   animation: pulse-highlight 2s ease-in-out infinite;
 }
 
-.landing--onboarding #btn-season-mode,
-.landing--onboarding #btn-tournament-mode {
-  opacity: 0.12;
-  pointer-events: none;
-}
-
-.landing--onboarding .landing-modes {
-  position: relative;
-  z-index: 3;
-}
-
 @keyframes pulse-highlight {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(46,190,107,0.35), 0 8px 32px rgba(0,0,0,0.5); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(46,190,107,0.4), 0 8px 32px rgba(0,0,0,0.5); }
   50%       { box-shadow: 0 0 0 7px rgba(46,190,107,0.15), 0 8px 32px rgba(0,0,0,0.5); }
 }
 
