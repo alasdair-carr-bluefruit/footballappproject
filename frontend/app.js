@@ -116,24 +116,21 @@ document.getElementById("btn-tutorial-start").addEventListener("click", async ()
 
 function showSquadTip() {
   if (localStorage.getItem("gaffer_squad_tip_dismissed")) return;
-  document.getElementById("squad-tip").hidden = false;
-  document.getElementById("btn-squad-management").classList.add("mode-card-highlight");
+  document.getElementById("squad-onboarding").hidden = false;
+  document.querySelector(".landing").classList.add("landing--onboarding");
 }
 
-document.getElementById("btn-squad-tip-dismiss").addEventListener("click", () => {
-  document.getElementById("squad-tip").hidden = true;
-  document.getElementById("btn-squad-management").classList.remove("mode-card-highlight");
+function dismissSquadTip() {
+  document.getElementById("squad-onboarding").hidden = true;
+  document.querySelector(".landing").classList.remove("landing--onboarding");
   localStorage.setItem("gaffer_squad_tip_dismissed", "1");
-});
+}
 
 // ── Landing screen ────────────────────────────────────────────────────────────
 document.getElementById("btn-season-mode").addEventListener("click", () => loadHome());
 document.getElementById("btn-tournament-mode").addEventListener("click", () => loadTournamentHome());
 document.getElementById("btn-squad-management").addEventListener("click", () => {
-  // Dismiss squad tip once they visit squad management
-  document.getElementById("squad-tip").hidden = true;
-  document.getElementById("btn-squad-management").classList.remove("mode-card-highlight");
-  localStorage.setItem("gaffer_squad_tip_dismissed", "1");
+  dismissSquadTip();
   squadBackContext = "landing";
   loadSquad();
 });
