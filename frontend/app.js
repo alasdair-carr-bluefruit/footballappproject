@@ -1171,7 +1171,7 @@ function renderReport() {
 
   document.getElementById("btn-prev").disabled = false;
   document.getElementById("btn-next").disabled = false;
-  document.getElementById("btn-next").textContent = "◀ Back to slots";
+  document.getElementById("btn-next").textContent = "End Match";
   // End Match bar: visible in live mode on report view
   const endBar = document.getElementById("end-match-bar");
   if (endBar) endBar.hidden = !matchStarted || matchData.match.status === "completed";
@@ -1193,8 +1193,7 @@ document.getElementById("btn-start-match-cta").addEventListener("click", () => d
 
 document.getElementById("btn-next").addEventListener("click", async () => {
   if (showingReport) {
-    // From report: "Next" just closes report back to last slot (End Match button ends it)
-    showMatch();
+    doEndMatch();
     return;
   }
   if (showingChanges) {
