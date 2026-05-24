@@ -185,9 +185,10 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* Sub arrows and GK gloves must sit above the wobble ring ::after */
+/* Sub arrows, GK gloves, and goal badge must sit above the wobble ring ::after */
 .sub-badge,
-.gk-gloves {
+.gk-gloves,
+.goal-badge {
   z-index: 2;
 }
 
@@ -623,18 +624,60 @@ html, body {
 }
 .btn-adjust:active { opacity: 1; }
 
-/* ── Start Match button state ────────────────────────────────────── */
-.btn-start-match {
-  background: var(--pitch-green);
-  font-size: 1rem;
+/* ── Start Match bar (review mode) ──────────────────────────────── */
+.start-match-bar {
+  padding: 10px 16px 0;
+}
+.btn-start-match-cta {
+  width: 100%;
+  background: #27ae60;
+  color: #fff;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.03em;
-  animation: pulse-start 1.5s ease-in-out infinite;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  animation: pulse-start 1.6s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
+.btn-start-match-cta:active { opacity: 0.85; animation: none; }
 @keyframes pulse-start {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.4); }
-  50%       { box-shadow: 0 0 0 8px rgba(39,174,96,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.45); }
+  50%       { box-shadow: 0 0 0 10px rgba(39,174,96,0); }
 }
+
+/* ── Live match indicator (in header) ───────────────────────────── */
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(39,174,96,0.18);
+  border: 1px solid rgba(39,174,96,0.5);
+  color: #2ecc71;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px 2px 5px;
+  border-radius: 10px;
+}
+.live-badge[hidden] { display: none; }
+.live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #2ecc71;
+  animation: live-pulse 1.2s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+.start-match-bar[hidden] { display: none; }
 
 /* ── Removed player bench state ──────────────────────────────────── */
 .bench-player.bench-removed {

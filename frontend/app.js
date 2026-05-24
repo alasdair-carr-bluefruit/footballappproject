@@ -654,7 +654,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
 
   let pressTimer = null;
   div.addEventListener("pointerdown", () => {
-    if (editMode) return; // no goals while adjusting plan
+    if (editMode || !matchStarted) return; // no goals while adjusting plan or reviewing
     pressTimer = setTimeout(() => {
       pressTimer = null;
       goalCounts[name] = (goalCounts[name] || 0) + 1;
@@ -853,17 +853,23 @@ function render() {
   const btnPrev = document.getElementById("btn-prev");
   const btnNext = document.getElementById("btn-next");
   const btnAdjust = document.getElementById("btn-adjust");
+  const startMatchBar = document.getElementById("start-match-bar");
+  const liveBadge = document.getElementById("live-badge");
 
   if (!matchStarted) {
-    // Pre-match: only "Start Match" is active
-    btnPrev.disabled = true;
-    btnNext.disabled = false;
-    btnNext.textContent = "Start Match ▶";
-    btnNext.classList.add("btn-start-match");
+    // Review mode: coach browses the plan before starting
+    startMatchBar.hidden = false;
+    liveBadge.hidden = true;
+    btnPrev.disabled = currentSlot === 0 || editMode;
+    // Next cycles slots but never shows Full Time in review mode
+    btnNext.disabled = editMode || currentSlot === matchData.slots.length - 1;
+    btnNext.textContent = "Next ▶";
     btnAdjust.hidden = false;
-    btnAdjust.textContent = "Tinker";
+    btnAdjust.textContent = editMode ? "Done" : "Tinker";
   } else {
-    btnNext.classList.remove("btn-start-match");
+    // Live mode
+    startMatchBar.hidden = true;
+    liveBadge.hidden = false;
     btnPrev.disabled = currentSlot === 0 || editMode;
     btnNext.disabled = editMode;
     if (currentSlot === matchData.slots.length - 1) {
@@ -874,8 +880,9 @@ function render() {
 
     // Past slots (already played) — hide Tinker to prevent editing history
     const isPastSlot = currentSlot < (matchData.match.current_slot || 0);
-    btnAdjust.hidden = isPastSlot;
-    if (!isPastSlot) {
+    if (isPastSlot) {
+      btnAdjust.hidden = true;
+    } else {
       btnAdjust.hidden = false;
       btnAdjust.textContent = editMode ? "Done" : "Tinker";
     }
@@ -938,6 +945,7 @@ function renderChanges() {
   document.querySelector(".pitch-wrapper").style.display = "none";
   document.querySelector(".bench-section").style.display = "none";
   document.getElementById("report-section").style.display = "block";
+  document.getElementById("start-match-bar").hidden = true;
 
   const list = document.getElementById("report-list");
   list.innerHTML = "";
@@ -1071,11 +1079,9 @@ function showMatch() {
 }
 
 // ── Pitch controls ────────────────────────────────────────────────────────────
+document.getElementById("btn-start-match-cta").addEventListener("click", () => doStartMatch());
+
 document.getElementById("btn-next").addEventListener("click", async () => {
-  if (!matchStarted) {
-    await doStartMatch();
-    return;
-  }
   if (showingReport) {
     await showFulltime();
     return;
