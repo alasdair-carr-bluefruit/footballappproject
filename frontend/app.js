@@ -889,8 +889,8 @@ function render() {
     row.keys.forEach(posKey => {
       const name = slot.lineup[posKey]?.name ?? "?";
       const isGk = posKey === "GK";
-      const swapHandler = editMode && !isGk ? () => openSwapPicker(currentSlot, posKey, name) : null;
-      const dragData = editMode && !isGk ? { slotIndex: currentSlot, posKey } : null;
+      const swapHandler = editMode ? () => openSwapPicker(currentSlot, posKey, name) : null;
+      const dragData = editMode ? { slotIndex: currentSlot, posKey } : null;
       rowEl.appendChild(playerCircle(name, posKey, incoming.has(name), outgoing.has(name), isGk, swapHandler, dragData));
     });
 
@@ -1424,7 +1424,7 @@ function openSwapPicker(slotIndex, posKey, currentPlayerName) {
 
   // Also show other on-pitch players (position swap)
   Object.entries(slot.lineup).forEach(([pos, p]) => {
-    if (p.name !== currentPlayerName && pos !== "GK") {
+    if (p.name !== currentPlayerName) {
       const count = slotCountForPlayer(p.name);
       const li = document.createElement("li");
       li.className = "swap-item";
