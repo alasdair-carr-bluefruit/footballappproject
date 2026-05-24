@@ -77,8 +77,9 @@ api.getTeamInfo().then(info => { if (info) teamInfo = info; }).catch(() => {});
 (function initScreen() {
   if (!localStorage.getItem("gaffer_onboarded")) {
     showScreen("screen-tutorial");
+  } else {
+    showScreen("screen-landing");
   }
-  // If already onboarded, screen-landing is shown by default (first visible screen)
 })();
 
 // Tutorial logo upload
@@ -2303,5 +2304,4 @@ document.getElementById("btn-generate-tournament-match").addEventListener("click
   enterPitchView(result);
 });
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-showScreen("screen-landing");
+// ── Init: handled in initScreen() above ───────────────────────────────────────
