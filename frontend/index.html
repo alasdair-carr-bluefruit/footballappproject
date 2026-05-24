@@ -278,6 +278,18 @@
     <ul class="history-list" id="history-list"></ul>
   </div>
 
+  <!-- ── Modal: Delete Player confirmation ────────────────────────────────── -->
+  <div class="swap-overlay" id="delete-player-overlay" hidden>
+    <div class="swap-panel">
+      <h3 class="swap-title">Remove player?</h3>
+      <p class="reinstate-info" id="delete-player-info">Are you sure you want to remove this player from your squad? All previous match data including goals scored will be lost.</p>
+      <div class="player-action-buttons">
+        <button class="btn btn-danger btn-full" id="btn-delete-player-confirm">Yes, remove player</button>
+        <button class="btn btn-secondary btn-full" id="btn-delete-player-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Screen: Pitch ────────────────────────────────────────────────────── -->
   <div id="screen-pitch" class="screen" hidden>
 

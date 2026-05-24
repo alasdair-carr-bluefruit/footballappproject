@@ -18,6 +18,7 @@ let teamInfo = { team_name: "My Team", team_logo: "" }; // cached squad info
 let shirtNumbers = {}; // { playerName: shirtNumber } — populated from squad API
 let removedPlayers = {}; // { playerId: fromSlot } — players removed mid-match
 let pendingActionPlayer = null; // { id, name } for player-action overlay
+let pendingDeletePlayerId = null; // player id awaiting delete confirmation
 
 // Returns true if this player's shirt number is shared and they are the LATER entry
 // (i.e. the "duplicate" — their number shows in red)
@@ -446,9 +447,11 @@ async function loadSquad() {
       </div>
     `;
     li.querySelector(`[data-edit]`).addEventListener("click", () => openPlayerForm(p));
-    li.querySelector(`[data-del]`).addEventListener("click", async () => {
-      await api.deletePlayer(p.id).catch(err => alert(err.message));
-      loadSquad();
+    li.querySelector(`[data-del]`).addEventListener("click", () => {
+      pendingDeletePlayerId = p.id;
+      document.getElementById("delete-player-info").textContent =
+        `Are you sure you want to remove ${p.name} from your squad? All previous match data including goals scored will be lost.`;
+      document.getElementById("delete-player-overlay").hidden = false;
     });
     list.appendChild(li);
   });
@@ -1265,6 +1268,21 @@ document.getElementById("btn-reinstate-confirm").addEventListener("click", async
     statusEl.hidden = true;
     alert("Could not reinstate player: " + err.message);
   }
+});
+
+// ── Delete player modal ────────────────────────────────────────────────────────
+document.getElementById("btn-delete-player-cancel").addEventListener("click", () => {
+  document.getElementById("delete-player-overlay").hidden = true;
+  pendingDeletePlayerId = null;
+});
+
+document.getElementById("btn-delete-player-confirm").addEventListener("click", async () => {
+  document.getElementById("delete-player-overlay").hidden = true;
+  if (!pendingDeletePlayerId) return;
+  const id = pendingDeletePlayerId;
+  pendingDeletePlayerId = null;
+  await api.deletePlayer(id).catch(err => alert(err.message));
+  loadSquad();
 });
 
 // ── Edit mode (adjust plan) ────────────────────────────────────────────────────
