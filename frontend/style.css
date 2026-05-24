@@ -1336,6 +1336,20 @@ html, body {
   letter-spacing: 0.02em;
 }
 .btn-end-match:active { background: rgba(231,76,60,0.1); }
+.btn-return-plan {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  padding: 4px 10px 8px;
+  cursor: pointer;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+.btn-return-plan:active { opacity: 0.5; }
+.btn-return-plan[hidden] { display: none; }
 .end-match-bar[hidden] { display: none; }
 
 .match-delete {

@@ -967,6 +967,8 @@ function render() {
     startMatchBar.hidden = true;
     endMatchBar.hidden = isCompleted;
     liveBadge.hidden = isCompleted;
+    // "Return to plan review" only available before any slot has been advanced
+    document.getElementById("btn-return-plan").hidden = currentSlot !== 0 || isCompleted;
     btnPrev.disabled = currentSlot === 0 || editMode;
     btnNext.disabled = editMode || (isCompleted && isLastSlot);
     btnNext.textContent = isLastSlot ? "Match Report ▶" : "Next ▶";
@@ -1264,6 +1266,17 @@ async function doStartMatch() {
     alert("Could not start match: " + err.message);
   }
 }
+
+document.getElementById("btn-return-plan").addEventListener("click", async () => {
+  try {
+    await api.unstartMatch(matchData.match.id);
+    matchStarted = false;
+    matchData.match.status = "planned";
+    render();
+  } catch (err) {
+    alert("Could not return to plan review: " + err.message);
+  }
+});
 
 // ── Player removal ─────────────────────────────────────────────────────────────
 function openPlayerActionMenu(player) {

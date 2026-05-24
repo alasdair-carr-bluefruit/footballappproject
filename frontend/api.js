@@ -30,6 +30,7 @@ export const api = {
   generateRotation:  (id, body) => request(`/matches/${id}/rotation`, { method: "POST", body: body || {} }),
   adjustRotation:    (id, edits, lockedSlots) => request(`/matches/${id}/adjust`, { method: "POST", body: { edits, locked_slots: lockedSlots } }),
   startMatch:        (id) => request(`/matches/${id}/start`,    { method: "POST" }),
+  unstartMatch:      (id) => request(`/matches/${id}/unstart`,  { method: "POST" }),
   updateProgress:    (id, slot, status) => request(`/matches/${id}/progress`, { method: "POST", body: { current_slot: slot, ...(status ? { status } : {}) } }),
   removePlayer:      (id, playerId, fromSlot) => request(`/matches/${id}/remove-player`, { method: "POST", body: { player_id: playerId, from_slot: fromSlot } }),
   reinstatePlayer:   (id, playerId) => request(`/matches/${id}/reinstate-player`, { method: "POST", body: { player_id: playerId } }),

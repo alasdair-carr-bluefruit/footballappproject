@@ -543,6 +543,22 @@ def start_match(match_id: int, session: Session = Depends(get_session)) -> dict[
     return {"status": db_match.status, "current_slot": db_match.current_slot}
 
 
+@router.post("/{match_id}/unstart")
+def unstart_match(match_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Revert an accidentally-started match back to planned. Only allowed when current_slot == 0."""
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if db_match.status != "in_progress":
+        raise HTTPException(status_code=400, detail="Match is not in progress")
+    if db_match.current_slot != 0:
+        raise HTTPException(status_code=400, detail="Cannot revert — match has already progressed")
+    db_match.status = "planned"
+    session.add(db_match)
+    session.commit()
+    return {"status": db_match.status, "current_slot": db_match.current_slot}
+
+
 class ProgressUpdate(BaseModel):
     current_slot: int
     status: str | None = None  # "in_progress" or "completed"
