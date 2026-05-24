@@ -14,6 +14,7 @@ const goalCounts = {}; // { playerName: count }
 let gameConfigs = null; // cached from /api/matches/config/game-configs
 let selectedSize = 5;
 let selectedHomeAway = "home";
+let selectedPeriods = 4;
 let teamInfo = { team_name: "My Team", team_logo: "" }; // cached squad info
 let shirtNumbers = {}; // { playerName: shirtNumber } — populated from squad API
 let removedPlayers = {}; // { playerId: fromSlot } — players removed mid-match
@@ -282,11 +283,24 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
 // ── Team size & formation picker ────────────────────────────────────────────
 function selectSize(size) {
   selectedSize = size;
-  document.querySelectorAll(".size-btn").forEach(btn => {
+  document.querySelectorAll("#size-picker .size-btn").forEach(btn => {
     btn.classList.toggle("active", parseInt(btn.dataset.size) === size);
   });
+  selectPeriods(size >= 9 ? 2 : 4);
   updateFormationOptions();
 }
+
+function selectPeriods(periods) {
+  selectedPeriods = periods;
+  document.querySelectorAll("#period-picker .size-btn").forEach(btn => {
+    btn.classList.toggle("active", parseInt(btn.dataset.periods) === periods);
+  });
+}
+
+document.getElementById("period-picker").addEventListener("click", e => {
+  const btn = e.target.closest(".size-btn");
+  if (btn) selectPeriods(parseInt(btn.dataset.periods));
+});
 
 function updateFormationOptions() {
   const select = document.getElementById("formation-select");
@@ -374,6 +388,8 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
     date, opponent, team_size: selectedSize, formation,
     fairness, fairness_value: fairnessVal, rotation_intensity,
     home_away: selectedHomeAway,
+    quarters: selectedPeriods,
+    quarter_length_mins: selectedPeriods === 2 ? 20 : 10,
   };
 
   const players = await api.getPlayers().catch(() => []);

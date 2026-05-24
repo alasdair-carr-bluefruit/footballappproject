@@ -15,9 +15,37 @@ from backend.db.repositories import (
     rotation_plan_from_json,
     save_rotation,
 )
-from backend.models.game_config import DEFAULT_FORMATIONS, PRESET_CONFIGS, build_tournament_config, get_config
+from backend.models.game_config import (
+    DEFAULT_FORMATIONS, Formation, GameConfig, PRESET_CONFIGS,
+    build_tournament_config, get_config,
+)
 
 router = APIRouter()
+
+
+def _season_config(team_size: int, formation: str, quarters: int, quarter_length_mins: int) -> GameConfig:
+    """Build a GameConfig for a season match, honouring the stored period structure."""
+    try:
+        preset = get_config(team_size, formation)
+    except KeyError:
+        preset = None
+
+    if preset and quarters == preset.periods:
+        return preset  # matches the preset exactly — nothing to override
+
+    # Build a custom config with the user's chosen period count
+    period_label = "Half" if quarters == 2 else "Quarter"
+    break_subs = None if quarters == 2 else (preset.break_subs if preset else 5)
+    mid_subs = preset.mid_period_subs if preset else 2
+    return GameConfig(
+        team_size=team_size,
+        formation=Formation.parse(formation),
+        periods=quarters,
+        period_length_mins=quarter_length_mins,
+        mid_period_subs=mid_subs,
+        break_subs=break_subs,
+        period_label=period_label,
+    )
 
 
 def _compute_prior_tournament_slots(
@@ -108,7 +136,7 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             total_duration = m.quarters * m.quarter_length_mins
             cfg = build_tournament_config(m.team_size, m.formation, total_duration, m.quarters > 1)
         else:
-            cfg = get_config(m.team_size, m.formation)
+            cfg = _season_config(m.team_size, m.formation, m.quarters, m.quarter_length_mins)
         period_label = cfg.period_label
     except (KeyError, Exception):
         period_label = "Quarter"
@@ -220,8 +248,8 @@ def generate_match_rotation(
             raise HTTPException(status_code=422, detail=str(e))
     else:
         try:
-            config = get_config(db_match.team_size, db_match.formation)
-        except KeyError as e:
+            config = _season_config(db_match.team_size, db_match.formation, db_match.quarters, db_match.quarter_length_mins)
+        except (KeyError, ValueError) as e:
             raise HTTPException(status_code=422, detail=str(e))
 
     all_players = get_players(session, db_match.squad_id)
