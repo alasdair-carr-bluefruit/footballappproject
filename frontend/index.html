@@ -155,7 +155,6 @@
       </div>
       <div class="home-actions">
         <button class="btn btn-primary" id="btn-go-new-match">+ New Match</button>
-        <button class="btn btn-secondary" id="btn-go-squad">Edit Squad</button>
         <button class="btn btn-secondary" id="btn-go-stats">Season Stats</button>
       </div>
     </header>
@@ -389,7 +388,17 @@
         <input type="range" id="tournament-rotation-slider" min="0" max="100" value="50" />
         <span id="tournament-rotation-value" class="slider-label"></span>
       </label>
-      <button class="btn btn-primary btn-full" type="submit">Create Tournament</button>
+      <div class="form-section">
+        <p class="form-section-label">Available players</p>
+        <ul class="avail-list" id="new-tournament-player-list">
+          <li class="loading">Loading players…</li>
+        </ul>
+      </div>
+      <label>
+        Number of group matches to generate
+        <input type="number" id="tournament-num-matches" min="1" max="20" value="4" />
+      </label>
+      <button class="btn btn-primary btn-full" type="submit" id="btn-create-tournament">Create &amp; Generate ▶</button>
     </form>
   </div>
 
@@ -402,6 +411,40 @@
     <div class="lobby-summary" id="lobby-summary"></div>
 
     <ul class="match-list" id="lobby-match-list"></ul>
+
+    <!-- Guest players section -->
+    <div class="lobby-guest-section" id="lobby-guest-section">
+      <div class="lobby-guest-list" id="lobby-guest-list"></div>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-show-add-guest">+ Add temporary player</button>
+    </div>
+
+    <!-- Add Guest Player overlay -->
+    <div class="form-overlay" id="guest-form-overlay" hidden>
+      <form class="form-card" id="guest-player-form">
+        <h3>Add Temporary Player</h3>
+        <p class="form-hint">This player will only be available for this tournament.</p>
+        <label>
+          Name
+          <input type="text" id="guest-name" placeholder="Player name" autocomplete="off" required />
+        </label>
+        <label>Can Play GK?
+          <select id="guest-gk-status">
+            <option value="can_play">Can play GK</option>
+            <option value="preferred">Prefers GK</option>
+            <option value="specialist">GK specialist</option>
+            <option value="emergency_only">No GK</option>
+          </select>
+        </label>
+        <label>
+          Skill Rating (1–5)
+          <input type="number" id="guest-skill" min="1" max="5" value="3" />
+        </label>
+        <div class="form-actions">
+          <button class="btn btn-secondary" type="button" id="btn-add-guest-cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit" id="btn-add-guest-confirm">Add Player</button>
+        </div>
+      </form>
+    </div>
 
     <div class="lobby-add-section">
       <div class="lobby-add-buttons">
@@ -423,25 +466,6 @@
             <input type="range" id="knockout-fairness-slider" min="0" max="100" value="75" />
             <span id="knockout-fairness-label" class="slider-label"></span>
           </label>
-        </div>
-
-        <p class="add-match-section-label">Select available players</p>
-        <ul class="avail-list" id="lobby-player-list"></ul>
-
-        <div class="add-guest-section">
-          <button type="button" class="btn-link" id="btn-show-add-guest">+ Add temporary player</button>
-          <div class="guest-form" id="guest-form" hidden>
-            <input type="text" id="guest-name" placeholder="Name" />
-            <select id="guest-gk-status">
-              <option value="can_play">Can play GK</option>
-              <option value="preferred">Prefers GK</option>
-              <option value="specialist">GK specialist</option>
-              <option value="emergency_only">No GK</option>
-            </select>
-            <input type="number" id="guest-skill" min="1" max="5" value="3" placeholder="Skill (1-5)" />
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-guest-confirm">Add</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-guest-cancel">Cancel</button>
-          </div>
         </div>
 
         <div class="add-match-actions">

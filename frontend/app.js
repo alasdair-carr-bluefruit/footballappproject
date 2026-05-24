@@ -332,10 +332,7 @@ document.getElementById("rotation-slider").addEventListener("input", e => {
   updateRotationLabel(e.target.value);
 });
 
-document.getElementById("btn-go-squad").addEventListener("click", () => {
-  squadBackContext = "season";
-  loadSquad();
-});
+// Squad accessible from landing page only (btn-squad-management)
 document.getElementById("btn-go-stats").addEventListener("click", loadStats);
 document.getElementById("btn-home-back").addEventListener("click", () => showScreen("screen-landing"));
 
@@ -1975,8 +1972,32 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   updateTournamentFairnessLabel(50);
   document.getElementById("tournament-rotation-slider").value = 50;
   updateTournamentRotationLabel(50);
+  document.getElementById("tournament-num-matches").value = "4";
   tournamentSelectSize(5);
+
+  // Load player checklist
+  const playerList = document.getElementById("new-tournament-player-list");
+  playerList.innerHTML = "<li class='loading'>Loading players…</li>";
   showScreen("screen-new-tournament");
+
+  const players = await api.getPlayers().catch(() => []);
+  playerList.innerHTML = "";
+  if (players.length === 0) {
+    playerList.innerHTML = "<li class='empty-state'>No players in squad yet</li>";
+  } else {
+    players.forEach(p => {
+      const li = document.createElement("li");
+      li.className = "avail-item";
+      li.innerHTML = `
+        <label class="avail-label">
+          <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
+          <span class="avail-name">${p.name}</span>
+          <span class="avail-skill">★${p.skill_rating}</span>
+        </label>
+      `;
+      playerList.appendChild(li);
+    });
+  }
 });
 
 // ── New tournament form ────────────────────────────────────────────────────────
@@ -2053,13 +2074,18 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
   const hasHalftime = document.getElementById("tournament-halftime").checked;
   const fairnessValue = parseInt(document.getElementById("tournament-fairness-slider").value);
   const rotationIntensity = parseInt(document.getElementById("tournament-rotation-slider").value);
+  const numMatches = Math.max(1, parseInt(document.getElementById("tournament-num-matches").value) || 1);
+
+  const availablePlayerIds = Array.from(
+    document.querySelectorAll("#new-tournament-player-list .avail-check:checked")
+  ).map(cb => parseInt(cb.dataset.pid));
 
   if (!name) {
     document.getElementById("tournament-name-input").focus();
     return;
   }
 
-  const btn = e.target.querySelector("[type=submit]");
+  const btn = document.getElementById("btn-create-tournament");
   btn.disabled = true;
   btn.textContent = "Creating…";
 
@@ -2074,10 +2100,24 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     rotation_intensity: rotationIntensity,
   }).catch(err => { alert(err.message); return null; });
 
-  btn.disabled = false;
-  btn.textContent = "Create Tournament";
+  if (!tournament) {
+    btn.disabled = false;
+    btn.textContent = "Create & Generate ▶";
+    return;
+  }
 
-  if (!tournament) return;
+  // Batch-generate group matches
+  for (let i = 1; i <= numMatches; i++) {
+    btn.textContent = `Generating match ${i} of ${numMatches}…`;
+    await api.addTournamentMatch(tournament.id, {
+      opponent: `Match ${i}`,
+      stage: "group",
+      available_player_ids: availablePlayerIds,
+    }).catch(() => {}); // best-effort; lobby will show what succeeded
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Create & Generate ▶";
   loadTournamentLobby(tournament.id);
 });
 
@@ -2112,8 +2152,8 @@ async function loadTournamentLobby(id) {
   // Match list
   renderLobbyMatches(data.matches);
 
-  // Prefill player checklist with all (squad + guests)
-  renderLobbyPlayerList(data.squad_players, data.guest_players, data.tournament.id);
+  // Guest players strip
+  renderLobbyGuests(data.guest_players, t.id);
 }
 
 document.getElementById("btn-lobby-back").addEventListener("click", loadTournamentHome);
@@ -2153,39 +2193,25 @@ function renderLobbyMatches(matches) {
   });
 }
 
-function renderLobbyPlayerList(squadPlayers, guestPlayers, tournamentId) {
-  const ul = document.getElementById("lobby-player-list");
-  ul.innerHTML = "";
+function renderLobbyGuests(guestPlayers, tournamentId) {
+  const container = document.getElementById("lobby-guest-list");
+  container.innerHTML = "";
+  if (!guestPlayers || guestPlayers.length === 0) return;
 
-  const allPlayers = [
-    ...(squadPlayers || []).map(p => ({ ...p, isGuest: false })),
-    ...(guestPlayers || []).map(p => ({ ...p, isGuest: true })),
-  ];
-
-  allPlayers.forEach(p => {
-    const li = document.createElement("li");
-    li.className = "avail-item";
-    const guestTag = p.isGuest
-      ? `<span class="avail-guest-tag">Guest</span>
-         <button class="btn-icon avail-remove-guest" data-pid="${p.id}" title="Remove guest">✕</button>`
-      : "";
-    li.innerHTML = `
-      <label class="avail-label">
-        <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
-        <span class="avail-name">${p.name}</span>
-        <span class="avail-skill">★${p.skill_rating}</span>
-        ${guestTag}
-      </label>
+  guestPlayers.forEach(p => {
+    const row = document.createElement("div");
+    row.className = "guest-player-row";
+    row.innerHTML = `
+      <span class="avail-name">${p.name}</span>
+      <span class="avail-guest-tag">Guest</span>
+      <span class="avail-skill">★${p.skill_rating}</span>
+      <button class="btn-icon avail-remove-guest" data-pid="${p.id}" title="Remove guest">✕</button>
     `;
-    if (p.isGuest) {
-      li.querySelector(".avail-remove-guest").addEventListener("click", async e => {
-        e.preventDefault();
-        e.stopPropagation();
-        await api.removeGuestPlayer(tournamentId, p.id).catch(err => alert(err.message));
-        loadTournamentLobby(tournamentId);
-      });
-    }
-    ul.appendChild(li);
+    row.querySelector(".avail-remove-guest").addEventListener("click", async () => {
+      await api.removeGuestPlayer(tournamentId, p.id).catch(err => alert(err.message));
+      loadTournamentLobby(tournamentId);
+    });
+    container.appendChild(row);
   });
 }
 
@@ -2198,7 +2224,6 @@ function openAddMatchPanel(stage) {
   document.getElementById("knockout-options").hidden = stage !== "knockout";
   document.getElementById("knockout-fairness-slider").value = 75;
   updateKnockoutFairnessLabel(75);
-  document.getElementById("guest-form").hidden = true;
   document.getElementById("add-match-panel").hidden = false;
 }
 
@@ -2220,19 +2245,21 @@ document.getElementById("knockout-fairness-slider").addEventListener("input", e 
   updateKnockoutFairnessLabel(e.target.value);
 });
 
-// Guest player inline form
+// Guest player form (overlay)
 document.getElementById("btn-show-add-guest").addEventListener("click", () => {
-  document.getElementById("guest-form").hidden = false;
   document.getElementById("guest-name").value = "";
   document.getElementById("guest-skill").value = "3";
+  document.getElementById("guest-gk-status").value = "can_play";
+  document.getElementById("guest-form-overlay").hidden = false;
   document.getElementById("guest-name").focus();
 });
 
 document.getElementById("btn-add-guest-cancel").addEventListener("click", () => {
-  document.getElementById("guest-form").hidden = true;
+  document.getElementById("guest-form-overlay").hidden = true;
 });
 
-document.getElementById("btn-add-guest-confirm").addEventListener("click", async () => {
+document.getElementById("guest-player-form").addEventListener("submit", async e => {
+  e.preventDefault();
   const name = document.getElementById("guest-name").value.trim();
   if (!name) { document.getElementById("guest-name").focus(); return; }
   const gkStatus = document.getElementById("guest-gk-status").value;
@@ -2240,15 +2267,17 @@ document.getElementById("btn-add-guest-confirm").addEventListener("click", async
 
   const btn = document.getElementById("btn-add-guest-confirm");
   btn.disabled = true;
+  btn.textContent = "Adding…";
 
   const guest = await api.addGuestPlayer(activeTournamentId, {
     name, gk_status: gkStatus, skill_rating: skill,
   }).catch(err => { alert(err.message); return null; });
 
   btn.disabled = false;
+  btn.textContent = "Add Player";
   if (!guest) return;
 
-  // Reload lobby to get fresh player list
+  document.getElementById("guest-form-overlay").hidden = true;
   loadTournamentLobby(activeTournamentId);
 });
 
@@ -2260,11 +2289,15 @@ document.getElementById("btn-generate-tournament-match").addEventListener("click
     return;
   }
 
-  const checkedBoxes = document.querySelectorAll("#lobby-player-list .avail-check:checked");
-  const availablePlayerIds = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.pid));
+  // Use all players currently in the tournament (squad + any guests)
+  const t = activeTournamentData;
+  const availablePlayerIds = [
+    ...(t?.squad_players || []),
+    ...(t?.guest_players || []),
+  ].map(p => p.id);
 
-  if (availablePlayerIds.length < (activeTournamentData?.tournament?.team_size || 5)) {
-    alert(`Select at least ${activeTournamentData?.tournament?.team_size || 5} players.`);
+  if (availablePlayerIds.length < (t?.tournament?.team_size || 5)) {
+    alert(`Need at least ${t?.tournament?.team_size || 5} players. Add more from the squad or add a temporary player.`);
     return;
   }
 

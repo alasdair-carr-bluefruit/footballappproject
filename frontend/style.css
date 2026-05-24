@@ -2278,3 +2278,44 @@ html, body {
   width: auto;
   flex-shrink: 0;
 }
+
+.form-hint {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: -4px 0 4px;
+}
+
+.form-section { margin: 8px 0; }
+
+.form-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.lobby-guest-section {
+  padding: 0 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lobby-guest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guest-player-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255,193,7,0.06);
+  border: 1px solid rgba(255,193,7,0.15);
+  border-radius: 8px;
+  font-size: 14px;
+}
