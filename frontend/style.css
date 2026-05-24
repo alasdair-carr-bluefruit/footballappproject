@@ -2029,3 +2029,252 @@ html, body {
   flex-direction: column;
   gap: 10px;
 }
+
+/* ── Tutorial screen ─────────────────────────────────────────────── */
+
+.tutorial-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 24px env(safe-area-inset-bottom);
+  min-height: 100dvh;
+  background: linear-gradient(170deg, var(--pitch-deep) 0%, var(--pitch) 100%);
+}
+
+.tutorial-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tutorial-logo .logo-svg { width: 48px; height: 48px; }
+.tutorial-logo .wordmark-svg { height: 28px; width: auto; }
+
+.tutorial-heading {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+  margin: 0;
+}
+
+.tutorial-body {
+  font-size: 14px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.6;
+  max-width: 340px;
+  margin: 0;
+}
+
+.tutorial-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.tutorial-mode-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+}
+
+.tutorial-mode-icon { font-size: 24px; }
+
+.tutorial-mode-item strong {
+  display: block;
+  font-size: 15px;
+  color: #fff;
+  margin-bottom: 3px;
+}
+
+.tutorial-mode-item p {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.tutorial-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.tutorial-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.tutorial-optional {
+  font-size: 12px;
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+.logo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-preview {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.logo-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Tournament screens ──────────────────────────────────────────── */
+
+.lobby-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 16px 0;
+}
+
+.lobby-add-section {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lobby-add-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.lobby-add-buttons .btn { flex: 1; }
+
+.add-match-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+}
+
+.add-match-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.add-match-section-label {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 4px 0 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.add-match-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.add-match-actions .btn { flex: 1; }
+
+.knockout-options {
+  padding: 12px;
+  background: rgba(255,193,7,0.05);
+  border: 1px solid rgba(255,193,7,0.15);
+  border-radius: 10px;
+}
+
+.add-guest-section { margin-top: 4px; }
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--btn-primary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.guest-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.guest-form input[type="text"],
+.guest-form select,
+.guest-form input[type="number"] {
+  flex: 1;
+  min-width: 80px;
+}
+
+.avail-guest-tag {
+  font-size: 11px;
+  background: rgba(255,193,7,0.15);
+  color: #ffd048;
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.avail-remove-guest {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.avail-remove-guest:active { color: var(--error); }
+
+.avail-skill {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+
+.label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-direction: row;
+}
+
+.label-row input[type="checkbox"] {
+  width: auto;
+  flex-shrink: 0;
+}

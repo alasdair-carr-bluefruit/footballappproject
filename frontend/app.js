@@ -19,6 +19,10 @@ let shirtNumbers = {}; // { playerName: shirtNumber } — populated from squad A
 let removedPlayers = {}; // { playerId: fromSlot } — players removed mid-match
 let pendingActionPlayer = null; // { id, name } for player-action overlay
 let pendingDeletePlayerId = null; // player id awaiting delete confirmation
+let pitchBackContext = "season"; // "season" | "tournament" — where pitch back button goes
+let squadBackContext = "landing"; // "landing" | "season" — where squad back button goes
+let activeTournamentId = null; // tournament currently open in lobby
+let activeTournamentStage = "group"; // "group" | "knockout" — for add-match panel
 
 // Returns true if this player's shirt number is shared and they are the LATER entry
 // (i.e. the "duplicate" — their number shows in red)
@@ -69,10 +73,51 @@ function slotCountForPlayer(playerName) {
 // Load team info once on startup
 api.getTeamInfo().then(info => { if (info) teamInfo = info; }).catch(() => {});
 
+// ── First-launch tutorial ─────────────────────────────────────────────────────
+(function initScreen() {
+  if (!localStorage.getItem("gaffer_onboarded")) {
+    showScreen("screen-tutorial");
+  }
+  // If already onboarded, screen-landing is shown by default (first visible screen)
+})();
+
+// Tutorial logo upload
+document.getElementById("tutorial-logo-btn").addEventListener("click", () => {
+  document.getElementById("tutorial-logo-input").click();
+});
+document.getElementById("tutorial-logo-input").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = document.getElementById("tutorial-logo-img");
+    img.src = ev.target.result;
+    img.hidden = false;
+    document.getElementById("tutorial-logo-placeholder").hidden = true;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("btn-tutorial-start").addEventListener("click", async () => {
+  const name = document.getElementById("tutorial-team-name").value.trim();
+  if (!name) {
+    document.getElementById("tutorial-team-name").focus();
+    return;
+  }
+  const logoImg = document.getElementById("tutorial-logo-img");
+  const logo = logoImg.hidden ? "" : (logoImg.src || "");
+  await api.updateTeamInfo({ team_name: name, team_logo: logo }).catch(() => {});
+  teamInfo = { team_name: name, team_logo: logo };
+  localStorage.setItem("gaffer_onboarded", "1");
+  showScreen("screen-landing");
+});
+
 // ── Landing screen ────────────────────────────────────────────────────────────
 document.getElementById("btn-season-mode").addEventListener("click", () => loadHome());
-document.getElementById("btn-tournament-mode").addEventListener("click", () => {
-  // Tournament mode — coming soon
+document.getElementById("btn-tournament-mode").addEventListener("click", () => loadTournamentHome());
+document.getElementById("btn-squad-management").addEventListener("click", () => {
+  squadBackContext = "landing";
+  loadSquad();
 });
 
 // ── Home screen ───────────────────────────────────────────────────────────────
@@ -286,7 +331,10 @@ document.getElementById("rotation-slider").addEventListener("input", e => {
   updateRotationLabel(e.target.value);
 });
 
-document.getElementById("btn-go-squad").addEventListener("click", loadSquad);
+document.getElementById("btn-go-squad").addEventListener("click", () => {
+  squadBackContext = "season";
+  loadSquad();
+});
 document.getElementById("btn-go-stats").addEventListener("click", loadStats);
 document.getElementById("btn-home-back").addEventListener("click", () => showScreen("screen-landing"));
 
@@ -510,7 +558,10 @@ function closePlayerForm() {
   editingPlayerId = null;
 }
 
-document.getElementById("btn-squad-back").addEventListener("click", loadHome);
+document.getElementById("btn-squad-back").addEventListener("click", () => {
+  if (squadBackContext === "landing") showScreen("screen-landing");
+  else loadHome();
+});
 
 // Team logo file input → preview
 document.getElementById("team-logo-input").addEventListener("change", e => {
@@ -1435,7 +1486,11 @@ async function saveGoalsIfNeeded() {
 
 document.getElementById("btn-pitch-back").addEventListener("click", async () => {
   await saveGoalsIfNeeded();
-  loadHome();
+  if (pitchBackContext === "tournament" && activeTournamentId) {
+    loadTournamentLobby(activeTournamentId);
+  } else {
+    loadHome();
+  }
 });
 
 // ── Full time screen ───────────────────────────────────────────────────────────
@@ -1501,10 +1556,13 @@ document.getElementById("ft-opp-input").addEventListener("input", e => {
 document.getElementById("btn-ft-done").addEventListener("click", async () => {
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   if (matchData?.match.id) {
-    // Always save on Done — this handles score corrections from the FT screen
     await api.saveGoals(matchData.match.id, goalCounts, oppGoals).catch(() => {});
   }
-  loadHome();
+  if (pitchBackContext === "tournament" && activeTournamentId) {
+    loadTournamentLobby(activeTournamentId);
+  } else {
+    loadHome();
+  }
 });
 
 // ── Stats screen ──────────────────────────────────────────────────────────────
@@ -1853,6 +1911,396 @@ document.addEventListener("click", e => {
     const dd = document.getElementById("export-dropdown");
     if (dd) dd.hidden = true;
   }
+});
+
+// ── Tournament Mode ───────────────────────────────────────────────────────────
+
+let tournamentSelectedSize = 5;
+let activeTournamentData = null; // full detail from GET /tournaments/{id}
+
+// ── Tournament Home ───────────────────────────────────────────────────────────
+async function loadTournamentHome() {
+  showScreen("screen-tournament-home");
+  const list = document.getElementById("tournament-list");
+  list.innerHTML = "<li class='loading'>Loading…</li>";
+
+  const tournaments = await api.getTournaments().catch(() => []);
+  list.innerHTML = "";
+
+  if (tournaments.length === 0) {
+    list.innerHTML = "<li class='empty-state'>No tournaments yet — tap New Tournament to start</li>";
+    return;
+  }
+
+  tournaments.forEach(t => {
+    const date = new Date(t.date + "T12:00:00");
+    const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    const matchCount = t.match_count ?? 0;
+    const li = document.createElement("li");
+    li.className = "match-item";
+    li.innerHTML = `
+      <div class="match-item-main">
+        <span class="match-item-date">${dateStr}</span>
+        <span class="match-item-opponent">${t.name || "Tournament"}</span>
+        <span class="match-badge size-badge">${t.team_size || 5}v${t.team_size || 5}</span>
+        <span class="match-badge">${matchCount} match${matchCount !== 1 ? "es" : ""}</span>
+      </div>
+      <button class="btn-icon match-delete" data-id="${t.id}" title="Delete tournament">✕</button>
+    `;
+    li.querySelector(".match-item-main").addEventListener("click", () => loadTournamentLobby(t.id));
+    li.querySelector(".match-delete").addEventListener("click", async e => {
+      e.stopPropagation();
+      if (confirm(`Delete tournament "${t.name}"? This will remove all matches.`)) {
+        await api.deleteTournament(t.id).catch(err => alert(err.message));
+        loadTournamentHome();
+      }
+    });
+    list.appendChild(li);
+  });
+}
+
+document.getElementById("btn-tournament-home-back").addEventListener("click", () => showScreen("screen-landing"));
+document.getElementById("btn-new-tournament").addEventListener("click", async () => {
+  // Ensure game configs loaded
+  if (!gameConfigs) {
+    gameConfigs = await api.getGameConfigs().catch(() => null);
+  }
+  // Reset form
+  document.getElementById("tournament-name-input").value = "";
+  document.getElementById("tournament-date").value = new Date().toISOString().split("T")[0];
+  document.getElementById("tournament-duration").value = "10";
+  document.getElementById("tournament-halftime").checked = false;
+  document.getElementById("tournament-fairness-slider").value = 50;
+  updateTournamentFairnessLabel(50);
+  document.getElementById("tournament-rotation-slider").value = 50;
+  updateTournamentRotationLabel(50);
+  tournamentSelectSize(5);
+  showScreen("screen-new-tournament");
+});
+
+// ── New tournament form ────────────────────────────────────────────────────────
+document.getElementById("btn-new-tournament-back").addEventListener("click", loadTournamentHome);
+
+function tournamentSelectSize(size) {
+  tournamentSelectedSize = size;
+  document.querySelectorAll("#tournament-size-picker .size-btn").forEach(btn => {
+    btn.classList.toggle("active", parseInt(btn.dataset.size) === size);
+  });
+  updateTournamentFormationOptions();
+}
+
+function updateTournamentFormationOptions() {
+  const select = document.getElementById("tournament-formation-select");
+  select.innerHTML = "";
+  if (gameConfigs && gameConfigs[String(tournamentSelectedSize)]) {
+    const cfg = gameConfigs[String(tournamentSelectedSize)];
+    cfg.formations.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = f.notation;
+      opt.textContent = f.notation;
+      if (f.notation === cfg.default_formation) opt.selected = true;
+      select.appendChild(opt);
+    });
+  } else {
+    const defaults = { 5: "1-2-1", 6: "1-3-1", 7: "2-3-1", 9: "3-3-2" };
+    const opt = document.createElement("option");
+    opt.value = defaults[tournamentSelectedSize] || "1-2-1";
+    opt.textContent = opt.value;
+    select.appendChild(opt);
+  }
+}
+
+document.getElementById("tournament-size-picker").addEventListener("click", e => {
+  const btn = e.target.closest(".size-btn");
+  if (btn) tournamentSelectSize(parseInt(btn.dataset.size));
+});
+
+function updateTournamentFairnessLabel(value) {
+  const el = document.getElementById("tournament-fairness-value");
+  const v = parseInt(value);
+  if (v <= 15) el.textContent = "Equal play — everyone gets the same time";
+  else if (v <= 40) el.textContent = "Mostly fair — slight edge for stronger players";
+  else if (v <= 60) el.textContent = "Balanced — skill matters but everyone plays";
+  else if (v <= 85) el.textContent = "Competitive — best players get more time";
+  else el.textContent = "Win mode — strongest lineup prioritised";
+}
+
+document.getElementById("tournament-fairness-slider").addEventListener("input", e => {
+  updateTournamentFairnessLabel(e.target.value);
+});
+
+function updateTournamentRotationLabel(value) {
+  const el = document.getElementById("tournament-rotation-value");
+  const v = parseInt(value);
+  if (v <= 15) el.textContent = "Specialist — players stay in one position";
+  else if (v <= 40) el.textContent = "Mostly fixed — occasional position changes";
+  else if (v <= 60) el.textContent = "Balanced — regular position rotation";
+  else if (v <= 85) el.textContent = "High rotation — players try most positions";
+  else el.textContent = "All-rounder — everyone plays everywhere";
+}
+
+document.getElementById("tournament-rotation-slider").addEventListener("input", e => {
+  updateTournamentRotationLabel(e.target.value);
+});
+
+document.getElementById("new-tournament-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = document.getElementById("tournament-name-input").value.trim();
+  const date = document.getElementById("tournament-date").value;
+  const formation = document.getElementById("tournament-formation-select").value;
+  const duration = parseInt(document.getElementById("tournament-duration").value) || 10;
+  const hasHalftime = document.getElementById("tournament-halftime").checked;
+  const fairnessValue = parseInt(document.getElementById("tournament-fairness-slider").value);
+  const rotationIntensity = parseInt(document.getElementById("tournament-rotation-slider").value);
+
+  if (!name) {
+    document.getElementById("tournament-name-input").focus();
+    return;
+  }
+
+  const btn = e.target.querySelector("[type=submit]");
+  btn.disabled = true;
+  btn.textContent = "Creating…";
+
+  const tournament = await api.createTournament({
+    name,
+    date: date || new Date().toISOString().split("T")[0],
+    team_size: tournamentSelectedSize,
+    formation,
+    match_duration_mins: duration,
+    has_halftime: hasHalftime,
+    fairness_value: fairnessValue,
+    rotation_intensity: rotationIntensity,
+  }).catch(err => { alert(err.message); return null; });
+
+  btn.disabled = false;
+  btn.textContent = "Create Tournament";
+
+  if (!tournament) return;
+  loadTournamentLobby(tournament.id);
+});
+
+// ── Tournament Lobby ──────────────────────────────────────────────────────────
+async function loadTournamentLobby(id) {
+  activeTournamentId = id;
+  showScreen("screen-tournament-lobby");
+
+  document.getElementById("lobby-match-list").innerHTML = "<li class='loading'>Loading…</li>";
+  document.getElementById("add-match-panel").hidden = true;
+
+  const data = await api.getTournament(id).catch(err => {
+    alert(err.message);
+    loadTournamentHome();
+    return null;
+  });
+  if (!data) return;
+
+  activeTournamentData = data;
+  const t = data.tournament;
+  document.getElementById("lobby-title").textContent = t.name || "Tournament";
+
+  // Summary
+  const date = new Date(t.date + "T12:00:00");
+  const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  document.getElementById("lobby-summary").innerHTML =
+    `<span class="match-badge size-badge">${t.team_size}v${t.team_size}</span>` +
+    `<span class="match-badge">${t.formation}</span>` +
+    `<span class="match-badge">${dateStr}</span>` +
+    `<span class="match-badge">${t.match_duration_mins} min matches</span>`;
+
+  // Match list
+  renderLobbyMatches(data.matches);
+
+  // Prefill player checklist with all (squad + guests)
+  renderLobbyPlayerList(data.squad_players, data.guest_players, data.tournament.id);
+}
+
+document.getElementById("btn-lobby-back").addEventListener("click", loadTournamentHome);
+
+function renderLobbyMatches(matches) {
+  const list = document.getElementById("lobby-match-list");
+  list.innerHTML = "";
+
+  if (!matches || matches.length === 0) {
+    list.innerHTML = "<li class='empty-state'>No matches yet — add one below</li>";
+    return;
+  }
+
+  matches.forEach(m => {
+    const stageLabel = m.tournament_stage === "knockout" ? "KO" : `G${m.match_number || ""}`;
+    let statusBadge = "";
+    if (m.status === "completed") {
+      statusBadge = `<span class="match-badge match-badge-done">FT</span>`;
+    } else if (m.status === "in_progress") {
+      statusBadge = `<span class="match-badge match-badge-live">● Live</span>`;
+    }
+    const li = document.createElement("li");
+    li.className = "match-item";
+    if (m.status === "completed") li.classList.add("match-item-done");
+    li.innerHTML = `
+      <div class="match-item-main">
+        <span class="match-badge">${stageLabel}</span>
+        <span class="match-item-opponent">vs ${m.opponent || "TBD"}</span>
+        ${statusBadge}
+      </div>
+    `;
+    li.querySelector(".match-item-main").addEventListener("click", () => {
+      pitchBackContext = "tournament";
+      openMatch(m.id);
+    });
+    list.appendChild(li);
+  });
+}
+
+function renderLobbyPlayerList(squadPlayers, guestPlayers, tournamentId) {
+  const ul = document.getElementById("lobby-player-list");
+  ul.innerHTML = "";
+
+  const allPlayers = [
+    ...(squadPlayers || []).map(p => ({ ...p, isGuest: false })),
+    ...(guestPlayers || []).map(p => ({ ...p, isGuest: true })),
+  ];
+
+  allPlayers.forEach(p => {
+    const li = document.createElement("li");
+    li.className = "avail-item";
+    const guestTag = p.isGuest
+      ? `<span class="avail-guest-tag">Guest</span>
+         <button class="btn-icon avail-remove-guest" data-pid="${p.id}" title="Remove guest">✕</button>`
+      : "";
+    li.innerHTML = `
+      <label class="avail-label">
+        <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
+        <span class="avail-name">${p.name}</span>
+        <span class="avail-skill">★${p.skill_rating}</span>
+        ${guestTag}
+      </label>
+    `;
+    if (p.isGuest) {
+      li.querySelector(".avail-remove-guest").addEventListener("click", async e => {
+        e.preventDefault();
+        e.stopPropagation();
+        await api.removeGuestPlayer(tournamentId, p.id).catch(err => alert(err.message));
+        loadTournamentLobby(tournamentId);
+      });
+    }
+    ul.appendChild(li);
+  });
+}
+
+// ── Add match panel ───────────────────────────────────────────────────────────
+function openAddMatchPanel(stage) {
+  activeTournamentStage = stage;
+  document.getElementById("add-match-title").textContent =
+    stage === "knockout" ? "Add Knockout Match" : "Add Group Match";
+  document.getElementById("add-match-opponent").value = "";
+  document.getElementById("knockout-options").hidden = stage !== "knockout";
+  document.getElementById("knockout-fairness-slider").value = 75;
+  updateKnockoutFairnessLabel(75);
+  document.getElementById("guest-form").hidden = true;
+  document.getElementById("add-match-panel").hidden = false;
+}
+
+document.getElementById("btn-add-group-match").addEventListener("click", () => openAddMatchPanel("group"));
+document.getElementById("btn-add-knockout-match").addEventListener("click", () => openAddMatchPanel("knockout"));
+document.getElementById("btn-add-match-cancel").addEventListener("click", () => {
+  document.getElementById("add-match-panel").hidden = true;
+});
+
+function updateKnockoutFairnessLabel(value) {
+  const el = document.getElementById("knockout-fairness-label");
+  const v = parseInt(value);
+  if (v <= 40) el.textContent = "Balanced — skill matters but everyone plays";
+  else if (v <= 70) el.textContent = "Competitive — best players get more time";
+  else el.textContent = "Win mode — strongest lineup prioritised";
+}
+
+document.getElementById("knockout-fairness-slider").addEventListener("input", e => {
+  updateKnockoutFairnessLabel(e.target.value);
+});
+
+// Guest player inline form
+document.getElementById("btn-show-add-guest").addEventListener("click", () => {
+  document.getElementById("guest-form").hidden = false;
+  document.getElementById("guest-name").value = "";
+  document.getElementById("guest-skill").value = "3";
+  document.getElementById("guest-name").focus();
+});
+
+document.getElementById("btn-add-guest-cancel").addEventListener("click", () => {
+  document.getElementById("guest-form").hidden = true;
+});
+
+document.getElementById("btn-add-guest-confirm").addEventListener("click", async () => {
+  const name = document.getElementById("guest-name").value.trim();
+  if (!name) { document.getElementById("guest-name").focus(); return; }
+  const gkStatus = document.getElementById("guest-gk-status").value;
+  const skill = parseInt(document.getElementById("guest-skill").value) || 3;
+
+  const btn = document.getElementById("btn-add-guest-confirm");
+  btn.disabled = true;
+
+  const guest = await api.addGuestPlayer(activeTournamentId, {
+    name, gk_status: gkStatus, skill_rating: skill,
+  }).catch(err => { alert(err.message); return null; });
+
+  btn.disabled = false;
+  if (!guest) return;
+
+  // Reload lobby to get fresh player list
+  loadTournamentLobby(activeTournamentId);
+});
+
+// Generate tournament match
+document.getElementById("btn-generate-tournament-match").addEventListener("click", async () => {
+  const opponent = document.getElementById("add-match-opponent").value.trim();
+  if (!opponent) {
+    document.getElementById("add-match-opponent").focus();
+    return;
+  }
+
+  const checkedBoxes = document.querySelectorAll("#lobby-player-list .avail-check:checked");
+  const availablePlayerIds = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.pid));
+
+  if (availablePlayerIds.length < (activeTournamentData?.tournament?.team_size || 5)) {
+    alert(`Select at least ${activeTournamentData?.tournament?.team_size || 5} players.`);
+    return;
+  }
+
+  const btn = document.getElementById("btn-generate-tournament-match");
+  btn.disabled = true;
+  btn.textContent = "Generating…";
+
+  const body = {
+    opponent,
+    stage: activeTournamentStage,
+    available_player_ids: availablePlayerIds,
+  };
+
+  if (activeTournamentStage === "knockout") {
+    body.knockout_fairness_value = parseInt(document.getElementById("knockout-fairness-slider").value);
+  }
+
+  const result = await api.addTournamentMatch(activeTournamentId, body).catch(err => {
+    alert(err.message);
+    return null;
+  });
+
+  btn.disabled = false;
+  btn.textContent = "Generate ▶";
+
+  if (!result) return;
+
+  document.getElementById("add-match-panel").hidden = true;
+  pitchBackContext = "tournament";
+
+  // Update shirt numbers cache
+  api.getPlayers().then(players => {
+    shirtNumbers = {};
+    players.forEach(p => { if (p.shirt_number != null) shirtNumbers[p.name] = p.shirt_number; });
+  }).catch(() => {});
+
+  enterPitchView(result);
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────

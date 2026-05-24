@@ -6,8 +6,9 @@ but everyone is guaranteed a minimum. The fairness value (0-100) controls
 how much skill rating influences the distribution.
 
 Extra slots priority (equal mode):
-  1. Players who covered non-specialist GK slots get rewarded first
-  2. Remaining players share further extra slots in rotation
+  1. Players with the most accumulated deficit from prior tournament matches
+  2. Players who covered non-specialist GK slots get rewarded first within deficit tier
+  3. Remaining players share further extra slots in rotation
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ def compute_target_slots(
     non_specialist_gk_players: list,
     fairness: str = "equal",
     fairness_value: int = 0,
+    prior_slots: dict | None = None,
 ) -> dict:
     """Return target slot count per player.
 
@@ -27,21 +29,27 @@ def compute_target_slots(
         non_specialist_gk_players: players who will cover GK slots but are not specialists
         fairness: "equal" or "competitive"
         fairness_value: 0-100 slider value (only used in competitive mode)
+        prior_slots: optional {player: slots_played_in_earlier_tournament_matches}.
+            When provided, players who have played more than their fair share so far
+            get lower priority for extra slots in this match (cross-match balancing).
     """
     if fairness == "competitive" and fairness_value > 15:
-        return _competitive_targets(players, total_slots, fairness_value)
-    return _equal_targets(players, total_slots, non_specialist_gk_players)
+        return _competitive_targets(players, total_slots, fairness_value, prior_slots)
+    return _equal_targets(players, total_slots, non_specialist_gk_players, prior_slots)
 
 
 def _equal_targets(
-    players: list, total_slots: int, non_specialist_gk_players: list,
+    players: list,
+    total_slots: int,
+    non_specialist_gk_players: list,
+    prior_slots: dict | None = None,
 ) -> dict:
     """Equal distribution: max 1 slot difference between any two players."""
     n = len(players)
     base = total_slots // n
     remainder = total_slots % n
 
-    priority_order = _extra_slot_priority(players, non_specialist_gk_players)
+    priority_order = _extra_slot_priority(players, non_specialist_gk_players, prior_slots)
 
     targets: dict = {p: base for p in players}
     for i in range(remainder):
@@ -51,7 +59,10 @@ def _equal_targets(
 
 
 def _competitive_targets(
-    players: list, total_slots: int, fairness_value: int,
+    players: list,
+    total_slots: int,
+    fairness_value: int,
+    prior_slots: dict | None = None,
 ) -> dict:
     """Skill-weighted distribution: higher-skilled players get more time.
 
@@ -61,6 +72,10 @@ def _competitive_targets(
     - 71-100: aggressive, star players dominate playing time
 
     Everyone gets at least floor(total / n) - 1 slots (guaranteed minimum).
+
+    When prior_slots is provided (tournament context), the raw skill-weighted targets
+    are adjusted so players who have already played more than their fair share this
+    tournament day receive proportionally less time in this match.
     """
     n = len(players)
     if n == 0:
@@ -73,7 +88,6 @@ def _competitive_targets(
     weight = (fairness_value - 15) / 85  # normalise 16-100 → 0.0-1.0
 
     # Compute raw weighted shares based on skill rating
-    # Blend between equal (all get 1.0) and skill-proportional
     raw_weights = []
     for p in players:
         equal_share = 1.0
@@ -84,6 +98,17 @@ def _competitive_targets(
     # Normalise to sum to total_slots
     total_weight = sum(raw_weights)
     raw_targets = [w / total_weight * total_slots for w in raw_weights]
+
+    # Apply cross-match adjustment: reduce targets for players with prior surplus
+    if prior_slots:
+        avg_prior = sum(prior_slots.get(p, 0) for p in players) / n
+        for i, p in enumerate(players):
+            surplus = prior_slots.get(p, 0) - avg_prior
+            raw_targets[i] = max(float(min_slots), raw_targets[i] - surplus * 0.5)
+        # Renormalise to preserve total
+        adj_total = sum(raw_targets)
+        if adj_total > 0:
+            raw_targets = [t / adj_total * total_slots for t in raw_targets]
 
     # Round to integers while preserving total
     targets_list = _round_preserving_total(raw_targets, total_slots)
@@ -96,7 +121,6 @@ def _competitive_targets(
     # If enforcing minimums pushed total above target, trim from highest
     current_total = sum(targets.values())
     while current_total > total_slots:
-        # Find the player with the most slots who can lose one
         candidates = [p for p in players if targets[p] > min_slots]
         if not candidates:
             break
@@ -120,8 +144,29 @@ def _round_preserving_total(values: list[float], target_total: int) -> list[int]
     return floored
 
 
-def _extra_slot_priority(players: list, non_specialist_gk_players: list) -> list:
-    """Return players in priority order for receiving extra slots."""
+def _extra_slot_priority(
+    players: list,
+    non_specialist_gk_players: list,
+    prior_slots: dict | None = None,
+) -> list:
+    """Return players in priority order for receiving extra slots.
+
+    Priority: players with the most accumulated deficit first (fewest prior slots
+    relative to average), then GK-covering players, then others.
+    """
+    if prior_slots is not None and len(players) > 0:
+        avg_prior = sum(prior_slots.get(p, 0) for p in players) / len(players)
+        # Sort: most deficit first (prior < avg), then GK bonus, then others
+        gk_set = set(id(p) for p in non_specialist_gk_players if p in players)
+
+        def sort_key(p):
+            deficit = avg_prior - prior_slots.get(p, 0)  # positive = behind on minutes
+            gk_bonus = 1 if id(p) in gk_set else 0
+            return (-deficit, -gk_bonus)  # most deficit first
+
+        return sorted(players, key=sort_key)
+
+    # Original behaviour: GK players first, then others
     priority = [p for p in non_specialist_gk_players if p in players]
     priority += [p for p in players if p not in priority]
     return priority

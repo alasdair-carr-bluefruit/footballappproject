@@ -33,8 +33,57 @@
 
 <div class="app">
 
+  <!-- ── Screen: Tutorial (first launch) ──────────────────────────────────── -->
+  <div id="screen-tutorial" class="screen" hidden>
+    <div class="tutorial-wrap">
+      <div class="tutorial-logo">
+        <img src="/assets/brand/icon-app.svg" alt="Gaffer" class="logo-svg" />
+        <img src="/assets/brand/logo-gaffer-reversed.svg" alt="Gaffer" class="wordmark-svg wordmark-sm" />
+      </div>
+      <h2 class="tutorial-heading">Welcome to Gaffer!</h2>
+      <p class="tutorial-body">Fair play made simple. Generate balanced rotation plans so every player gets game time — on the pitch, on your phone.</p>
+
+      <div class="tutorial-modes">
+        <div class="tutorial-mode-item">
+          <span class="tutorial-mode-icon">📋</span>
+          <div>
+            <strong>Season Mode</strong>
+            <p>Week-to-week matches with your squad. Track playing time across the season.</p>
+          </div>
+        </div>
+        <div class="tutorial-mode-item">
+          <span class="tutorial-mode-icon">🏆</span>
+          <div>
+            <strong>Tournament Mode</strong>
+            <p>Back-to-back matches in a single day. Balanced rotation across multiple games.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tutorial-form">
+        <label class="tutorial-label">
+          What's your team called?
+          <input type="text" id="tutorial-team-name" class="input-full" placeholder="e.g. Lightning FC" autocomplete="off" />
+        </label>
+        <label class="tutorial-label">
+          Team logo <span class="tutorial-optional">(optional)</span>
+          <div class="logo-upload-row" id="tutorial-logo-row">
+            <div class="logo-preview" id="tutorial-logo-preview">
+              <img id="tutorial-logo-img" hidden />
+              <span id="tutorial-logo-placeholder">No logo</span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="tutorial-logo-btn">Upload</button>
+            <input type="file" id="tutorial-logo-input" accept="image/*" style="display:none" />
+          </div>
+        </label>
+      </div>
+
+      <button class="btn btn-primary btn-full btn-lg" id="btn-tutorial-start">Let's Go!</button>
+    </div>
+  </div>
+
   <!-- ── Screen: Landing ───────────────────────────────────────────────────── -->
-  <div id="screen-landing" class="screen">
+  <div id="screen-landing" class="screen" hidden>
     <div class="landing">
       <div class="landing-bg" aria-hidden="true">
         <svg class="pitch-svg" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
@@ -80,13 +129,17 @@
         <button class="mode-card" id="btn-season-mode">
           <span class="mode-icon">📋</span>
           <span class="mode-title">Season Mode</span>
-          <span class="mode-desc">Week-to-week matches with a fixed squad. Track playing time across the season.</span>
+          <span class="mode-desc">Week-to-week matches. Track playing time across the season.</span>
         </button>
-        <button class="mode-card mode-coming-soon" id="btn-tournament-mode">
+        <button class="mode-card" id="btn-tournament-mode">
           <span class="mode-icon">🏆</span>
           <span class="mode-title">Tournament Mode</span>
-          <span class="mode-desc">Back-to-back matches in a single day. Optimise rotation across multiple games.</span>
-          <span class="mode-badge">Coming soon</span>
+          <span class="mode-desc">Back-to-back matches in a day. Balanced rotation across all games.</span>
+        </button>
+        <button class="mode-card mode-card-squad" id="btn-squad-management">
+          <span class="mode-icon">👥</span>
+          <span class="mode-title">Squad Management</span>
+          <span class="mode-desc">Add or remove players, set positions, update your team name and badge.</span>
         </button>
       </div>
       <a class="bug-report" href="https://github.com/alasdair-carr-bluefruit/footballappproject/issues/new?labels=bug&template=bug_report.md&title=%5BBug%5D+" target="_blank" rel="noopener">Report a bug</a>
@@ -276,6 +329,127 @@
     </header>
     <div class="history-totals" id="history-totals"></div>
     <ul class="history-list" id="history-list"></ul>
+  </div>
+
+  <!-- ── Screen: Tournament Home ─────────────────────────────────────────── -->
+  <div id="screen-tournament-home" class="screen" hidden>
+    <header class="header header-home">
+      <div class="home-title-row">
+        <button class="btn-back" id="btn-tournament-home-back">◀</button>
+        <h1 class="app-title">Tournament Mode</h1>
+      </div>
+      <div class="home-actions">
+        <button class="btn btn-primary" id="btn-new-tournament">+ New Tournament</button>
+      </div>
+    </header>
+    <ul class="match-list" id="tournament-list"></ul>
+  </div>
+
+  <!-- ── Screen: New Tournament ───────────────────────────────────────────── -->
+  <div id="screen-new-tournament" class="screen" hidden>
+    <header class="header header-sub">
+      <button class="btn-back" id="btn-new-tournament-back">◀ Tournaments</button>
+      <h2>New Tournament</h2>
+    </header>
+    <form class="form-card" id="new-tournament-form">
+      <label>
+        Tournament Name
+        <input type="text" id="tournament-name-input" placeholder="e.g. Easter Cup" autocomplete="off" />
+      </label>
+      <label>
+        Date
+        <input type="date" id="tournament-date" />
+      </label>
+      <label>Team Size</label>
+      <div class="size-picker" id="tournament-size-picker">
+        <button type="button" class="size-btn" data-size="5">5v5</button>
+        <button type="button" class="size-btn" data-size="6">6v6</button>
+        <button type="button" class="size-btn" data-size="7">7v7</button>
+        <button type="button" class="size-btn" data-size="9">9v9</button>
+      </div>
+      <label>
+        Formation
+        <select id="tournament-formation-select"></select>
+      </label>
+      <label>
+        Match Duration (minutes per match)
+        <input type="number" id="tournament-duration" min="5" max="45" value="10" />
+      </label>
+      <label class="label-row">
+        <input type="checkbox" id="tournament-halftime" />
+        Matches have a half-time break
+      </label>
+      <label>
+        Playing Time Priority
+        <input type="range" id="tournament-fairness-slider" min="0" max="100" value="50" />
+        <span id="tournament-fairness-value" class="slider-label"></span>
+      </label>
+      <label>
+        Position Rotation
+        <input type="range" id="tournament-rotation-slider" min="0" max="100" value="50" />
+        <span id="tournament-rotation-value" class="slider-label"></span>
+      </label>
+      <button class="btn btn-primary btn-full" type="submit">Create Tournament</button>
+    </form>
+  </div>
+
+  <!-- ── Screen: Tournament Lobby ─────────────────────────────────────────── -->
+  <div id="screen-tournament-lobby" class="screen" hidden>
+    <header class="header header-sub">
+      <button class="btn-back" id="btn-lobby-back">◀ Tournaments</button>
+      <h2 id="lobby-title">Tournament</h2>
+    </header>
+    <div class="lobby-summary" id="lobby-summary"></div>
+
+    <ul class="match-list" id="lobby-match-list"></ul>
+
+    <div class="lobby-add-section">
+      <div class="lobby-add-buttons">
+        <button class="btn btn-primary" id="btn-add-group-match">+ Add Group Match</button>
+        <button class="btn btn-secondary" id="btn-add-knockout-match">+ Add Knockout Match</button>
+      </div>
+
+      <!-- Add match panel (hidden until button clicked) -->
+      <div class="add-match-panel" id="add-match-panel" hidden>
+        <h3 class="add-match-title" id="add-match-title">Add Group Match</h3>
+        <label>
+          Opponent
+          <input type="text" id="add-match-opponent" placeholder="e.g. Lions FC" autocomplete="off" />
+        </label>
+
+        <div class="knockout-options" id="knockout-options" hidden>
+          <label>
+            Knockout competitiveness
+            <input type="range" id="knockout-fairness-slider" min="0" max="100" value="75" />
+            <span id="knockout-fairness-label" class="slider-label"></span>
+          </label>
+        </div>
+
+        <p class="add-match-section-label">Select available players</p>
+        <ul class="avail-list" id="lobby-player-list"></ul>
+
+        <div class="add-guest-section">
+          <button type="button" class="btn-link" id="btn-show-add-guest">+ Add temporary player</button>
+          <div class="guest-form" id="guest-form" hidden>
+            <input type="text" id="guest-name" placeholder="Name" />
+            <select id="guest-gk-status">
+              <option value="can_play">Can play GK</option>
+              <option value="preferred">Prefers GK</option>
+              <option value="specialist">GK specialist</option>
+              <option value="emergency_only">No GK</option>
+            </select>
+            <input type="number" id="guest-skill" min="1" max="5" value="3" placeholder="Skill (1-5)" />
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-guest-confirm">Add</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-guest-cancel">Cancel</button>
+          </div>
+        </div>
+
+        <div class="add-match-actions">
+          <button class="btn btn-secondary" id="btn-add-match-cancel">Cancel</button>
+          <button class="btn btn-primary" id="btn-generate-tournament-match">Generate ▶</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ── Modal: Delete Player confirmation ────────────────────────────────── -->

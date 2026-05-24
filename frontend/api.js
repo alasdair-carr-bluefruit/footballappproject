@@ -40,4 +40,13 @@ export const api = {
 
   // Config
   getGameConfigs:    ()   => request("/matches/config/game-configs"),
+
+  // Tournaments
+  getTournaments:       ()        => request("/tournaments/"),
+  createTournament:     (data)    => request("/tournaments/",             { method: "POST",   body: data }),
+  getTournament:        (id)      => request(`/tournaments/${id}`),
+  deleteTournament:     (id)      => request(`/tournaments/${id}`,        { method: "DELETE" }),
+  addTournamentMatch:   (id, data)=> request(`/tournaments/${id}/matches`,{ method: "POST",   body: data }),
+  addGuestPlayer:       (id, data)=> request(`/tournaments/${id}/players`,{ method: "POST",   body: data }),
+  removeGuestPlayer:    (id, pid) => request(`/tournaments/${id}/players/${pid}`, { method: "DELETE" }),
 };

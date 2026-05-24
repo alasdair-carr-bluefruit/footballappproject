@@ -167,3 +167,44 @@ def get_config(team_size: int, formation: str) -> GameConfig:
         valid = ", ".join(configs.keys())
         raise KeyError(f"Formation {formation!r} not valid for {team_size}v{team_size}. Valid: {valid}")
     return config
+
+
+def build_tournament_config(
+    team_size: int,
+    formation: str,
+    match_duration_mins: int,
+    has_halftime: bool,
+) -> GameConfig:
+    """Build a GameConfig for a tournament match with custom period structure.
+
+    Tournament matches use 1 period (no halftime) or 2 periods (with halftime),
+    giving 2 or 4 total slots respectively. Sub limits are inherited from the
+    nearest season preset for the given team size.
+    """
+    formation_obj = Formation.parse(formation)
+    preset_configs = PRESET_CONFIGS.get(team_size, {})
+    default_f = DEFAULT_FORMATIONS.get(team_size, formation)
+    base = preset_configs.get(formation) or preset_configs.get(default_f)
+
+    mid_period_subs = base.mid_period_subs if base else 2
+
+    if has_halftime:
+        periods = 2
+        period_length_mins = max(1, match_duration_mins // 2)
+        break_subs = base.break_subs if base else 5
+        period_label = "Half"
+    else:
+        periods = 1
+        period_length_mins = match_duration_mins
+        break_subs = None
+        period_label = "Period"
+
+    return GameConfig(
+        team_size=team_size,
+        formation=formation_obj,
+        periods=periods,
+        period_length_mins=period_length_mins,
+        mid_period_subs=mid_period_subs,
+        break_subs=break_subs,
+        period_label=period_label,
+    )

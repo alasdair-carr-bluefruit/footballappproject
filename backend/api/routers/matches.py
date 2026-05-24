@@ -15,9 +15,38 @@ from backend.db.repositories import (
     rotation_plan_from_json,
     save_rotation,
 )
-from backend.models.game_config import DEFAULT_FORMATIONS, PRESET_CONFIGS, get_config
+from backend.models.game_config import DEFAULT_FORMATIONS, PRESET_CONFIGS, build_tournament_config, get_config
 
 router = APIRouter()
+
+
+def _compute_prior_tournament_slots(
+    session: Session, db_match: "MatchDB", players_db: list,
+) -> dict[str, int]:
+    """Return {player_name: slots_played} from all OTHER matches in the same tournament."""
+    from collections import defaultdict
+    id_to_name = {p.id: p.name for p in players_db if p.id is not None}
+    prior_counts: dict = defaultdict(int)
+
+    prev_matches = session.exec(
+        select(MatchDB).where(
+            MatchDB.tournament_id == db_match.tournament_id,
+            MatchDB.id != db_match.id,
+        )
+    ).all()
+
+    for prev_m in prev_matches:
+        plan_db = session.exec(
+            select(RotationPlanDB).where(RotationPlanDB.match_id == prev_m.id)
+        ).first()
+        if not plan_db:
+            continue
+        for slot_data in json.loads(plan_db.slots_json):
+            for pid in slot_data["lineup"].values():
+                if pid in id_to_name:
+                    prior_counts[id_to_name[pid]] += 1
+
+    return dict(prior_counts)
 
 
 class MatchCreate(BaseModel):
@@ -75,9 +104,13 @@ def _match_read(m: MatchDB, has_rotation: bool, our_goals: int = 0) -> MatchRead
 
 def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dict[str, Any]:
     try:
-        cfg = get_config(m.team_size, m.formation)
+        if m.tournament_id:
+            total_duration = m.quarters * m.quarter_length_mins
+            cfg = build_tournament_config(m.team_size, m.formation, total_duration, m.quarters > 1)
+        else:
+            cfg = get_config(m.team_size, m.formation)
         period_label = cfg.period_label
-    except KeyError:
+    except (KeyError, Exception):
         period_label = "Quarter"
     return {
         "match": {
@@ -93,6 +126,9 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "opponent_goals": m.opponent_goals,
             "status": m.status,
             "current_slot": m.current_slot,
+            "tournament_id": m.tournament_id,
+            "tournament_stage": m.tournament_stage or "",
+            "match_number": m.match_number,
         },
         "slots": slots,
         "warnings": warnings,
@@ -104,7 +140,10 @@ def list_matches(session: Session = Depends(get_session)) -> list[MatchRead]:
     squad = get_or_create_squad(session)
     matches = list(
         session.exec(
-            select(MatchDB).where(MatchDB.squad_id == squad.id).order_by(MatchDB.date.desc())  # type: ignore[arg-type]
+            select(MatchDB).where(
+                MatchDB.squad_id == squad.id,
+                MatchDB.tournament_id == None,  # noqa: E711 — season matches only
+            ).order_by(MatchDB.date.desc())  # type: ignore[arg-type]
         ).all()
     )
     match_ids = {m.id for m in matches}
@@ -173,7 +212,17 @@ def generate_match_rotation(
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    config = get_config(db_match.team_size, db_match.formation)
+    if db_match.tournament_id:
+        total_duration = db_match.quarters * db_match.quarter_length_mins
+        try:
+            config = build_tournament_config(db_match.team_size, db_match.formation, total_duration, db_match.quarters > 1)
+        except (ValueError, KeyError) as e:
+            raise HTTPException(status_code=422, detail=str(e))
+    else:
+        try:
+            config = get_config(db_match.team_size, db_match.formation)
+        except KeyError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
     all_players = get_players(session, db_match.squad_id)
 
@@ -191,7 +240,20 @@ def generate_match_rotation(
         )
 
     match, squad = match_db_to_domain(db_match, players_db)
-    plan = generate_rotation(squad, match)
+
+    # For tournament matches, compute prior slot counts for cross-match fairness
+    prior_slots_for_algo = None
+    if db_match.tournament_id:
+        prior_by_name = _compute_prior_tournament_slots(session, db_match, players_db)
+        player_name_map = {p.name: p for p in squad.available}
+        if prior_by_name:
+            prior_slots_for_algo = {
+                player_name_map[name]: count
+                for name, count in prior_by_name.items()
+                if name in player_name_map
+            }
+
+    plan = generate_rotation(squad, match, prior_slots=prior_slots_for_algo)
 
     save_rotation(session, match_id, plan, players_db)
 
@@ -337,11 +399,17 @@ def save_match_goals(
 
 @router.get("/stats/season")
 def get_season_stats(session: Session = Depends(get_session)) -> list[dict[str, Any]]:
-    """Aggregate stats across all matches: goals, matches available, slots played."""
+    """Aggregate stats across all season matches (excludes tournament matches)."""
     squad = get_or_create_squad(session)
-    players = get_players(session, squad.id)
+    # Exclude guest players (source_tournament_id IS NOT NULL)
+    players = [p for p in get_players(session, squad.id) if p.source_tournament_id is None]
     matches = list(
-        session.exec(select(MatchDB).where(MatchDB.squad_id == squad.id)).all()
+        session.exec(
+            select(MatchDB).where(
+                MatchDB.squad_id == squad.id,
+                MatchDB.tournament_id == None,  # noqa: E711
+            )
+        ).all()
     )
     rotations = {
         r.match_id: r
@@ -400,7 +468,12 @@ def get_player_history(player_id: int, session: Session = Depends(get_session)) 
         raise HTTPException(status_code=404, detail="Player not found")
 
     matches = list(
-        session.exec(select(MatchDB).where(MatchDB.squad_id == squad.id).order_by(MatchDB.date.asc())).all()  # type: ignore[arg-type]
+        session.exec(
+            select(MatchDB).where(
+                MatchDB.squad_id == squad.id,
+                MatchDB.tournament_id == None,  # noqa: E711 — season matches only
+            ).order_by(MatchDB.date.asc())  # type: ignore[arg-type]
+        ).all()
     )
     rotations = {
         r.match_id: r

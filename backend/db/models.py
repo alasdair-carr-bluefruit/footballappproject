@@ -11,6 +11,22 @@ class SquadDB(SQLModel, table=True):
     team_logo: str = ""  # base64 DataURL or empty string
 
 
+class TournamentDB(SQLModel, table=True):
+    __tablename__ = "tournaments"  # type: ignore[assignment]
+
+    id: int | None = Field(default=None, primary_key=True)
+    squad_id: int  # FK to squads.id (not enforced at DB level to keep migrations simple)
+    name: str = "Tournament"
+    date: str  # ISO date string e.g. "2026-04-12"
+    team_size: int = 5
+    formation: str = "1-2-1"
+    match_duration_mins: int = 10  # total match duration (one period if no halftime)
+    has_halftime: int = 0  # 0=False, 1=True (SQLite has no native bool)
+    fairness_value: int = 50  # 0=equal time, 100=start strong
+    rotation_intensity: int = 50
+    status: str = "active"  # "active" | "completed"
+
+
 class PlayerDB(SQLModel, table=True):
     __tablename__ = "players"  # type: ignore[assignment]
 
@@ -23,6 +39,7 @@ class PlayerDB(SQLModel, table=True):
     preferred_positions: str = "[]"  # JSON list of position types e.g. '["DEF","MID"]'
     best_position: str = ""  # e.g. "DEF", "MID", "FWD", or "" for unset
     shirt_number: int | None = None  # optional squad number (1–99)
+    source_tournament_id: int | None = None  # if set, guest player scoped to this tournament
 
 
 class MatchDB(SQLModel, table=True):
@@ -43,6 +60,9 @@ class MatchDB(SQLModel, table=True):
     opponent_goals: int = 0
     status: str = "planned"  # "planned" | "in_progress" | "completed"
     current_slot: int = 0  # furthest slot reached during live match
+    tournament_id: int | None = None  # if set, this match belongs to a tournament
+    tournament_stage: str = ""  # "group" or "knockout" (empty for season matches)
+    match_number: int | None = None  # sequence within tournament (1-based)
 
 
 class RotationPlanDB(SQLModel, table=True):

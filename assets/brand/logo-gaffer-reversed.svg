@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 110" role="img" aria-label="Gaffer">
+  <title>Gaffer (reversed)</title>
+  <text x="180" y="78" text-anchor="middle"
+        font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-weight="900" font-size="78" letter-spacing="-3"
+        fill="#F2F4EE">Gaffer</text>
+  <circle cx="305" cy="76" r="6" fill="#2EBE6B"/>
+</svg>

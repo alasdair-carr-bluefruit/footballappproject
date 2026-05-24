@@ -33,8 +33,16 @@ def _resolve_config(match: Match) -> GameConfig:
     return match.game_config or DEFAULT_CONFIG
 
 
-def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
+def generate_rotation(
+    squad: Squad, match: Match, prior_slots: dict | None = None,
+) -> RotationPlan:
     """Generate a full rotation plan for the match.
+
+    Args:
+        squad: available players for this match
+        match: match configuration
+        prior_slots: optional {Player: int} mapping players to slots already played
+            in earlier matches of the same tournament day (cross-match fairness).
 
     Raises:
         ValueError: if the squad is too small to fill a lineup
@@ -74,6 +82,7 @@ def generate_rotation(squad: Squad, match: Match) -> RotationPlan:
     targets = compute_target_slots(
         players, total_player_slots, non_specialist_gk_players,
         fairness=match.fairness, fairness_value=fairness_value,
+        prior_slots=prior_slots,
     )
 
     # Pre-compute future GK slots for each player (slots not yet processed).

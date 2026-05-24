@@ -1,12 +1,12 @@
-# Gaffr — Brand Guidelines
+# Gaffer — Brand Guidelines
 
 > Fair play, made simple. The manager's app for grassroots football.
 
-This is the canonical brand reference for the Gaffr app. Update this file when the brand changes — it's the source of truth that the design system (`tokens.json`) and the polished PDF are both derived from.
+This is the canonical brand reference for the Gaffer app. Update this file when the brand changes — it's the source of truth that the design system (`tokens.json`) and the polished PDF are both derived from.
 
 - **Logo & icon assets:** [`assets/brand/`](./assets/brand/)
 - **Design tokens (JSON):** [`assets/brand/tokens.json`](./assets/brand/tokens.json)
-- **PDF version (for sharing):** `docs/gaffr-brand-guidelines.pdf` *(optional — regenerate with the build script when this file changes)*
+- **PDF version (for sharing):** `docs/gaffer-brand-guidelines.pdf` *(optional — regenerate with the build script when this file changes)*
 
 ---
 
@@ -34,17 +34,15 @@ Not a tactics app. Not stats-heavy. Not a social network. Not "FIFA for dads." I
 
 ## 2. Name & wordmark
 
-**The wordmark is `Gaffr`.** The dropped "e" gives a punchier app-icon presence, a more modern tech feel, and a distinctive visual identity. It works harder at small sizes than the full word would.
-
-**In spoken and long-form written copy, "Gaffer" is fine and natural** — that's what people will say aloud, and it's the right word to use in App Store descriptions, marketing prose, and anywhere the full British football vocabulary helps. The asymmetry is deliberate: the wordmark is the brand, the spoken name is the meaning.
+**The wordmark is `Gaffer`** — written in full, capital G, lowercase rest. The full word carries the British grassroots tone the brand is built on; it's a piece of football vocabulary that does heavy lifting for free and reads naturally aloud.
 
 ### Logo variants
 
 | File | When to use |
 |------|-------------|
-| [`logo-gaffr-primary.svg`](./assets/brand/logo-gaffr-primary.svg) | Default. Pitch green on light backgrounds. |
-| [`logo-gaffr-reversed.svg`](./assets/brand/logo-gaffr-reversed.svg) | Chalk wordmark with green dot, for dark backgrounds. |
-| [`logo-gaffr-mono-light.svg`](./assets/brand/logo-gaffr-mono-light.svg) | Single-colour chalk version where green can't reproduce. |
+| [`logo-gaffer-primary.svg`](./assets/brand/logo-gaffer-primary.svg) | Default. Pitch green on light backgrounds. |
+| [`logo-gaffer-reversed.svg`](./assets/brand/logo-gaffer-reversed.svg) | Chalk wordmark with green dot, for dark backgrounds. |
+| [`logo-gaffer-mono-light.svg`](./assets/brand/logo-gaffer-mono-light.svg) | Single-colour chalk version where green can't reproduce. |
 | [`icon-app.svg`](./assets/brand/icon-app.svg) | App icon. Standalone "G" with centre-spot dot. |
 
 ### The dot
@@ -53,19 +51,18 @@ The green dot after the wordmark is the **centre spot of a football pitch**. It 
 
 ### Do
 
-- Capital G, lowercase rest: `Gaffr` (never `gaffr`, never `GAFFR`)
+- Capital G, lowercase rest: `Gaffer` (never `gaffer`, never `GAFFER` as a logo treatment)
 - Keep the dot in `#2EBE6B` (Match-day green) on all colour applications
-- Spell "Gaffer" in full in body copy, voice-overs, and ad scripts where it reads naturally
 - Maintain clear space equal to the cap-height of the "G" on all sides
 - Minimum legible size: **60 px wide on screen, 18 mm wide in print**. Below this, use the icon glyph alone.
 
 ### Don't
 
-- All-caps `GAFFR` — feels shouty and premiership
+- All-caps `GAFFER` as a logo — feels shouty and premiership
 - Recolour the dot, drop it, or replace it with a period
 - Italicise, outline, add gradients, or apply effects
 - Place on busy photography without an overlay or solid panel
-- Mix "Gaffr" and "Gaffer" within a single UI screen — pick one per context
+- Abbreviate to "Gaffr" in product UI — the full word is the brand
 
 ---
 
@@ -180,8 +177,197 @@ The brand lives in the moments coaches see most: pre-match, mid-match, post-matc
 
 ---
 
+## 7. Modes & states
+
+The product has two primary modes for the match plan: **Locked** (the default, the committed plan) and **Tinkering** (an explicit edit state). The mode distinction is brand-critical — coaches need to feel safe experimenting without worrying they've broken the auto-generated rotation.
+
+### Naming
+
+- The button that enters edit mode is labelled **`Tinker`** (verb, imperative).
+- The mode itself is **`Tinkering`** (gerund, shown as the live state).
+- The button that exits and commits is **`Done`** (not "Save", not "Apply" — coaches aren't filing a tax return).
+- The button that exits and discards is **`Discard changes`** (only shown if changes were actually made).
+
+"Tinker" is doing real work here. It communicates *low-stakes, no-harm experimentation* — which is exactly the emotional frame coaches need when they're about to override an auto-balanced rotation. Do not replace it with "Edit", "Adjust", "Modify", or any other generic term. The word is the brand.
+
+### The metaphor
+
+Tinkering mode should feel like **the gaffer pulling out a tactics notebook on the touchline and sketching changes in pen**. Not Excalidraw, not Figma. A real coach's notebook: paper texture over the pitch, hand-drawn pen strokes around movable elements, ink-style annotations.
+
+This metaphor is doing two jobs at once:
+1. **Communicating "draft / uncommitted"** — paper and pen are inherently provisional
+2. **Reinforcing the grassroots brand** — this is what a real volunteer coach does on a Saturday morning
+
+### The visual rule
+
+> *Tinkering mode keeps the pitch underneath. We overlay paper texture and switch all movable elements from solid UI strokes to hand-drawn pen strokes. Typography stays in Inter — only shapes become sketchy.*
+
+### Implementation recipe
+
+Apply these changes when Tinkering mode is active. **All other UI** (typography, layout, copy, button positions, position labels like "CF" / "LM") **stays identical to Locked mode.** The button that says `Tinker` in Locked mode simply becomes `Done` in the same physical slot — don't move it.
+
+#### 1. The paper texture (the surface)
+
+The pitch background gets a **real crumpled-paper photograph** layered over it with a multiply blend. The white paper multiplies down to the pitch green, so creases and highlights remain visible but tinted to "green paper". This is not a procedural effect — procedural noise looks like noise, not paper. Use the asset.
+
+**Asset:** [`assets/brand/texture-paper.jpg`](./assets/brand/texture-paper.jpg) (1920×1080, ~68 KB)
+
+**CSS recipe:**
+
+```css
+.tinkering-pitch {
+  background-color: #1A5C42;            /* Pitch green base */
+  background-image: url('/assets/brand/texture-paper.jpg');
+  background-size: cover;               /* one sheet, do not tile */
+  background-position: center;
+  background-blend-mode: multiply;      /* this is what makes white paper become green paper */
+}
+```
+
+**Critical:** use `background-blend-mode`, **not** `mix-blend-mode` on a separate overlay div. The blend has to happen between the background-image and background-color on the same element so the green tints through the white paper.
+
+**Why `background-size: cover` not `repeat`:** The pitch on a phone is small enough that a single 1920×1080 sheet covers it without needing to tile. Tiling produces visible seams which break the "one piece of paper" illusion.
+
+#### 2. Hand-drawn pen strokes on movable elements (the marks)
+
+Player tokens, position slots, and **anything draggable on the pitch** swap their solid stroke for a hand-drawn ink stroke in Trophy Amber.
+
+**Bench chips do NOT wobble.** Bench items in Tinkering mode keep their crisp Locked-mode style — the amber outline on incoming subs is already enough signal that something is changing. Wobbling the bench would over-apply the metaphor and read as noisy.
+
+The "hand-drawn" feel comes from a solid amber stroke + an SVG displacement filter:
+
+| Property | Value | Why |
+|----------|-------|-----|
+| `stroke` | `#F5B544` (Trophy Amber) | Reads as pen ink against paper |
+| `stroke-width` | `2.5` px | A touch heavier than UI default — pen, not pencil |
+| `stroke-linecap` | `round` | Pen tips are round, not square |
+| `stroke-linejoin` | `round` | Matches pen behaviour at corners |
+| `stroke-dasharray` | `0` (solid, **not dashed**) | Real pen strokes are continuous — dashed reads as "border", solid reads as "drawn" |
+| SVG filter | `url(#pen-wobble)` | Adds visible hand-drawn jitter |
+
+**The wobble filter (paste into the page once, reuse via `url(#pen-wobble)`):**
+
+```html
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="pen-wobble">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="5" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.2"/>
+    </filter>
+  </defs>
+</svg>
+```
+
+**`scale="3.2"` is the locked value** for player-token-sized elements (~50–70 px diameter). At this scale the wobble is clearly visible — circles aren't mathematically perfect, they look drawn. Lower than 2 is too subtle to read against paper; higher than 4 starts looking shaky/broken.
+
+**Important:** the pen stroke *replaces* the existing token outline — it doesn't get added on top. A double ring (solid grey + amber wobble) reads as a UI bug.
+
+#### 3. The "Tinkering" pill (the mode indicator)
+
+Top-right of the header, persistent throughout the mode. Match-day green fill (`#2EBE6B`), Pitch-Deep label (`#0E3A29`), Inter 800 with all-caps "TINKERING" text. The pill outline gets the `pen-wobble` filter — the label text stays crisp Inter.
+
+The pill is **status only**. It is not a button. It does not contain a Done action.
+
+#### 4. The Done button (below the subs)
+
+The button that reads `Tinker` in Locked mode reads `Done` in Tinkering mode. **Same slot, below the bench, full-width.** Match-day green fill, Pitch-Deep label, Inter 800.
+
+Tapping `Done` exits Tinkering and commits. To discard, use a secondary affordance (back arrow / cancel link) — don't add a competing button next to Done.
+
+#### 5. Entry & exit transitions
+
+- **Entering Tinkering** (`Tinker` tapped): paper texture fades in over 200 ms; movable element strokes morph from solid white/grey to amber pen over 250 ms; button label crossfades `Tinker` → `Done`. No flash, no bounce.
+- **Exiting via `Done`**: reverse, 200 ms. Add a brief Match-day green ripple from the button to confirm commit.
+- **Exiting via discard**: same fade, but the player positions visibly snap back to their pre-Tinkering arrangement first (300 ms), so the user *sees* their changes being undone.
+
+### What "sketchy" does **not** mean here
+
+- ❌ Procedural / SVG-filter paper. We tried it. It looks like noise, not paper. Use the JPG asset.
+- ❌ Wobbly Inter or a handwritten font. Inter stays. Only **shapes** are hand-drawn.
+- ❌ Dashed strokes. Dashed reads as "border style", not "pen". Use solid + wobble filter.
+- ❌ Wobbling the bench. Bench stays crisp — only on-pitch elements get pen strokes.
+- ❌ Floating action buttons on the pitch. The Done button lives below the bench, in the existing Tinker slot.
+- ❌ A Done button inside the Tinkering pill. The pill is a status indicator, not an action.
+- ❌ Crayon, marker, or watercolour effects. We're a pen on paper, not an art class.
+- ❌ Full background swap to chalk/cream. The pitch metaphor stays. Paper is on top of the pitch, not instead of it.
+- ❌ Sketchy treatment outside Tinkering mode. Locked mode is crisp. The contrast is the whole point.
+
+### Tone of voice in Tinkering mode
+
+The voice stays the same — direct, warm, never panicky. Helper text should reinforce the low-stakes framing:
+
+- Empty Tinkering hint: **"Drag a player to swap them in. Nothing's saved until you tap Done."**
+- After exiting Tinkering: **"Sorted. Plan updated."**
+- If discarding: **"No worries — back to the original plan."**
+
+Avoid alarm language like "Unsaved changes!" or "You'll lose your work." Tinkering is *meant* to be casual.
+
+### Worked example — a movable player token
+
+```jsx
+// Once per page, somewhere in the root:
+<svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+  <defs>
+    <filter id="pen-wobble">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="5" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.2"/>
+    </filter>
+  </defs>
+</svg>
+
+// Then for each player token, when isTinkering is true:
+<svg width="68" height="68" viewBox="0 0 68 68">
+  {/* white fill stays the same as Locked mode */}
+  <circle cx="34" cy="34" r="28" fill="#FFFFFF" />
+  {/* hand-drawn amber ring REPLACES the normal token outline */}
+  <circle
+    cx="34" cy="34" r="28"
+    fill="none"
+    stroke="#F5B544"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    filter="url(#pen-wobble)"
+  />
+  {/* initials stay crisp Inter — NO filter on the text */}
+  <text
+    x="34" y="40"
+    textAnchor="middle"
+    fontFamily="Inter"
+    fontWeight="800"
+    fontSize="15"
+    fill="#0E3A29"
+  >JAC</text>
+</svg>
+```
+
+The pitch container itself:
+
+```jsx
+<div
+  className="tinkering-pitch"
+  style={{
+    backgroundColor: '#1A5C42',
+    backgroundImage: "url('/assets/brand/texture-paper.jpg')",
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundBlendMode: 'multiply',
+  }}
+>
+  {/* pitch lines, player tokens, etc. */}
+</div>
+```
+
+Position slots, the Tinkering pill, and any other on-pitch movable element follow the same recipe: keep the fill and the typography from Locked mode, replace the outline with an amber stroke + wobble filter. The bench, header, and footer button strip stay crisp — exactly as they look in Locked mode.
+
+---
+
 ## Changelog
 
 | Version | Date | Notes |
 |---------|------|-------|
+| 1.4.0 | 2026-05-23 | Locked Tinkering visual spec after iteration. Paper texture is now a real JPG asset (`texture-paper.jpg`) applied via `background-blend-mode: multiply`, not procedural. Wobble scale bumped to 3.2. Bench stays crisp — no wobble off-pitch. Done button stays in its existing slot below the bench (not floating, not in the pill). Tinkering pill is status-only, not a button. |
+| 1.3.0 | 2026-05-23 | Rewrote §7 Tinkering. Switched from "tinted pitch + dashed amber outlines" to "paper texture overlay + hand-drawn pen strokes" (wobble filter, solid amber). Added implementation recipe with SVG filters and a worked React example. |
+| 1.2.0 | 2026-05-23 | Added §7 Modes & states. Defines `Tinker` / `Tinkering` naming, visual rule (tinted pitch + dashed amber strokes), and rejected alternatives. |
+| 1.1.0 | 2026-05-23 | Reverted name to `Gaffer` (from `Gaffr`). All wordmark SVGs and copy updated. |
 | 1.0.0 | 2026-05-23 | Initial guidelines. Wordmark, palette, typography, voice. |

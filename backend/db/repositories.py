@@ -5,7 +5,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB
-from backend.models.game_config import get_config
+from backend.models.game_config import build_tournament_config, get_config
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier, Player
 from backend.models.rotation import RotationPlan
@@ -38,10 +38,19 @@ def player_db_to_domain(p: PlayerDB) -> Player:
 
 
 def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squad]:
-    try:
-        config = get_config(m.team_size, m.formation)
-    except KeyError:
-        config = None
+    if m.tournament_id:
+        # Tournament matches use a custom config derived from stored period structure
+        total_duration = m.quarters * m.quarter_length_mins
+        has_halftime = m.quarters > 1
+        try:
+            config = build_tournament_config(m.team_size, m.formation, total_duration, has_halftime)
+        except (ValueError, KeyError):
+            config = None
+    else:
+        try:
+            config = get_config(m.team_size, m.formation)
+        except KeyError:
+            config = None
     match = Match(
         date=date_type.fromisoformat(m.date),
         opponent=m.opponent,

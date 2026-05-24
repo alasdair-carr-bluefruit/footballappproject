@@ -7,7 +7,7 @@ engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_threa
 
 
 def create_db_and_tables() -> None:
-    from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB  # noqa: F401
+    from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB, TournamentDB  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
 
@@ -15,8 +15,12 @@ def create_db_and_tables() -> None:
     with engine.connect() as conn:
         for stmt in [
             "ALTER TABLE players ADD COLUMN shirt_number INTEGER",
+            "ALTER TABLE players ADD COLUMN source_tournament_id INTEGER",
             "ALTER TABLE matches ADD COLUMN status TEXT DEFAULT 'planned'",
             "ALTER TABLE matches ADD COLUMN current_slot INTEGER DEFAULT 0",
+            "ALTER TABLE matches ADD COLUMN tournament_id INTEGER",
+            "ALTER TABLE matches ADD COLUMN tournament_stage TEXT DEFAULT ''",
+            "ALTER TABLE matches ADD COLUMN match_number INTEGER",
             "ALTER TABLE rotation_plans ADD COLUMN removed_players_json TEXT DEFAULT '{}'",
         ]:
             try:

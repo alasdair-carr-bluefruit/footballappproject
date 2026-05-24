@@ -75,7 +75,15 @@ def _player_to_read(p: PlayerDB) -> PlayerRead:
 @router.get("/players", response_model=list[PlayerRead])
 def list_players(session: Session = Depends(get_session)) -> list[PlayerRead]:
     squad = get_or_create_squad(session)
-    players = list(session.exec(select(PlayerDB).where(PlayerDB.squad_id == squad.id)).all())
+    # Exclude tournament guest players (source_tournament_id IS NOT NULL)
+    players = list(
+        session.exec(
+            select(PlayerDB).where(
+                PlayerDB.squad_id == squad.id,
+                PlayerDB.source_tournament_id == None,  # noqa: E711
+            )
+        ).all()
+    )
     return [_player_to_read(p) for p in players]
 
 
