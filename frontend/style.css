@@ -624,26 +624,34 @@ html, body {
 }
 .btn-adjust:active { opacity: 1; }
 
-/* ── Start Match bar (review mode) ──────────────────────────────── */
+/* ── Slot row (slot label + start match button side by side) ─────── */
+.slot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.slot-info { flex: 1; min-width: 0; }
+
+/* ── Start Match button (inline in header, review mode only) ─────── */
 .start-match-bar {
-  padding: 4px 16px 10px;
+  flex-shrink: 0;
 }
 .btn-start-match-cta {
-  width: 100%;
   background: #27ae60;
   color: #fff;
-  font-size: 1.05rem;
+  font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.03em;
-  padding: 14px;
-  border-radius: 10px;
+  padding: 8px 13px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
+  white-space: nowrap;
   animation: pulse-start 1.6s ease-in-out infinite;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 .btn-start-match-cta:active { opacity: 0.85; animation: none; }
 @keyframes pulse-start {
@@ -677,7 +685,7 @@ html, body {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.35; }
 }
-.start-match-bar[hidden] { display: none; }
+.start-match-bar[hidden] { display: none !important; }
 
 /* ── Removed player bench state ──────────────────────────────────── */
 .bench-player.bench-removed {
