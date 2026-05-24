@@ -870,6 +870,7 @@ function render() {
   pitchWrapper?.classList.toggle("whiteboard", editMode);
   benchSection?.classList.toggle("whiteboard", editMode);
   document.getElementById("edit-mode-badge").classList.toggle("visible", editMode);
+  document.getElementById("live-pitch-badge").classList.toggle("visible", matchStarted && !isCompleted);
 
   const { defense, midfield, forward } = parseFormation(formation);
 
@@ -1262,10 +1263,23 @@ async function doStartMatch() {
     matchData.match.status = "in_progress";
     matchData.match.current_slot = 0;
     render();
+    showGoalTip();
   } catch (err) {
     alert("Could not start match: " + err.message);
   }
 }
+
+function showGoalTip() {
+  const tip = document.getElementById("goal-tip");
+  tip.hidden = false;
+  clearTimeout(showGoalTip._timer);
+  showGoalTip._timer = setTimeout(() => { tip.hidden = true; }, 6000);
+}
+
+document.getElementById("btn-goal-tip-dismiss").addEventListener("click", () => {
+  document.getElementById("goal-tip").hidden = true;
+  clearTimeout(showGoalTip._timer);
+});
 
 document.getElementById("btn-return-plan").addEventListener("click", async () => {
   try {
