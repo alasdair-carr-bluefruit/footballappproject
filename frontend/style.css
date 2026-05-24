@@ -878,6 +878,46 @@ html, body {
   max-width: 340px;
 }
 
+.squad-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(46,190,107,0.1);
+  border: 1.5px solid rgba(46,190,107,0.3);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.squad-tip-content { flex: 1; }
+
+.squad-tip-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--matchday);
+  margin: 0 0 6px;
+}
+
+.squad-tip-body {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.squad-tip-dismiss {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .landing-modes {
   display: flex;
   flex-direction: column;
@@ -905,6 +945,17 @@ html, body {
 .mode-card:active {
   background: rgba(255,255,255,0.12);
   border-color: var(--btn-primary);
+}
+
+.mode-card.mode-card-highlight {
+  border-color: var(--matchday);
+  box-shadow: 0 0 0 3px rgba(46,190,107,0.25);
+  animation: pulse-highlight 2s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(46,190,107,0.25); }
+  50%       { box-shadow: 0 0 0 6px rgba(46,190,107,0.1); }
 }
 
 .mode-card.mode-coming-soon {

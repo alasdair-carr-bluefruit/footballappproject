@@ -111,12 +111,29 @@ document.getElementById("btn-tutorial-start").addEventListener("click", async ()
   teamInfo = { team_name: name, team_logo: logo };
   localStorage.setItem("gaffer_onboarded", "1");
   showScreen("screen-landing");
+  showSquadTip();
+});
+
+function showSquadTip() {
+  if (localStorage.getItem("gaffer_squad_tip_dismissed")) return;
+  document.getElementById("squad-tip").hidden = false;
+  document.getElementById("btn-squad-management").classList.add("mode-card-highlight");
+}
+
+document.getElementById("btn-squad-tip-dismiss").addEventListener("click", () => {
+  document.getElementById("squad-tip").hidden = true;
+  document.getElementById("btn-squad-management").classList.remove("mode-card-highlight");
+  localStorage.setItem("gaffer_squad_tip_dismissed", "1");
 });
 
 // ── Landing screen ────────────────────────────────────────────────────────────
 document.getElementById("btn-season-mode").addEventListener("click", () => loadHome());
 document.getElementById("btn-tournament-mode").addEventListener("click", () => loadTournamentHome());
 document.getElementById("btn-squad-management").addEventListener("click", () => {
+  // Dismiss squad tip once they visit squad management
+  document.getElementById("squad-tip").hidden = true;
+  document.getElementById("btn-squad-management").classList.remove("mode-card-highlight");
+  localStorage.setItem("gaffer_squad_tip_dismissed", "1");
   squadBackContext = "landing";
   loadSquad();
 });
