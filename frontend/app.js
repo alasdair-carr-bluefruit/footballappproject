@@ -127,6 +127,12 @@ function dismissSquadTip() {
 }
 
 // ── Landing screen ────────────────────────────────────────────────────────────
+
+// Auto-dismiss squad tip if players already exist (guards against cached JS etc.)
+api.getPlayers().then(players => {
+  if (players.length > 0) dismissSquadTip();
+}).catch(() => {});
+
 document.getElementById("btn-season-mode").addEventListener("click", () => loadHome());
 document.getElementById("btn-tournament-mode").addEventListener("click", () => loadTournamentHome());
 document.getElementById("btn-squad-management").addEventListener("click", () => {
@@ -570,11 +576,9 @@ function closePlayerForm() {
   editingPlayerId = null;
 }
 
-document.getElementById("btn-squad-back").addEventListener("click", async () => {
+document.getElementById("btn-squad-back").addEventListener("click", () => {
   if (squadBackContext === "landing") {
-    // Dismiss squad tip if any players now exist
-    const players = await api.getPlayers().catch(() => []);
-    if (players.length > 0) dismissSquadTip();
+    dismissSquadTip(); // visited squad management = tip no longer needed
     showScreen("screen-landing");
   } else {
     loadHome();
