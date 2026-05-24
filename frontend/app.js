@@ -116,12 +116,12 @@ document.getElementById("btn-tutorial-start").addEventListener("click", async ()
 
 function showSquadTip() {
   if (localStorage.getItem("gaffer_squad_tip_dismissed")) return;
-  document.getElementById("squad-onboarding").hidden = false;
+  document.getElementById("squad-onboarding").style.display = "flex";
   document.querySelector(".landing").classList.add("landing--onboarding");
 }
 
 function dismissSquadTip() {
-  document.getElementById("squad-onboarding").hidden = true;
+  document.getElementById("squad-onboarding").style.display = "none";
   document.querySelector(".landing").classList.remove("landing--onboarding");
   localStorage.setItem("gaffer_squad_tip_dismissed", "1");
 }
