@@ -870,7 +870,6 @@ function render() {
   pitchWrapper?.classList.toggle("whiteboard", editMode);
   benchSection?.classList.toggle("whiteboard", editMode);
   document.getElementById("edit-mode-badge").classList.toggle("visible", editMode);
-  document.getElementById("live-pitch-badge").classList.toggle("visible", matchStarted && !isCompleted);
 
   const { defense, midfield, forward } = parseFormation(formation);
 
@@ -952,6 +951,7 @@ function render() {
   const endMatchBar = document.getElementById("end-match-bar");
   const isCompleted = matchData.match.status === "completed";
   const isLastSlot = currentSlot === matchData.slots.length - 1;
+  document.getElementById("live-pitch-badge").classList.toggle("visible", matchStarted && !isCompleted);
 
   if (!matchStarted) {
     // Review mode: coach browses the plan before starting
