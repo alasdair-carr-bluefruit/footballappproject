@@ -949,7 +949,7 @@ function render() {
 
   if (!matchStarted) {
     // Review mode: coach browses the plan before starting
-    startMatchBar.hidden = false;
+    startMatchBar.hidden = editMode;
     endMatchBar.hidden = true;
     liveBadge.hidden = true;
     btnPrev.disabled = currentSlot === 0 || editMode;
