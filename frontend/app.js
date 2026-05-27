@@ -877,6 +877,15 @@ function render() {
   document.getElementById("slot-counter").textContent =
     `Slot ${currentSlot + 1} of ${matchData.slots.length}`;
 
+  const skillEl = document.getElementById("slot-skill");
+  const skillTotal = slot.skill_total || 0;
+  if (skillTotal > 0) {
+    skillEl.textContent = `⚡ ${skillTotal}`;
+    skillEl.hidden = false;
+  } else {
+    skillEl.hidden = true;
+  }
+
   const dots = document.querySelectorAll(".progress-dot");
   dots.forEach((dot, i) => {
     dot.classList.toggle("active", i === currentSlot);
@@ -1082,6 +1091,7 @@ function renderChanges() {
   document.getElementById("slot-label").textContent = `${pLabel}${prevP} → ${pLabel}${nextP}`;
   document.getElementById("slot-counter").textContent =
     off.size === 0 ? "No changes" : `${off.size} change${off.size !== 1 ? "s" : ""}`;
+  document.getElementById("slot-skill").hidden = true;
 
   const dots = document.querySelectorAll(".progress-dot");
   dots.forEach((dot, i) => {
@@ -1147,6 +1157,7 @@ function renderReport() {
 
   document.getElementById("slot-label").textContent = "Full Time";
   document.getElementById("slot-counter").textContent = "Match report";
+  document.getElementById("slot-skill").hidden = true;
   document.getElementById("match-title").textContent = `${dateStr}  ·  vs ${match.opponent || "Unknown"}`;
 
   document.querySelector(".pitch-wrapper").style.display = "none";
