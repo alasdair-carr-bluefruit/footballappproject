@@ -258,12 +258,18 @@ def generate_match_rotation(
 
     all_players = get_players(session, db_match.squad_id)
 
-    # Filter to available players if specified
+    # Filter to available players if specified; fall back to stored list if no body provided
     if body and body.available_player_ids is not None:
-        available_ids = set(body.available_player_ids)
-        players_db = [p for p in all_players if p.id in available_ids]
+        players_db = [p for p in all_players if p.id in set(body.available_player_ids)]
     else:
-        players_db = all_players
+        existing_rotation = session.exec(
+            select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+        ).first()
+        stored_ids = json.loads(existing_rotation.available_player_ids_json or "[]") if existing_rotation else []
+        if stored_ids:
+            players_db = [p for p in all_players if p.id in set(stored_ids)]
+        else:
+            players_db = all_players
 
     if len(players_db) < config.players_per_slot:
         raise HTTPException(
