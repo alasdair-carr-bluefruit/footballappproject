@@ -448,6 +448,30 @@ document.getElementById("btn-generate").addEventListener("click", async () => {
   }
 });
 
+// Manual slot assignment — generate rotation then immediately enter tinkering mode
+document.getElementById("btn-manual-slots").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-manual-slots");
+  btn.disabled = true;
+  btn.textContent = "Setting up…";
+
+  const selectedIds = [...document.querySelectorAll("#avail-list input:checked")].map(
+    cb => parseInt(cb.value)
+  );
+
+  try {
+    const match = await api.createMatch(pendingMatchConfig);
+    const data = await api.generateRotation(match.id, { available_player_ids: selectedIds });
+    btn.disabled = false;
+    btn.textContent = "or assign positions manually";
+    editMode = true;
+    enterPitchView(data);
+  } catch (err) {
+    alert("Error: " + err.message);
+    btn.disabled = false;
+    btn.textContent = "or assign positions manually";
+  }
+});
+
 // Prevent actual form submission
 document.getElementById("new-match-form").addEventListener("submit", e => e.preventDefault());
 
