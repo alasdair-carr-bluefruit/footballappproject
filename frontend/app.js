@@ -209,8 +209,12 @@ async function loadHome() {
     li.querySelector(".match-delete").addEventListener("click", async e => {
       e.stopPropagation();
       if (confirm(`Delete match vs ${opponent}?`)) {
-        await api.deleteMatch(m.id).catch(err => alert(err.message));
-        loadHome();
+        try {
+          await api.deleteMatch(m.id);
+          loadHome();
+        } catch (err) {
+          alert("Could not delete match: " + err.message);
+        }
       }
     });
     list.appendChild(li);
@@ -470,6 +474,24 @@ document.getElementById("btn-manual-slots").addEventListener("click", async () =
     enterPitchView(data);
   } catch (err) {
     alert("Error: " + err.message);
+    btn.disabled = false;
+    btn.textContent = "or assign positions manually";
+  }
+});
+
+// Manual assign from within pitch view (works for both season and tournament matches)
+document.getElementById("btn-manual-slots-pitch").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-manual-slots-pitch");
+  btn.disabled = true;
+  btn.textContent = "Setting up…";
+  try {
+    const data = await api.blankRotation(matchData.match.id);
+    manualRotationMode = true;
+    editMode = true;
+    enterPitchView(data);
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
     btn.disabled = false;
     btn.textContent = "or assign positions manually";
   }
@@ -1013,6 +1035,12 @@ function render() {
   const isLastSlot = currentSlot === matchData.slots.length - 1;
   document.getElementById("live-pitch-badge").classList.toggle("visible", matchStarted && !isCompleted);
 
+  // Manual assign bar: visible in review mode when not already in manual/edit mode
+  const manualAssignBar = document.getElementById("manual-assign-bar");
+  if (manualAssignBar) {
+    manualAssignBar.hidden = matchStarted || editMode || manualRotationMode || showingReport;
+  }
+
   if (!matchStarted) {
     // Review mode: coach browses the plan before starting
     startMatchBar.hidden = editMode;
@@ -1540,8 +1568,8 @@ async function executeSwap(newPlayerId, newPlayerName) {
 
     statusEl.hidden = true;
 
-    // Check for fairness warnings
-    if (result.fairness_warnings && result.fairness_warnings.length > 0) {
+    // Check for fairness warnings (skip in manual assign mode)
+    if (!manualRotationMode && result.fairness_warnings && result.fairness_warnings.length > 0) {
       showFairnessWarning(result);
       return;
     }

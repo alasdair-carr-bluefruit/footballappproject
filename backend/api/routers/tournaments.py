@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
 from backend.algorithm.rotation_engine import generate_rotation
@@ -286,23 +287,15 @@ def delete_tournament(
     if not t:
         raise HTTPException(status_code=404, detail="Tournament not found")
 
-    # Cascade: delete rotation plans, matches, guest players
-    matches = list(session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all())
-    for m in matches:
-        rotation = session.exec(
-            select(RotationPlanDB).where(RotationPlanDB.match_id == m.id)
-        ).first()
-        if rotation:
-            session.delete(rotation)
-        session.delete(m)
-
-    guest_players = list(
-        session.exec(select(PlayerDB).where(PlayerDB.source_tournament_id == tournament_id)).all()
-    )
-    for p in guest_players:
-        session.delete(p)
-
-    session.delete(t)
+    # Explicit ordered DELETEs — bypasses ORM flush ordering issues with PostgreSQL FKs
+    match_ids = [
+        m.id for m in session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()
+    ]
+    if match_ids:
+        session.execute(sql_delete(RotationPlanDB).where(RotationPlanDB.match_id.in_(match_ids)))
+        session.execute(sql_delete(MatchDB).where(MatchDB.tournament_id == tournament_id))
+    session.execute(sql_delete(PlayerDB).where(PlayerDB.source_tournament_id == tournament_id))
+    session.execute(sql_delete(TournamentDB).where(TournamentDB.id == tournament_id))
     session.commit()
 
 

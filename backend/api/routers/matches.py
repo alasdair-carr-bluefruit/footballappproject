@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
 from backend.algorithm.rotation_engine import generate_rotation
@@ -814,12 +815,9 @@ def delete_match(match_id: int, session: Session = Depends(get_session)) -> None
     db_match = session.get(MatchDB, match_id)
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
-    rotation = session.exec(
-        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
-    ).first()
-    if rotation:
-        session.delete(rotation)
-    session.delete(db_match)
+    # Explicit ordered DELETEs — bypasses ORM flush ordering issues with PostgreSQL FKs
+    session.execute(sql_delete(RotationPlanDB).where(RotationPlanDB.match_id == match_id))
+    session.execute(sql_delete(MatchDB).where(MatchDB.id == match_id))
     session.commit()
 
 
