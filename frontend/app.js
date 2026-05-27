@@ -241,7 +241,7 @@ function enterPitchView(data) {
   document.querySelector(".bench-section").style.display = "";
   document.getElementById("report-section").style.display = "none";
 
-  // Generate progress dots dynamically
+  // Generate progress dots dynamically (one per slot + a "Final" summary dot)
   const dotsContainer = document.getElementById("progress-dots");
   dotsContainer.innerHTML = "";
   dotsContainer.style.display = "";
@@ -250,6 +250,9 @@ function enterPitchView(data) {
     dot.className = "progress-dot";
     dotsContainer.appendChild(dot);
   }
+  const finalDot = document.createElement("div");
+  finalDot.className = "progress-dot progress-dot-final";
+  dotsContainer.appendChild(finalDot);
 
   render();
 }
@@ -909,9 +912,12 @@ function render() {
   }
 
   const dots = document.querySelectorAll(".progress-dot");
+  const totalSlotDots = matchData.slots.length;
   dots.forEach((dot, i) => {
-    dot.classList.toggle("active", i === currentSlot);
-    dot.classList.toggle("done", i < currentSlot);
+    const isFinalDot = i === totalSlotDots;
+    dot.classList.toggle("active", !isFinalDot && i === currentSlot);
+    dot.classList.toggle("done", !isFinalDot && i < currentSlot);
+    if (isFinalDot) { dot.classList.remove("active", "done"); }
   });
 
   // Build replacement map for bench display
@@ -1047,8 +1053,8 @@ function render() {
     endMatchBar.hidden = true;
     liveBadge.hidden = true;
     btnPrev.disabled = currentSlot === 0 || editMode;
-    btnNext.disabled = editMode || isLastSlot;
-    btnNext.textContent = "Next ▶";
+    btnNext.disabled = editMode;
+    btnNext.textContent = (isLastSlot && !editMode) ? "Summary ▶" : "Next ▶";
     btnAdjust.hidden = false;
     btnAdjust.textContent = editMode ? "Done" : "Tinker";
   } else {
@@ -1183,15 +1189,23 @@ function renderReport() {
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const pLabel = (match.period_label || "Quarter") === "Half" ? "H" : "Q";
 
-  document.getElementById("slot-label").textContent = "Full Time";
-  document.getElementById("slot-counter").textContent = "Match report";
+  document.getElementById("slot-label").textContent = matchStarted ? "Full Time" : "Summary";
+  document.getElementById("slot-counter").textContent = matchStarted ? "Match report" : "All slots";
   document.getElementById("slot-skill").hidden = true;
   document.getElementById("match-title").textContent = `${dateStr}  ·  vs ${match.opponent || "Unknown"}`;
 
   document.querySelector(".pitch-wrapper").style.display = "none";
   document.querySelector(".bench-section").style.display = "none";
   document.getElementById("report-section").style.display = "block";
-  document.getElementById("progress-dots").style.display = "none";
+
+  // Keep progress dots visible — activate the Final dot
+  document.getElementById("progress-dots").style.display = "";
+  const allDots = document.querySelectorAll(".progress-dot");
+  allDots.forEach((dot, i) => {
+    const isFinalDot = dot.classList.contains("progress-dot-final");
+    dot.classList.toggle("active", isFinalDot);
+    dot.classList.toggle("done", !isFinalDot);
+  });
 
   // Generate slot labels dynamically
   const slotLabels = [];
@@ -1250,12 +1264,19 @@ function renderReport() {
   list.appendChild(skillLi);
 
   document.getElementById("btn-prev").disabled = false;
-  document.getElementById("btn-next").disabled = false;
-  document.getElementById("btn-next").textContent = "End Match";
+  if (matchStarted) {
+    document.getElementById("btn-next").disabled = false;
+    document.getElementById("btn-next").textContent = "End Match";
+  } else {
+    document.getElementById("btn-next").disabled = true;
+    document.getElementById("btn-next").textContent = "Next ▶";
+  }
+  document.getElementById("btn-adjust").hidden = true;
   // End Match bar: visible in live mode on report view
   const endBar = document.getElementById("end-match-bar");
   if (endBar) endBar.hidden = !matchStarted || matchData.match.status === "completed";
   document.getElementById("start-match-bar").hidden = true;
+  document.getElementById("manual-assign-bar").hidden = true;
 }
 
 function showMatch() {
@@ -1273,7 +1294,7 @@ document.getElementById("btn-start-match-cta").addEventListener("click", () => d
 
 document.getElementById("btn-next").addEventListener("click", async () => {
   if (showingReport) {
-    doEndMatch();
+    if (matchStarted) doEndMatch();
     return;
   }
   if (showingChanges) {
@@ -2367,6 +2388,39 @@ async function loadTournamentLobby(id) {
 }
 
 document.getElementById("btn-lobby-back").addEventListener("click", loadTournamentHome);
+
+document.getElementById("btn-tournament-stats").addEventListener("click", async () => {
+  const stats = await api.getTournamentStats(activeTournamentId).catch(err => {
+    alert("Could not load stats: " + err.message);
+    return null;
+  });
+  if (!stats) return;
+
+  const list = document.getElementById("tournament-stats-list");
+  list.innerHTML = "";
+
+  if (!stats.players || stats.players.length === 0) {
+    list.innerHTML = "<li class='empty-state'>No match data yet</li>";
+  } else {
+    stats.players.forEach(p => {
+      const li = document.createElement("li");
+      li.className = "stats-row";
+      const goalsHtml = p.goals > 0 ? `<span class="stats-goals">⚽ ${p.goals}</span>` : "";
+      li.innerHTML = `
+        <span class="stats-name">${p.name}</span>
+        ${goalsHtml}
+        <span class="stats-slots">${p.slots_played} slot${p.slots_played !== 1 ? "s" : ""}</span>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  document.getElementById("tournament-stats-overlay").hidden = false;
+});
+
+document.getElementById("btn-tournament-stats-close").addEventListener("click", () => {
+  document.getElementById("tournament-stats-overlay").hidden = true;
+});
 
 function renderLobbyMatches(matches) {
   const list = document.getElementById("lobby-match-list");

@@ -115,6 +115,9 @@ html, body {
 }
 .progress-dot.done    { background: rgba(255,255,255,0.45); }
 .progress-dot.active  { background: #fff; width: 20px; border-radius: 4px; }
+/* Final summary dot: small diamond shape */
+.progress-dot-final { border-radius: 2px; transform: rotate(45deg); margin-left: 4px; }
+.progress-dot-final.active { background: #fff; width: 10px; height: 10px; border-radius: 2px; }
 
 
 /* ── Pitch ────────────────────────────────────────────────────────── */
@@ -826,6 +829,7 @@ html, body {
   max-height: 60vh;
   overflow-y: auto;
 }
+.swap-panel-wide { max-height: 75vh; }
 
 .swap-title {
   font-size: 17px;
@@ -2382,6 +2386,36 @@ html, body {
 }
 
 .add-match-actions .btn { flex: 1; }
+
+.btn-tournament-stats {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px 4px;
+  padding: 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.btn-tournament-stats:active { background: rgba(255,255,255,0.1); }
+
+/* Tournament stats overlay rows */
+.stats-slots {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stats-goals {
+  font-size: 13px;
+  color: #f0c040;
+  margin-right: 12px;
+  white-space: nowrap;
+}
 
 .knockout-options {
   padding: 12px;

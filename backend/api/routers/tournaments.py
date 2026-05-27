@@ -279,6 +279,47 @@ def get_tournament(
     }
 
 
+@router.get("/{tournament_id}/stats")
+def get_tournament_stats(
+    tournament_id: int, session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Return per-player slot counts and goals aggregated across all tournament matches."""
+    t = session.get(TournamentDB, tournament_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    matches = list(session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all())
+
+    slot_counts: dict[int, int] = defaultdict(int)
+    goal_totals: dict[int, int] = defaultdict(int)
+
+    for m in matches:
+        rotation = session.exec(
+            select(RotationPlanDB).where(RotationPlanDB.match_id == m.id)
+        ).first()
+        if not rotation:
+            continue
+        for slot_data in json.loads(rotation.slots_json):
+            for pid in slot_data.get("lineup", {}).values():
+                if pid:
+                    slot_counts[int(pid)] += 1
+        for pid_str, count in json.loads(rotation.goals_json or "{}").items():
+            goal_totals[int(pid_str)] += count
+
+    # Resolve player names
+    squad = get_or_create_squad(session)
+    all_players = get_players(session, squad.id)
+    id_to_name = {p.id: p.name for p in all_players if p.id is not None}
+
+    players_data = [
+        {"name": id_to_name.get(pid, f"Player {pid}"), "slots_played": slots, "goals": goal_totals.get(pid, 0)}
+        for pid, slots in slot_counts.items()
+    ]
+    players_data.sort(key=lambda x: (-x["slots_played"], x["name"]))
+
+    return {"players": players_data}
+
+
 @router.delete("/{tournament_id}", status_code=204)
 def delete_tournament(
     tournament_id: int, session: Session = Depends(get_session),

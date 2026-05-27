@@ -438,6 +438,7 @@
     <div class="lobby-summary" id="lobby-summary"></div>
 
     <ul class="match-list" id="lobby-match-list"></ul>
+    <button class="btn-tournament-stats" id="btn-tournament-stats">📊 Tournament Stats</button>
 
     <!-- Guest players section -->
     <div class="lobby-guest-section" id="lobby-guest-section">
@@ -690,6 +691,17 @@
         <button class="btn btn-secondary btn-full" id="btn-ft-save">Save Image</button>
         <button class="btn btn-secondary btn-full" id="btn-ft-done">Done</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Tournament Stats ──────────────────────────────────────────── -->
+  <div class="swap-overlay" id="tournament-stats-overlay" hidden>
+    <div class="swap-panel swap-panel-wide">
+      <h3 class="swap-title">Tournament Stats</h3>
+      <div id="tournament-stats-content">
+        <ul class="stats-list" id="tournament-stats-list"></ul>
+      </div>
+      <button class="btn btn-secondary btn-full" id="btn-tournament-stats-close">Close</button>
     </div>
   </div>
 
