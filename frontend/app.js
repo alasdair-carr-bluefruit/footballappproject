@@ -1303,12 +1303,39 @@ document.getElementById("btn-next").addEventListener("click", async () => {
     return;
   }
   if (currentSlot < matchData.slots.length - 1) {
+    const prevSlotObj = matchData.slots[currentSlot];
     currentSlot++;
     // Persist progress when advancing beyond the furthest reached slot
     if (matchStarted && currentSlot > (matchData.match.current_slot || 0)) {
       matchData.match.current_slot = currentSlot;
       api.updateProgress(matchData.match.id, currentSlot).catch(() => {});
     }
+
+    // Manual mode: carry prev slot's lineup into the next empty slot, then auto-tinker
+    if (manualRotationMode) {
+      const nextSlotObj = matchData.slots[currentSlot];
+      const nextIsEmpty = Object.keys(nextSlotObj.lineup || {}).length === 0;
+      const prevHasLineup = Object.keys(prevSlotObj.lineup || {}).length > 0;
+      if (nextIsEmpty && prevHasLineup) {
+        const edits = { [currentSlot]: {} };
+        Object.entries(prevSlotObj.lineup).forEach(([pos, player]) => {
+          if (player && player.id != null) edits[currentSlot][pos] = player.id;
+        });
+        const slotsToLock = matchData.slots.map(s => s.slot_index);
+        const statusEl = document.getElementById("adjust-status");
+        statusEl.hidden = false;
+        try {
+          const result = await api.adjustRotation(matchData.match.id, edits, slotsToLock);
+          matchData.slots = result.slots;
+          if (result.locked_slots) lockedSlots = new Set(result.locked_slots);
+        } catch (_) { /* carry forward failed, slot stays empty */ }
+        statusEl.hidden = true;
+      }
+      editMode = true; // always auto-tinker in manual mode when moving to next slot
+      render();
+      return;
+    }
+
     if (currentSlot % 2 === 0 && currentSlot > 0) {
       showingChanges = true;
       renderChanges();
