@@ -220,6 +220,9 @@ def get_match(match_id: int, session: Session = Depends(get_session)) -> dict[st
         return _rotation_response(db_match, [], [])
 
     players = get_players(session, db_match.squad_id)
+    available_ids = set(json.loads(rotation.available_player_ids_json or "[]"))
+    if available_ids:
+        players = [p for p in players if p.id in available_ids]
     id_to_player = {p.id: p for p in players if p.id is not None}
     plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
     response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
