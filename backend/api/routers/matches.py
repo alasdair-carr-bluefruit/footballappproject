@@ -327,7 +327,16 @@ def create_blank_rotation(
         avail_set = set(body.available_player_ids)
         players_db = [p for p in all_players if p.id in avail_set]
     else:
-        players_db = all_players
+        # Re-use previously stored available players (e.g. when switching to manual from pitch view)
+        existing_rotation = session.exec(
+            select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+        ).first()
+        stored_ids = json.loads(existing_rotation.available_player_ids_json or "[]") if existing_rotation else []
+        if stored_ids:
+            avail_set = set(stored_ids)
+            players_db = [p for p in all_players if p.id in avail_set]
+        else:
+            players_db = all_players
 
     num_slots = config.total_slots
     slots_json = json.dumps([{"slot_index": i, "lineup": {}} for i in range(num_slots)])
