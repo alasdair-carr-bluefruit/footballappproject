@@ -2332,6 +2332,32 @@ html, body {
 
 /* ── Tournament screens ──────────────────────────────────────────── */
 
+.btn-edit-tournament { margin-left: auto; font-size: 20px; }
+
+.edit-tournament-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.edit-tournament-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.edit-tournament-form input {
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07);
+  color: var(--chalk);
+}
+
 .lobby-summary {
   display: flex;
   flex-wrap: wrap;

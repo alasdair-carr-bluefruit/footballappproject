@@ -320,6 +320,29 @@ def get_tournament_stats(
     return {"players": players_data}
 
 
+class TournamentUpdate(BaseModel):
+    name: str | None = None
+    date: str | None = None
+
+
+@router.put("/{tournament_id}", response_model=TournamentRead)
+def update_tournament(
+    tournament_id: int, body: TournamentUpdate, session: Session = Depends(get_session),
+) -> TournamentRead:
+    t = session.get(TournamentDB, tournament_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    if body.name is not None:
+        t.name = body.name
+    if body.date is not None:
+        t.date = body.date
+    session.add(t)
+    session.commit()
+    session.refresh(t)
+    count = len(list(session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()))
+    return _tournament_read(t, count)
+
+
 @router.delete("/{tournament_id}", status_code=204)
 def delete_tournament(
     tournament_id: int, session: Session = Depends(get_session),

@@ -2416,6 +2416,32 @@ async function loadTournamentLobby(id) {
 
 document.getElementById("btn-lobby-back").addEventListener("click", loadTournamentHome);
 
+document.getElementById("btn-edit-tournament").addEventListener("click", () => {
+  const t = activeTournamentData?.tournament;
+  if (!t) return;
+  document.getElementById("edit-tournament-name").value = t.name || "";
+  document.getElementById("edit-tournament-date").value = t.date || "";
+  document.getElementById("edit-tournament-overlay").hidden = false;
+});
+
+document.getElementById("btn-edit-tournament-cancel").addEventListener("click", () => {
+  document.getElementById("edit-tournament-overlay").hidden = true;
+});
+
+document.getElementById("edit-tournament-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = document.getElementById("edit-tournament-name").value.trim();
+  const date = document.getElementById("edit-tournament-date").value;
+  if (!name || !date) return;
+  try {
+    await api.updateTournament(activeTournamentId, { name, date });
+    document.getElementById("edit-tournament-overlay").hidden = true;
+    loadTournamentLobby(activeTournamentId);
+  } catch (err) {
+    alert("Could not update tournament: " + err.message);
+  }
+});
+
 document.getElementById("btn-tournament-stats").addEventListener("click", async () => {
   const stats = await api.getTournamentStats(activeTournamentId).catch(err => {
     alert("Could not load stats: " + err.message);
@@ -2466,6 +2492,7 @@ function renderLobbyMatches(matches) {
     } else if (m.status === "in_progress") {
       statusBadge = `<span class="match-badge match-badge-live">● Live</span>`;
     }
+    const canDelete = m.status === "planned";
     const li = document.createElement("li");
     li.className = "match-item";
     if (m.status === "completed") li.classList.add("match-item-done");
@@ -2475,11 +2502,25 @@ function renderLobbyMatches(matches) {
         <span class="match-item-opponent">vs ${m.opponent || "TBD"}</span>
         ${statusBadge}
       </div>
+      ${canDelete ? `<button class="btn-icon match-delete" data-id="${m.id}" title="Remove match">✕</button>` : ""}
     `;
     li.querySelector(".match-item-main").addEventListener("click", () => {
       pitchBackContext = "tournament";
       openMatch(m.id);
     });
+    if (canDelete) {
+      li.querySelector(".match-delete").addEventListener("click", async e => {
+        e.stopPropagation();
+        if (confirm(`Remove match vs ${m.opponent || "TBD"}?`)) {
+          try {
+            await api.deleteMatch(m.id);
+            loadTournamentLobby(activeTournamentId);
+          } catch (err) {
+            alert("Could not remove match: " + err.message);
+          }
+        }
+      });
+    }
     list.appendChild(li);
   });
 }

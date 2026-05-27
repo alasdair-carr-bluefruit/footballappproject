@@ -434,6 +434,7 @@
     <header class="header header-sub">
       <button class="btn-back" id="btn-lobby-back">◀ Tournaments</button>
       <h2 id="lobby-title">Tournament</h2>
+      <button class="btn-icon btn-edit-tournament" id="btn-edit-tournament" title="Edit tournament">✎</button>
     </header>
     <div class="lobby-summary" id="lobby-summary"></div>
 
@@ -691,6 +692,27 @@
         <button class="btn btn-secondary btn-full" id="btn-ft-save">Save Image</button>
         <button class="btn btn-secondary btn-full" id="btn-ft-done">Done</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Edit Tournament ───────────────────────────────────────────── -->
+  <div class="swap-overlay" id="edit-tournament-overlay" hidden>
+    <div class="swap-panel">
+      <h3 class="swap-title">Edit Tournament</h3>
+      <form id="edit-tournament-form" class="edit-tournament-form">
+        <label>
+          Name
+          <input type="text" id="edit-tournament-name" autocomplete="off" />
+        </label>
+        <label>
+          Date
+          <input type="date" id="edit-tournament-date" />
+        </label>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btn-edit-tournament-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-edit-tournament-save">Save</button>
+        </div>
+      </form>
     </div>
   </div>
 
