@@ -301,6 +301,59 @@ def generate_match_rotation(
     return response
 
 
+@router.post("/{match_id}/blank-rotation")
+def create_blank_rotation(
+    match_id: int,
+    body: RotationRequest | None = None,
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Create an empty rotation (all positions unfilled) for manual slot assignment."""
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    if db_match.tournament_id:
+        total_duration = db_match.quarters * db_match.quarter_length_mins
+        config = build_tournament_config(db_match.team_size, db_match.formation, total_duration, db_match.quarters > 1)
+    else:
+        config = _season_config(db_match.team_size, db_match.formation, db_match.quarters, db_match.quarter_length_mins)
+
+    all_players = get_players(session, db_match.squad_id)
+    if body and body.available_player_ids is not None:
+        avail_set = set(body.available_player_ids)
+        players_db = [p for p in all_players if p.id in avail_set]
+    else:
+        players_db = all_players
+
+    num_slots = config.total_slots
+    slots_json = json.dumps([{"slot_index": i, "lineup": {}} for i in range(num_slots)])
+    avail_ids_json = json.dumps([p.id for p in players_db])
+
+    existing = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+    if existing:
+        existing.slots_json = slots_json
+        existing.warnings_json = "[]"
+        existing.available_player_ids_json = avail_ids_json
+        session.add(existing)
+    else:
+        session.add(RotationPlanDB(
+            match_id=match_id, slots_json=slots_json, warnings_json="[]",
+            available_player_ids_json=avail_ids_json,
+        ))
+    session.commit()
+
+    id_to_player = {p.id: p for p in players_db if p.id is not None}
+    plan_data = rotation_plan_from_json(slots_json, "[]", id_to_player)
+    response = _rotation_response(db_match, plan_data["slots"], [])
+    response["removed_players"] = {}
+    # All slots locked so adjust_rotation never auto-fills empty slots
+    response["locked_slots"] = list(range(num_slots))
+    response["manual_mode"] = True
+    return response
+
+
 class AdjustRequest(BaseModel):
     edits: dict[int, dict[str, int]]  # {slot_index: {position_key: player_id}}
     locked_slots: list[int] = []  # additional slot indices to keep locked

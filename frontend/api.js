@@ -28,6 +28,7 @@ export const api = {
   createMatch:       (d)  => request("/matches/",              { method: "POST",   body: d }),
   getMatch:          (id) => request(`/matches/${id}`),
   generateRotation:  (id, body) => request(`/matches/${id}/rotation`, { method: "POST", body: body || {} }),
+  blankRotation:     (id, body) => request(`/matches/${id}/blank-rotation`, { method: "POST", body: body || {} }),
   adjustRotation:    (id, edits, lockedSlots) => request(`/matches/${id}/adjust`, { method: "POST", body: { edits, locked_slots: lockedSlots } }),
   startMatch:        (id) => request(`/matches/${id}/start`,    { method: "POST" }),
   unstartMatch:      (id) => request(`/matches/${id}/unstart`,  { method: "POST" }),

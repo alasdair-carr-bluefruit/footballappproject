@@ -15,6 +15,7 @@ let gameConfigs = null; // cached from /api/matches/config/game-configs
 let selectedSize = 5;
 let selectedHomeAway = "home";
 let selectedPeriods = 4;
+let manualRotationMode = false;
 let teamInfo = { team_name: "My Team", team_logo: "" }; // cached squad info
 let shirtNumbers = {}; // { playerName: shirtNumber } — populated from squad API
 let removedPlayers = {}; // { playerId: fromSlot } — players removed mid-match
@@ -220,7 +221,8 @@ function enterPitchView(data) {
   matchData = data;
   showingReport = false;
   showingChanges = false;
-  editMode = false;
+  if (!manualRotationMode) editMode = false;
+  manualRotationMode = data.manual_mode || false;
   lockedSlots = new Set(data.locked_slots || []);
   removedPlayers = data.removed_players || {};
   Object.keys(goalCounts).forEach(k => delete goalCounts[k]);
@@ -448,7 +450,7 @@ document.getElementById("btn-generate").addEventListener("click", async () => {
   }
 });
 
-// Manual slot assignment — generate rotation then immediately enter tinkering mode
+// Manual slot assignment — blank rotation, all slots empty, tinkering mode on
 document.getElementById("btn-manual-slots").addEventListener("click", async () => {
   const btn = document.getElementById("btn-manual-slots");
   btn.disabled = true;
@@ -460,9 +462,10 @@ document.getElementById("btn-manual-slots").addEventListener("click", async () =
 
   try {
     const match = await api.createMatch(pendingMatchConfig);
-    const data = await api.generateRotation(match.id, { available_player_ids: selectedIds });
+    const data = await api.blankRotation(match.id, { available_player_ids: selectedIds });
     btn.disabled = false;
     btn.textContent = "or assign positions manually";
+    manualRotationMode = true;
     editMode = true;
     enterPitchView(data);
   } catch (err) {
@@ -931,11 +934,15 @@ function render() {
     if (row.keys.length > 1) rowEl.classList.add("multi-row");
 
     row.keys.forEach(posKey => {
-      const name = slot.lineup[posKey]?.name ?? "?";
+      const player = slot.lineup[posKey];
+      const name = player?.name ?? "";
+      const isEmpty = !name;
       const isGk = posKey === "GK";
       const swapHandler = editMode ? () => openSwapPicker(currentSlot, posKey, name) : null;
-      const dragData = editMode ? { slotIndex: currentSlot, posKey } : null;
-      rowEl.appendChild(playerCircle(name, posKey, incoming.has(name), outgoing.has(name), isGk, swapHandler, dragData));
+      const dragData = editMode && !isEmpty ? { slotIndex: currentSlot, posKey } : null;
+      const circle = playerCircle(name || posKey, posKey, incoming.has(name), outgoing.has(name), isGk, swapHandler, dragData);
+      if (isEmpty) circle.classList.add("empty-slot");
+      rowEl.appendChild(circle);
     });
 
     pitch.appendChild(rowEl);
@@ -1510,9 +1517,14 @@ async function executeSwap(newPlayerId, newPlayerName) {
   const statusEl = document.getElementById("adjust-status");
   statusEl.hidden = false;
 
+  // In manual mode keep every slot locked so the algorithm never auto-fills empties
+  const slotsToLock = manualRotationMode
+    ? matchData.slots.map(s => s.slot_index)
+    : [...lockedSlots];
+
   try {
     const result = await api.adjustRotation(
-      matchData.match.id, edits, [...lockedSlots],
+      matchData.match.id, edits, slotsToLock,
     );
 
     statusEl.hidden = true;
