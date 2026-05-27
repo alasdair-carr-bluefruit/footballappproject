@@ -53,4 +53,5 @@ export const api = {
   removeGuestPlayer:    (id, pid) => request(`/tournaments/${id}/players/${pid}`, { method: "DELETE" }),
   getTournamentStats:   (id)      => request(`/tournaments/${id}/stats`),
   updateTournament:     (id, data)=> request(`/tournaments/${id}`,        { method: "PUT",    body: data }),
+  setAvailablePlayers:  (id, ids) => request(`/tournaments/${id}/set-available-players`, { method: "POST", body: { available_player_ids: ids } }),
 };

@@ -236,6 +236,7 @@ def get_tournament(
         our_goals = 0
         if r and r.goals_json and r.goals_json != "{}":
             our_goals = sum(json.loads(r.goals_json).values())
+        available_ids = json.loads(r.available_player_ids_json or "[]") if r else []
         match_list.append({
             "id": m.id,
             "match_number": m.match_number,
@@ -245,6 +246,7 @@ def get_tournament(
             "has_rotation": r is not None,
             "our_goals": our_goals,
             "opponent_goals": m.opponent_goals,
+            "available_player_ids": available_ids,
         })
 
     # Load players for this tournament (squad + guest players)
@@ -359,6 +361,87 @@ def update_tournament(
     session.refresh(t)
     count = len(list(session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()))
     return _tournament_read(t, count)
+
+
+class SetAvailablePlayersBody(BaseModel):
+    available_player_ids: list[int]
+
+
+@router.post("/{tournament_id}/set-available-players")
+def set_available_players(
+    tournament_id: int,
+    body: SetAvailablePlayersBody,
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Update the available player list for all planned matches and regenerate their rotations."""
+    t = session.get(TournamentDB, tournament_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    squad = get_or_create_squad(session)
+    all_players = get_players(session, squad.id)
+    available_ids = set(body.available_player_ids)
+    players_db = [p for p in all_players if p.id in available_ids]
+
+    has_halftime = bool(t.has_halftime)
+    if has_halftime:
+        quarters = 2
+        quarter_length_mins = max(1, t.match_duration_mins // 2)
+    else:
+        quarters = 1
+        quarter_length_mins = t.match_duration_mins
+
+    total_duration = quarters * quarter_length_mins
+    try:
+        config = build_tournament_config(t.team_size, t.formation, total_duration, has_halftime)
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if len(players_db) < config.players_per_slot:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Need at least {config.players_per_slot} players for {t.team_size}v{t.team_size}",
+        )
+
+    planned_matches = list(session.exec(
+        select(MatchDB).where(
+            MatchDB.tournament_id == tournament_id,
+            MatchDB.status == "planned",
+        ).order_by(MatchDB.match_number)  # type: ignore[arg-type]
+    ).all())
+
+    updated = 0
+    for db_match in planned_matches:
+        # Delete existing rotation plan before regenerating
+        session.execute(sql_delete(RotationPlanDB).where(RotationPlanDB.match_id == db_match.id))
+        session.commit()
+
+        match_domain, squad_domain = match_db_to_domain(db_match, players_db)
+
+        prior_by_name = _compute_prior_slots(session, tournament_id, db_match.id, players_db)
+        prior_slots_for_algo = None
+        if prior_by_name:
+            player_name_map = {p.name: p for p in squad_domain.available}
+            prior_slots_for_algo = {
+                player_name_map[name]: count
+                for name, count in prior_by_name.items()
+                if name in player_name_map
+            }
+
+        plan = generate_rotation(squad_domain, match_domain, prior_slots=prior_slots_for_algo)
+        save_rotation(session, db_match.id, plan, players_db)
+
+        rotation = session.exec(
+            select(RotationPlanDB).where(RotationPlanDB.match_id == db_match.id)
+        ).first()
+        if rotation:
+            rotation.available_player_ids_json = json.dumps([p.id for p in players_db])
+            session.add(rotation)
+            session.commit()
+
+        updated += 1
+
+    return {"updated": updated}
 
 
 @router.delete("/{tournament_id}", status_code=204)

@@ -2285,16 +2285,10 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     const updated = await api.updateTournament(editingTournamentId, payload)
       .catch(err => { alert(err.message); return null; });
     btn.disabled = false;
-    btn.textContent = "Save Changes";
+    btn.textContent = "Next: Select Players →";
     if (!updated) return;
-    const tid = editingTournamentId;
-    editingTournamentId = null;
-    // Restore form to creation defaults for next use
-    document.getElementById("tournament-num-matches").closest("label").hidden = false;
-    document.getElementById("new-tournament-title").textContent = "New Tournament";
-    document.getElementById("btn-new-tournament-back").textContent = "◀ Tournaments";
-    document.getElementById("btn-create-tournament").textContent = "Next: Select Players →";
-    loadTournamentLobby(tid);
+    // Go to squad screen so coach can confirm/change players too
+    loadTournamentSquadScreen(editingTournamentId, pendingNumMatches);
   } else {
     const tournament = await api.createTournament(payload)
       .catch(err => { alert(err.message); return null; });
@@ -2311,11 +2305,36 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
   activeTournamentId = tournamentId;
   showScreen("screen-tournament-squad");
 
+  const isEditing = editingTournamentId != null;
+
   const desc = document.getElementById("tournament-squad-desc");
-  desc.textContent = `Select who's available today. ${numMatches} match${numMatches !== 1 ? "es" : ""} will be generated.`;
+  if (isEditing) {
+    desc.textContent = `Update who's available. Changes will regenerate all planned matches.`;
+  } else {
+    desc.textContent = `Select who's available today. ${numMatches} match${numMatches !== 1 ? "es" : ""} will be generated.`;
+  }
+
+  const generateBtn = document.getElementById("btn-generate-all-matches");
+  generateBtn.textContent = isEditing ? "Update Matches ▶" : "Generate Matches ▶";
 
   const ul = document.getElementById("tournament-squad-list");
   ul.innerHTML = "<li class='loading'>Loading players…</li>";
+
+  // Get current available player IDs for pre-selection in edit mode
+  let currentAvailableIds = new Set();
+  if (isEditing) {
+    const tData = await api.getTournament(tournamentId).catch(() => null);
+    if (tData) {
+      activeTournamentData = tData;
+      const firstPlannedMatch = (tData.matches || []).find(m => m.status === "planned");
+      if (firstPlannedMatch && firstPlannedMatch.available_player_ids) {
+        currentAvailableIds = new Set(firstPlannedMatch.available_player_ids);
+      } else if (!firstPlannedMatch) {
+        // No planned matches — pre-select all
+        currentAvailableIds = null;
+      }
+    }
+  }
 
   const players = await api.getPlayers().catch(() => []);
   ul.innerHTML = "";
@@ -2326,11 +2345,13 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
   }
 
   players.forEach(p => {
+    // In edit mode: check based on current available IDs; in create mode: check all
+    const isChecked = !isEditing || currentAvailableIds == null || currentAvailableIds.has(p.id);
     const li = document.createElement("li");
     li.className = "avail-item";
     li.innerHTML = `
       <label class="avail-label">
-        <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
+        <input type="checkbox" class="avail-check" data-pid="${p.id}" ${isChecked ? "checked" : ""} />
         <span class="avail-name">${p.name}</span>
         <span class="avail-skill">★${p.skill_rating}</span>
       </label>
@@ -2370,7 +2391,15 @@ async function renderTournamentSquadGuests(tournamentId) {
   });
 }
 
-document.getElementById("btn-tournament-squad-back").addEventListener("click", loadTournamentHome);
+document.getElementById("btn-tournament-squad-back").addEventListener("click", () => {
+  if (editingTournamentId) {
+    const tid = editingTournamentId;
+    editingTournamentId = null;
+    loadTournamentLobby(tid);
+  } else {
+    loadTournamentHome();
+  }
+});
 
 document.getElementById("btn-tournament-add-guest").addEventListener("click", () => {
   document.getElementById("guest-name").value = "";
@@ -2392,14 +2421,49 @@ document.getElementById("btn-generate-all-matches").addEventListener("click", as
 
   const btn = document.getElementById("btn-generate-all-matches");
   btn.disabled = true;
+  const isEditing = editingTournamentId != null;
 
-  for (let i = 1; i <= pendingNumMatches; i++) {
-    btn.textContent = `Generating ${i} of ${pendingNumMatches}…`;
-    await api.addTournamentMatch(activeTournamentId, {
-      opponent: `Match ${i}`,
-      stage: "group",
-      available_player_ids: availablePlayerIds,
-    }).catch(() => {});
+  if (isEditing) {
+    // Update existing planned matches with new player list
+    btn.textContent = "Updating players…";
+    await api.setAvailablePlayers(activeTournamentId, availablePlayerIds)
+      .catch(err => { alert("Could not update players: " + err.message); });
+
+    // Reload to get current match counts
+    const tData = await api.getTournament(activeTournamentId).catch(() => null);
+    const plannedMatches = (tData?.matches || []).filter(m => m.stage === "group" && m.status === "planned");
+    const currentCount = plannedMatches.length;
+
+    if (pendingNumMatches > currentCount) {
+      // Generate additional matches
+      const existing = (tData?.matches || []).filter(m => m.stage === "group").length;
+      for (let i = existing + 1; i <= existing + (pendingNumMatches - currentCount); i++) {
+        btn.textContent = `Adding match ${i - existing} of ${pendingNumMatches - currentCount}…`;
+        await api.addTournamentMatch(activeTournamentId, {
+          opponent: `Match ${i}`,
+          stage: "group",
+          available_player_ids: availablePlayerIds,
+        }).catch(() => {});
+      }
+    } else if (pendingNumMatches < currentCount) {
+      // Delete excess planned matches from the end
+      const toDelete = plannedMatches.slice(pendingNumMatches);
+      for (const m of toDelete) {
+        btn.textContent = "Removing match…";
+        await api.deleteMatch(m.id).catch(() => {});
+      }
+    }
+
+    editingTournamentId = null;
+  } else {
+    for (let i = 1; i <= pendingNumMatches; i++) {
+      btn.textContent = `Generating ${i} of ${pendingNumMatches}…`;
+      await api.addTournamentMatch(activeTournamentId, {
+        opponent: `Match ${i}`,
+        stage: "group",
+        available_player_ids: availablePlayerIds,
+      }).catch(() => {});
+    }
   }
 
   btn.disabled = false;
@@ -2465,10 +2529,12 @@ document.getElementById("btn-edit-tournament").addEventListener("click", async (
   updateTournamentFairnessLabel(t.fairness_value ?? 50);
   document.getElementById("tournament-rotation-slider").value = t.rotation_intensity ?? 50;
   updateTournamentRotationLabel(t.rotation_intensity ?? 50);
-  // Hide num-matches — not relevant when editing
-  document.getElementById("tournament-num-matches").closest("label").hidden = true;
+  // Show num-matches in edit mode so coach can add/remove group matches
+  const currentGroupCount = (activeTournamentData?.matches || []).filter(m => m.stage === "group").length;
+  document.getElementById("tournament-num-matches").value = currentGroupCount || 1;
+  document.getElementById("tournament-num-matches").closest("label").hidden = false;
   document.getElementById("btn-new-tournament-back").textContent = "◀ Back";
-  document.getElementById("btn-create-tournament").textContent = "Save Changes";
+  document.getElementById("btn-create-tournament").textContent = "Next: Select Players →";
   tournamentSelectSize(t.team_size || 5);
   // Select the saved formation once options are populated
   const formationSelect = document.getElementById("tournament-formation-select");
