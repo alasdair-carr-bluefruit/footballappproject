@@ -71,11 +71,21 @@ function slotCountForPlayer(playerName) {
   return matchData.slots.filter(s => Object.values(s.lineup).some(p => p.name === playerName)).length;
 }
 
-// Load team info once on startup
-api.getTeamInfo().then(info => { if (info) teamInfo = info; }).catch(() => {});
-
 // ── First-launch tutorial ─────────────────────────────────────────────────────
-(function initScreen() {
+// Check server first — if a team name exists the DB already has data (e.g. a
+// returning user on a new device) so skip the tutorial entirely.
+(async function initScreen() {
+  try {
+    const info = await api.getTeamInfo();
+    if (info) teamInfo = info;
+    if (info && info.team_name) {
+      // Team already configured on server — skip tutorial regardless of localStorage
+      localStorage.setItem("gaffer_onboarded", "1");
+      showScreen("screen-landing");
+      return;
+    }
+  } catch (_) { /* offline or first boot — fall through */ }
+
   if (!localStorage.getItem("gaffer_onboarded")) {
     showScreen("screen-tutorial");
   } else {
