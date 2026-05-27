@@ -323,6 +323,12 @@ def get_tournament_stats(
 class TournamentUpdate(BaseModel):
     name: str | None = None
     date: str | None = None
+    team_size: int | None = None
+    formation: str | None = None
+    match_duration_mins: int | None = None
+    has_halftime: bool | None = None
+    fairness_value: int | None = None
+    rotation_intensity: int | None = None
 
 
 @router.put("/{tournament_id}", response_model=TournamentRead)
@@ -336,6 +342,18 @@ def update_tournament(
         t.name = body.name
     if body.date is not None:
         t.date = body.date
+    if body.team_size is not None:
+        t.team_size = body.team_size
+    if body.formation is not None:
+        t.formation = body.formation
+    if body.match_duration_mins is not None:
+        t.match_duration_mins = body.match_duration_mins
+    if body.has_halftime is not None:
+        t.has_halftime = 1 if body.has_halftime else 0
+    if body.fairness_value is not None:
+        t.fairness_value = body.fairness_value
+    if body.rotation_intensity is not None:
+        t.rotation_intensity = body.rotation_intensity
     session.add(t)
     session.commit()
     session.refresh(t)

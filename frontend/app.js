@@ -2153,11 +2153,15 @@ async function loadTournamentHome() {
 
 document.getElementById("btn-tournament-home-back").addEventListener("click", () => showScreen("screen-landing"));
 document.getElementById("btn-new-tournament").addEventListener("click", async () => {
-  // Ensure game configs loaded
   if (!gameConfigs) {
     gameConfigs = await api.getGameConfigs().catch(() => null);
   }
-  // Reset form
+  // Reset to creation mode
+  editingTournamentId = null;
+  document.getElementById("new-tournament-title").textContent = "New Tournament";
+  document.getElementById("btn-new-tournament-back").textContent = "◀ Tournaments";
+  document.getElementById("btn-create-tournament").textContent = "Next: Select Players →";
+  document.getElementById("tournament-num-matches").closest("label").hidden = false;
   document.getElementById("tournament-name-input").value = "";
   document.getElementById("tournament-date").value = new Date().toISOString().split("T")[0];
   document.getElementById("tournament-duration").value = "10";
@@ -2172,7 +2176,14 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
 });
 
 // ── New tournament form ────────────────────────────────────────────────────────
-document.getElementById("btn-new-tournament-back").addEventListener("click", loadTournamentHome);
+document.getElementById("btn-new-tournament-back").addEventListener("click", () => {
+  if (editingTournamentId) {
+    editingTournamentId = null;
+    loadTournamentLobby(activeTournamentId);
+  } else {
+    loadTournamentHome();
+  }
+});
 
 function tournamentSelectSize(size) {
   tournamentSelectedSize = size;
@@ -2257,9 +2268,9 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
 
   const btn = document.getElementById("btn-create-tournament");
   btn.disabled = true;
-  btn.textContent = "Creating…";
+  btn.textContent = editingTournamentId ? "Saving…" : "Creating…";
 
-  const tournament = await api.createTournament({
+  const payload = {
     name,
     date: date || new Date().toISOString().split("T")[0],
     team_size: tournamentSelectedSize,
@@ -2268,14 +2279,31 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     has_halftime: hasHalftime,
     fairness_value: fairnessValue,
     rotation_intensity: rotationIntensity,
-  }).catch(err => { alert(err.message); return null; });
+  };
 
-  btn.disabled = false;
-  btn.textContent = "Next: Select Players →";
-
-  if (!tournament) return;
-  pendingTournamentId = tournament.id;
-  loadTournamentSquadScreen(tournament.id, pendingNumMatches);
+  if (editingTournamentId) {
+    const updated = await api.updateTournament(editingTournamentId, payload)
+      .catch(err => { alert(err.message); return null; });
+    btn.disabled = false;
+    btn.textContent = "Save Changes";
+    if (!updated) return;
+    const tid = editingTournamentId;
+    editingTournamentId = null;
+    // Restore form to creation defaults for next use
+    document.getElementById("tournament-num-matches").closest("label").hidden = false;
+    document.getElementById("new-tournament-title").textContent = "New Tournament";
+    document.getElementById("btn-new-tournament-back").textContent = "◀ Tournaments";
+    document.getElementById("btn-create-tournament").textContent = "Next: Select Players →";
+    loadTournamentLobby(tid);
+  } else {
+    const tournament = await api.createTournament(payload)
+      .catch(err => { alert(err.message); return null; });
+    btn.disabled = false;
+    btn.textContent = "Next: Select Players →";
+    if (!tournament) return;
+    pendingTournamentId = tournament.id;
+    loadTournamentSquadScreen(tournament.id, pendingNumMatches);
+  }
 });
 
 // ── Tournament Squad Selection ────────────────────────────────────────────────
@@ -2416,30 +2444,37 @@ async function loadTournamentLobby(id) {
 
 document.getElementById("btn-lobby-back").addEventListener("click", loadTournamentHome);
 
-document.getElementById("btn-edit-tournament").addEventListener("click", () => {
+let editingTournamentId = null; // null = creating new, set = editing existing
+
+document.getElementById("btn-edit-tournament").addEventListener("click", async () => {
   const t = activeTournamentData?.tournament;
   if (!t) return;
-  document.getElementById("edit-tournament-name").value = t.name || "";
-  document.getElementById("edit-tournament-date").value = t.date || "";
-  document.getElementById("edit-tournament-overlay").hidden = false;
-});
 
-document.getElementById("btn-edit-tournament-cancel").addEventListener("click", () => {
-  document.getElementById("edit-tournament-overlay").hidden = true;
-});
-
-document.getElementById("edit-tournament-form").addEventListener("submit", async e => {
-  e.preventDefault();
-  const name = document.getElementById("edit-tournament-name").value.trim();
-  const date = document.getElementById("edit-tournament-date").value;
-  if (!name || !date) return;
-  try {
-    await api.updateTournament(activeTournamentId, { name, date });
-    document.getElementById("edit-tournament-overlay").hidden = true;
-    loadTournamentLobby(activeTournamentId);
-  } catch (err) {
-    alert("Could not update tournament: " + err.message);
+  if (!gameConfigs) {
+    gameConfigs = await api.getGameConfigs().catch(() => null);
   }
+
+  // Pre-fill form with current tournament values
+  editingTournamentId = t.id;
+  document.getElementById("new-tournament-title").textContent = "Edit Tournament";
+  document.getElementById("tournament-name-input").value = t.name || "";
+  document.getElementById("tournament-date").value = t.date || "";
+  document.getElementById("tournament-duration").value = t.match_duration_mins || 10;
+  document.getElementById("tournament-halftime").checked = t.has_halftime || false;
+  document.getElementById("tournament-fairness-slider").value = t.fairness_value ?? 50;
+  updateTournamentFairnessLabel(t.fairness_value ?? 50);
+  document.getElementById("tournament-rotation-slider").value = t.rotation_intensity ?? 50;
+  updateTournamentRotationLabel(t.rotation_intensity ?? 50);
+  // Hide num-matches — not relevant when editing
+  document.getElementById("tournament-num-matches").closest("label").hidden = true;
+  document.getElementById("btn-new-tournament-back").textContent = "◀ Back";
+  document.getElementById("btn-create-tournament").textContent = "Save Changes";
+  tournamentSelectSize(t.team_size || 5);
+  // Select the saved formation once options are populated
+  const formationSelect = document.getElementById("tournament-formation-select");
+  if (t.formation) formationSelect.value = t.formation;
+
+  showScreen("screen-new-tournament");
 });
 
 document.getElementById("btn-tournament-stats").addEventListener("click", async () => {

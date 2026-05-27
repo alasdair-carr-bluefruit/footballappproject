@@ -365,7 +365,7 @@
   <div id="screen-new-tournament" class="screen" hidden>
     <header class="header header-sub">
       <button class="btn-back" id="btn-new-tournament-back">◀ Tournaments</button>
-      <h2>New Tournament</h2>
+      <h2 id="new-tournament-title">New Tournament</h2>
     </header>
     <form class="form-card" id="new-tournament-form">
       <label>
@@ -692,27 +692,6 @@
         <button class="btn btn-secondary btn-full" id="btn-ft-save">Save Image</button>
         <button class="btn btn-secondary btn-full" id="btn-ft-done">Done</button>
       </div>
-    </div>
-  </div>
-
-  <!-- ── Modal: Edit Tournament ───────────────────────────────────────────── -->
-  <div class="swap-overlay" id="edit-tournament-overlay" hidden>
-    <div class="swap-panel">
-      <h3 class="swap-title">Edit Tournament</h3>
-      <form id="edit-tournament-form" class="edit-tournament-form">
-        <label>
-          Name
-          <input type="text" id="edit-tournament-name" autocomplete="off" />
-        </label>
-        <label>
-          Date
-          <input type="date" id="edit-tournament-date" />
-        </label>
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" id="btn-edit-tournament-cancel">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="btn-edit-tournament-save">Save</button>
-        </div>
-      </form>
     </div>
   </div>
 
