@@ -22,8 +22,14 @@ That's all you need from Neon. The app creates its own tables on first launch.
 1. Go to [render.com](https://render.com) and create a free account
 2. Click **New → Web Service**
 3. Connect your GitHub account and select the `footballappproject` repository
-4. Render will detect the `render.yaml` file automatically — the build and start commands are already configured there
-5. Before deploying, add one **Environment Variable**:
+4. Fill in the following settings:
+
+   | Setting | Value |
+   |---------|-------|
+   | **Build Command** | `pip install -e ".[api]"` |
+   | **Start Command** | `python -m uvicorn main:app --host 0.0.0.0 --port $PORT` |
+
+5. Scroll down to **Environment Variables** and add:
 
    | Key | Value |
    |-----|-------|
