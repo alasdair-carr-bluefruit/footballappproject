@@ -7,7 +7,7 @@ class SquadDB(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = "My Squad"
-    team_name: str = "My Team"
+    team_name: str = ""
     team_logo: str = ""  # base64 DataURL or empty string
 
 

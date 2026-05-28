@@ -14,7 +14,7 @@ router = APIRouter()
 # ── Team info ─────────────────────────────────────────────────────────────────
 
 class TeamInfo(BaseModel):
-    team_name: str = "My Team"
+    team_name: str = ""
     team_logo: str = ""  # base64 DataURL
 
 
