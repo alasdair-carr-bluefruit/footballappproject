@@ -25,6 +25,7 @@ def create_db_and_tables() -> None:
             "ALTER TABLE matches ADD COLUMN tournament_stage TEXT DEFAULT ''",
             "ALTER TABLE matches ADD COLUMN match_number INTEGER",
             "ALTER TABLE rotation_plans ADD COLUMN removed_players_json TEXT DEFAULT '{}'",
+            "ALTER TABLE tournaments ADD COLUMN player_position_overrides_json TEXT DEFAULT '{}'",
         ]:
             try:
                 conn.execute(__import__("sqlalchemy").text(stmt))

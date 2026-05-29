@@ -25,6 +25,8 @@ let pitchBackContext = "season"; // "season" | "tournament" — where pitch back
 let squadBackContext = "landing"; // "landing" | "season" — where squad back button goes
 let activeTournamentId = null; // tournament currently open in lobby
 let activeTournamentStage = "group"; // "group" | "knockout" — for add-match panel
+let pendingPositionChanges = {}; // { playerId: [positions] } — tournament squad screen overrides
+let cachedSquadPlayers = []; // full player objects cached during tournament squad screen
 
 // Returns true if this player's shirt number is shared and they are the LATER entry
 // (i.e. the "duplicate" — their number shows in red)
@@ -2301,18 +2303,31 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
 });
 
 // ── Tournament Squad Selection ────────────────────────────────────────────────
+
+function _effectivePositions(player, overrides) {
+  // Derive the 4 toggleable positions for a player, respecting tournament overrides
+  const pid = String(player.id);
+  if (overrides && overrides[pid]) return overrides[pid];
+  let prefs = [...(player.preferred_positions || [])];
+  if (player.gk_status === "specialist") return ["GK"];
+  if (!prefs.includes("GK") && ["preferred", "can_play"].includes(player.gk_status)) {
+    prefs = ["GK", ...prefs];
+  }
+  if (prefs.length === 0) return ["DEF", "MID", "FWD"]; // can play any outfield
+  return prefs;
+}
+
 async function loadTournamentSquadScreen(tournamentId, numMatches) {
   activeTournamentId = tournamentId;
+  pendingPositionChanges = {};
   showScreen("screen-tournament-squad");
 
   const isEditing = editingTournamentId != null;
 
   const desc = document.getElementById("tournament-squad-desc");
-  if (isEditing) {
-    desc.textContent = `Update who's available. Changes will regenerate all planned matches.`;
-  } else {
-    desc.textContent = `Select who's available today. ${numMatches} match${numMatches !== 1 ? "es" : ""} will be generated.`;
-  }
+  desc.textContent = isEditing
+    ? "Update who's available. Changes will regenerate all planned matches."
+    : `Select who's available today. ${numMatches} match${numMatches !== 1 ? "es" : ""} will be generated.`;
 
   const generateBtn = document.getElementById("btn-generate-all-matches");
   generateBtn.textContent = isEditing ? "Update Matches ▶" : "Generate Matches ▶";
@@ -2320,23 +2335,23 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
   const ul = document.getElementById("tournament-squad-list");
   ul.innerHTML = "<li class='loading'>Loading players…</li>";
 
-  // Get current available player IDs for pre-selection in edit mode
-  let currentAvailableIds = new Set();
-  if (isEditing) {
-    const tData = await api.getTournament(tournamentId).catch(() => null);
-    if (tData) {
-      activeTournamentData = tData;
-      const firstPlannedMatch = (tData.matches || []).find(m => m.status === "planned");
-      if (firstPlannedMatch && firstPlannedMatch.available_player_ids) {
-        currentAvailableIds = new Set(firstPlannedMatch.available_player_ids);
-      } else if (!firstPlannedMatch) {
-        // No planned matches — pre-select all
-        currentAvailableIds = null;
+  // Fetch tournament data to get current available IDs and any existing overrides
+  let currentAvailableIds = null;
+  let existingOverrides = {};
+  const tData = await api.getTournament(tournamentId).catch(() => null);
+  if (tData) {
+    activeTournamentData = tData;
+    existingOverrides = tData.position_overrides || {};
+    if (isEditing) {
+      const firstPlanned = (tData.matches || []).find(m => m.status === "planned");
+      if (firstPlanned?.available_player_ids) {
+        currentAvailableIds = new Set(firstPlanned.available_player_ids);
       }
     }
   }
 
   const players = await api.getPlayers().catch(() => []);
+  cachedSquadPlayers = players;
   ul.innerHTML = "";
 
   if (players.length === 0) {
@@ -2344,17 +2359,26 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
     return;
   }
 
+  const ALL_POS = ["GK", "DEF", "MID", "FWD"];
+
   players.forEach(p => {
-    // In edit mode: check based on current available IDs; in create mode: check all
     const isChecked = !isEditing || currentAvailableIds == null || currentAvailableIds.has(p.id);
+    const activePosSet = new Set(_effectivePositions(p, existingOverrides));
+
+    const chipsHtml = ALL_POS.map(pos =>
+      `<button type="button" class="pos-chip${activePosSet.has(pos) ? " active" : ""}" data-pos="${pos}">${pos}</button>`
+    ).join("");
+
     const li = document.createElement("li");
     li.className = "avail-item";
+    li.dataset.pid = p.id;
     li.innerHTML = `
       <label class="avail-label">
         <input type="checkbox" class="avail-check" data-pid="${p.id}" ${isChecked ? "checked" : ""} />
         <span class="avail-name">${p.name}</span>
         <span class="avail-skill">★${p.skill_rating}</span>
       </label>
+      <div class="pos-chips">${chipsHtml}</div>
     `;
     ul.appendChild(li);
   });
@@ -2362,6 +2386,30 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
   // Also show any guest players already added
   renderTournamentSquadGuests(tournamentId);
 }
+
+// Pos-chip toggle handler (event delegation on the list)
+document.getElementById("tournament-squad-list").addEventListener("click", e => {
+  const chip = e.target.closest(".pos-chip");
+  if (!chip) return;
+  const li = chip.closest("[data-pid]");
+  if (!li) return;
+  const pid = parseInt(li.dataset.pid);
+
+  // Get current active positions for this player
+  const allChips = [...li.querySelectorAll(".pos-chip")];
+  const activeChips = allChips.filter(c => c.classList.contains("active"));
+
+  // Don't allow deselecting the last active position
+  if (chip.classList.contains("active") && activeChips.length === 1) return;
+
+  chip.classList.toggle("active");
+
+  const newPositions = allChips
+    .filter(c => c.classList.contains("active"))
+    .map(c => c.dataset.pos);
+
+  pendingPositionChanges[pid] = newPositions;
+});
 
 async function renderTournamentSquadGuests(tournamentId) {
   const data = await api.getTournament(tournamentId).catch(() => null);
@@ -2422,6 +2470,16 @@ document.getElementById("btn-generate-all-matches").addEventListener("click", as
   const btn = document.getElementById("btn-generate-all-matches");
   btn.disabled = true;
   const isEditing = editingTournamentId != null;
+
+  // Save any position overrides before generating
+  if (Object.keys(pendingPositionChanges).length > 0) {
+    // Merge with existing overrides from tournament data
+    const existing = activeTournamentData?.position_overrides || {};
+    const merged = { ...existing, ...pendingPositionChanges };
+    // Build final overrides: include existing overrides for players not in this squad screen
+    await api.setPositionOverrides(activeTournamentId, merged).catch(() => {});
+    pendingPositionChanges = {};
+  }
 
   if (isEditing) {
     // Update existing planned matches with new player list
@@ -2600,14 +2658,25 @@ function renderLobbyMatches(matches) {
     li.innerHTML = `
       <div class="match-item-main">
         <span class="match-badge">${stageLabel}</span>
-        <span class="match-item-opponent">vs ${m.opponent || "TBD"}</span>
+        <span class="match-item-opponent">vs ${m.opponent || "TBD"}<button class="btn-icon match-rename" data-id="${m.id}" title="Edit opponent name">✎</button></span>
         ${statusBadge}
       </div>
       ${canDelete ? `<button class="btn-icon match-delete" data-id="${m.id}" title="Remove match">✕</button>` : ""}
     `;
-    li.querySelector(".match-item-main").addEventListener("click", () => {
+    li.querySelector(".match-item-main").addEventListener("click", e => {
+      if (e.target.closest(".match-rename")) return;
       pitchBackContext = "tournament";
       openMatch(m.id);
+    });
+    li.querySelector(".match-rename").addEventListener("click", e => {
+      e.stopPropagation();
+      const current = m.opponent || "";
+      const newName = prompt("Opponent name:", current);
+      if (newName === null) return; // cancelled
+      const trimmed = newName.trim();
+      api.updateMatchOpponent(activeTournamentId, m.id, trimmed).then(() => {
+        loadTournamentLobby(activeTournamentId);
+      }).catch(err => alert("Could not update: " + err.message));
     });
     if (canDelete) {
       li.querySelector(".match-delete").addEventListener("click", async e => {

@@ -25,6 +25,7 @@ class TournamentDB(SQLModel, table=True):
     fairness_value: int = 50  # 0=equal time, 100=start strong
     rotation_intensity: int = 50
     status: str = "active"  # "active" | "completed"
+    player_position_overrides_json: str = "{}"  # JSON dict: {player_id: [positions]} — tournament-scoped overrides
 
 
 class PlayerDB(SQLModel, table=True):

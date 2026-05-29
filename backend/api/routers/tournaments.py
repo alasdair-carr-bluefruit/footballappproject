@@ -78,6 +78,29 @@ class TournamentMatchCreate(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _apply_position_overrides(players_db: list[PlayerDB], overrides: dict) -> list[PlayerDB]:
+    """Return players with tournament-scoped position overrides applied (non-mutating)."""
+    import copy as _copy
+    result = []
+    for p in players_db:
+        pid_str = str(p.id)
+        if pid_str in overrides and overrides[pid_str]:
+            p2 = _copy.copy(p)
+            positions = overrides[pid_str]
+            p2.preferred_positions = json.dumps(positions)
+            if "GK" in positions and len(positions) == 1:
+                p2.gk_status = "specialist"
+            elif "GK" in positions:
+                p2.gk_status = "can_play"
+            else:
+                p2.gk_status = "emergency_only"
+            p2.def_restricted = len(positions) > 0 and "DEF" not in positions
+            result.append(p2)
+        else:
+            result.append(p)
+    return result
+
+
 def _tournament_read(t: TournamentDB, match_count: int = 0) -> TournamentRead:
     return TournamentRead(
         id=t.id,  # type: ignore[arg-type]
@@ -273,11 +296,14 @@ def get_tournament(
             "is_guest": p.source_tournament_id is not None,
         }
 
+    position_overrides = json.loads(t.player_position_overrides_json or "{}")
+
     return {
         "tournament": _tournament_read(t, len(matches)),
         "matches": match_list,
         "squad_players": [player_info(p) for p in squad_players],
         "guest_players": [player_info(p) for p in guest_players],
+        "position_overrides": position_overrides,
     }
 
 
@@ -382,6 +408,9 @@ def set_available_players(
     all_players = get_players(session, squad.id)
     available_ids = set(body.available_player_ids)
     players_db = [p for p in all_players if p.id in available_ids]
+    position_overrides = json.loads(t.player_position_overrides_json or "{}")
+    if position_overrides:
+        players_db = _apply_position_overrides(players_db, position_overrides)
 
     has_halftime = bool(t.has_halftime)
     if has_halftime:
@@ -442,6 +471,51 @@ def set_available_players(
         updated += 1
 
     return {"updated": updated}
+
+
+class SetPositionOverridesBody(BaseModel):
+    overrides: dict  # { "player_id": ["DEF", "MID"] }
+
+
+@router.post("/{tournament_id}/set-position-overrides")
+def set_position_overrides(
+    tournament_id: int,
+    body: SetPositionOverridesBody,
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Store tournament-scoped position overrides for players.
+
+    Overrides are applied during rotation generation for all matches in this
+    tournament. They do not modify the player's permanent squad profile.
+    """
+    t = session.get(TournamentDB, tournament_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    t.player_position_overrides_json = json.dumps(body.overrides)
+    session.add(t)
+    session.commit()
+    return {"overrides": body.overrides}
+
+
+class MatchOpponentUpdate(BaseModel):
+    opponent: str
+
+
+@router.patch("/{tournament_id}/matches/{match_id}/opponent")
+def update_match_opponent(
+    tournament_id: int,
+    match_id: int,
+    body: MatchOpponentUpdate,
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Update the opponent name for a tournament match."""
+    m = session.get(MatchDB, match_id)
+    if not m or m.tournament_id != tournament_id:
+        raise HTTPException(status_code=404, detail="Match not found in this tournament")
+    m.opponent = body.opponent
+    session.add(m)
+    session.commit()
+    return {"id": m.id, "opponent": m.opponent}
 
 
 @router.delete("/{tournament_id}", status_code=204)
@@ -580,6 +654,9 @@ def add_tournament_match(
     all_players = get_players(session, squad.id)
     available_ids = set(body.available_player_ids)
     players_db = [p for p in all_players if p.id in available_ids]
+    position_overrides = json.loads(t.player_position_overrides_json or "{}")
+    if position_overrides:
+        players_db = _apply_position_overrides(players_db, position_overrides)
 
     total_duration = quarters * quarter_length_mins
     try:

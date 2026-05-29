@@ -1132,7 +1132,12 @@ html, body {
   margin-bottom: 16px;
 }
 
-.avail-item { padding: 0; }
+.avail-item {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
 
 .avail-label {
   display: flex;
@@ -1149,6 +1154,45 @@ html, body {
 .avail-label input { accent-color: var(--btn-primary); width: auto; }
 
 .avail-name { font-weight: 500; }
+
+.pos-chips {
+  display: flex;
+  gap: 4px;
+  padding: 5px 12px 8px 38px;
+}
+
+.pos-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.25);
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pos-chip:active { opacity: 0.7; }
+
+.pos-chip[data-pos="GK"].active  { background: rgba(21,101,192,0.35); color: #90caf9; }
+.pos-chip[data-pos="DEF"].active { background: rgba(230,81,0,0.35);   color: #ffcc80; }
+.pos-chip[data-pos="MID"].active { background: rgba(46,204,113,0.25); color: #2ecc71; }
+.pos-chip[data-pos="FWD"].active { background: rgba(231,76,60,0.25);  color: #e74c3c; }
+
+.match-item-opponent { display: inline-flex; align-items: center; gap: 4px; }
+
+.match-rename {
+  opacity: 0;
+  font-size: 12px;
+  padding: 1px 3px;
+  vertical-align: middle;
+}
+
+.match-item:hover .match-rename,
+.match-item:focus-within .match-rename { opacity: 0.45; }
+.match-rename:hover { opacity: 1 !important; }
 
 .avail-actions {
   display: flex;
