@@ -79,11 +79,33 @@ def generate_rotation(
     # If match only has string fairness, derive a value
     if fairness_value == 0 and match.fairness == "competitive":
         fairness_value = 60
-    targets = compute_target_slots(
-        players, total_player_slots, non_specialist_gk_players,
-        fairness=match.fairness, fairness_value=fairness_value,
-        prior_slots=prior_slots,
+
+    # Pre-allocate specialist GK slots so the time balancer distributes
+    # only the remaining outfield slots among non-specialist players.
+    # Without this, the balancer targets 1 slot each for 10 players but the
+    # specialist GK always takes 2, leaving cross-match balancing unable to
+    # correctly rotate who sits out.
+    specialist_gk_targets: dict = {}
+    outfield_players = players
+    outfield_total_slots = total_player_slots
+    if any(p.gk_status == GKTier.SPECIALIST for p in players):
+        specialist_gk_set = {p for p in players if p.gk_status == GKTier.SPECIALIST}
+        for p in specialist_gk_set:
+            gk_slot_count = sum(1 for gk in gk_assignments if gk is p)
+            specialist_gk_targets[p] = gk_slot_count
+        outfield_players = [p for p in players if p not in specialist_gk_set]
+        outfield_total_slots = total_player_slots - sum(specialist_gk_targets.values())
+
+    outfield_prior = (
+        {p: v for p, v in prior_slots.items() if p in outfield_players}
+        if prior_slots else None
     )
+    outfield_targets = compute_target_slots(
+        outfield_players, outfield_total_slots, non_specialist_gk_players,
+        fairness=match.fairness, fairness_value=fairness_value,
+        prior_slots=outfield_prior,
+    )
+    targets = {**specialist_gk_targets, **outfield_targets}
 
     # Pre-compute future GK slots for each player (slots not yet processed).
     future_gk: dict = defaultdict(int)
@@ -183,10 +205,22 @@ def adjust_rotation(
             seen.add(id(p))
             non_specialist_gk.append(p)
 
-    targets = compute_target_slots(
-        players, total_player_slots, non_specialist_gk,
+    specialist_gk_targets_adj: dict = {}
+    adj_outfield_players = players
+    adj_outfield_total = total_player_slots
+    if any(p.gk_status == GKTier.SPECIALIST for p in players):
+        specialist_gk_set = {p for p in players if p.gk_status == GKTier.SPECIALIST}
+        for p in specialist_gk_set:
+            gk_slot_count = sum(1 for gk in gk_assignments_orig if gk is p)
+            specialist_gk_targets_adj[p] = gk_slot_count
+        adj_outfield_players = [p for p in players if p not in specialist_gk_set]
+        adj_outfield_total = total_player_slots - sum(specialist_gk_targets_adj.values())
+
+    adj_outfield_targets = compute_target_slots(
+        adj_outfield_players, adj_outfield_total, non_specialist_gk,
         fairness=match.fairness, fairness_value=fairness_value,
     )
+    targets = {**specialist_gk_targets_adj, **adj_outfield_targets}
 
     # GK for all slots — reuse original GK assignments
     future_gk: dict = defaultdict(int)
