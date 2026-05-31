@@ -28,3 +28,9 @@ Thumbs.db
 
 # Env
 .env
+
+# AI Blueprints & V2 Specifications
+V2_Requirements.md
+V2_UI_Requirements.md
+V1_Improvements.md
+

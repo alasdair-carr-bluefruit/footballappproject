@@ -1184,15 +1184,14 @@ html, body {
 .match-item-opponent { display: inline-flex; align-items: center; gap: 4px; }
 
 .match-rename {
-  opacity: 0;
+  opacity: 0.35;
   font-size: 12px;
   padding: 1px 3px;
   vertical-align: middle;
 }
 
-.match-item:hover .match-rename,
-.match-item:focus-within .match-rename { opacity: 0.45; }
-.match-rename:hover { opacity: 1 !important; }
+.match-rename:hover,
+.match-rename:focus { opacity: 1; }
 
 .avail-actions {
   display: flex;

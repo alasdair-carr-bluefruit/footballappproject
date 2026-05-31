@@ -1588,20 +1588,15 @@ async function executeSwap(newPlayerId, newPlayerName) {
   const isOnPitch = Object.entries(slot.lineup).find(([, p]) => p.name === newPlayerName);
 
   if (isOnPitch) {
-    // Position-only swap: both players already in this slot, just swap their positions.
-    // No playing time changes for anyone — handle locally, no API call needed.
+    // Position-only swap: both players already in this slot, swap positions.
+    // Include both positions in the edit so the backend persists the change.
     const [otherPos] = isOnPitch;
     const currentPlayer = slot.lineup[posKey];
-    slot.lineup[posKey] = slot.lineup[otherPos];
-    slot.lineup[otherPos] = currentPlayer;
-    lockedSlots.add(slotIndex);
-    pendingSwap = null;
-    render();
-    return;
+    edits[slotIndex] = { [posKey]: newPlayerId, [otherPos]: currentPlayer.id };
+  } else {
+    // Bench swap: replace current player with bench player
+    edits[slotIndex] = { [posKey]: newPlayerId };
   }
-
-  // Bench swap: replace current player with bench player
-  edits[slotIndex] = { [posKey]: newPlayerId };
 
   const statusEl = document.getElementById("adjust-status");
   statusEl.hidden = false;

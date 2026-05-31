@@ -296,7 +296,7 @@ def get_tournament(
             "is_guest": p.source_tournament_id is not None,
         }
 
-    position_overrides = json.loads(t.player_position_overrides_json or "{}")
+    position_overrides = json.loads(getattr(t, "player_position_overrides_json", None) or "{}")
 
     return {
         "tournament": _tournament_read(t, len(matches)),
@@ -408,7 +408,7 @@ def set_available_players(
     all_players = get_players(session, squad.id)
     available_ids = set(body.available_player_ids)
     players_db = [p for p in all_players if p.id in available_ids]
-    position_overrides = json.loads(t.player_position_overrides_json or "{}")
+    position_overrides = json.loads(getattr(t, "player_position_overrides_json", None) or "{}")
     if position_overrides:
         players_db = _apply_position_overrides(players_db, position_overrides)
 
@@ -654,7 +654,7 @@ def add_tournament_match(
     all_players = get_players(session, squad.id)
     available_ids = set(body.available_player_ids)
     players_db = [p for p in all_players if p.id in available_ids]
-    position_overrides = json.loads(t.player_position_overrides_json or "{}")
+    position_overrides = json.loads(getattr(t, "player_position_overrides_json", None) or "{}")
     if position_overrides:
         players_db = _apply_position_overrides(players_db, position_overrides)
 
