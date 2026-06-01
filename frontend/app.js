@@ -288,8 +288,9 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
   document.getElementById("fairness-slider").value = 0;
   updateFairnessLabel(0);
-  document.getElementById("rotation-slider").value = 50;
-  updateRotationLabel(50);
+  // Reset rotation to Flexible (default)
+  const flexRadio = document.querySelector('input[name="rotation"][value="50"]');
+  if (flexRadio) flexRadio.checked = true;
 
   // Load game configs if not cached
   if (!gameConfigs) {
@@ -357,35 +358,27 @@ document.getElementById("home-away-picker").addEventListener("click", e => {
   document.querySelectorAll(".ha-btn").forEach(b => b.classList.toggle("active", b === btn));
 });
 
-function updateFairnessLabel(value) {
-  const el = document.getElementById("fairness-value");
-  const warn = document.getElementById("fairness-warning");
+function updateFairnessLabel(value, elId = "fairness-value", warnId = "fairness-warning") {
+  const el = document.getElementById(elId);
+  const warn = document.getElementById(warnId);
   const v = parseInt(value);
   if (v <= 15) el.textContent = "Equal play — everyone gets the same time";
   else if (v <= 40) el.textContent = "Mostly fair — slight edge for stronger players";
   else if (v <= 60) el.textContent = "Balanced — skill matters but everyone plays";
   else if (v <= 85) el.textContent = "Competitive — best players get more time";
   else el.textContent = "Win mode — strongest lineup prioritised";
-  warn.hidden = v <= 85;
+  if (warn) warn.hidden = v <= 60;
 }
 
 document.getElementById("fairness-slider").addEventListener("input", e => {
   updateFairnessLabel(e.target.value);
 });
 
-function updateRotationLabel(value) {
-  const el = document.getElementById("rotation-value");
-  const v = parseInt(value);
-  if (v <= 15) el.textContent = "Specialist — players stay in one position";
-  else if (v <= 40) el.textContent = "Mostly fixed — occasional position changes";
-  else if (v <= 60) el.textContent = "Balanced — regular position rotation";
-  else if (v <= 85) el.textContent = "High rotation — players try most positions";
-  else el.textContent = "All-rounder — everyone plays everywhere";
+function getRotationValue(formPrefix = "") {
+  const name = formPrefix ? `${formPrefix}-rotation` : "rotation";
+  const checked = document.querySelector(`input[name="${name}"]:checked`);
+  return checked ? parseInt(checked.value) : 50;
 }
-
-document.getElementById("rotation-slider").addEventListener("input", e => {
-  updateRotationLabel(e.target.value);
-});
 
 // Squad accessible from landing page only (btn-squad-management)
 document.getElementById("btn-go-stats").addEventListener("click", loadStats);
@@ -403,7 +396,7 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
   const formation = document.getElementById("formation-select").value;
   const fairnessVal = parseInt(document.getElementById("fairness-slider").value);
   const fairness = fairnessVal <= 15 ? "equal" : "competitive";
-  const rotation_intensity = parseInt(document.getElementById("rotation-slider").value);
+  const rotation_intensity = getRotationValue();
 
   pendingMatchConfig = {
     date, opponent, team_size: selectedSize, formation,
@@ -2163,10 +2156,10 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   document.getElementById("tournament-date").value = new Date().toISOString().split("T")[0];
   document.getElementById("tournament-duration").value = "10";
   document.getElementById("tournament-halftime").checked = false;
-  document.getElementById("tournament-fairness-slider").value = 50;
-  updateTournamentFairnessLabel(50);
-  document.getElementById("tournament-rotation-slider").value = 50;
-  updateTournamentRotationLabel(50);
+  document.getElementById("tournament-fairness-slider").value = 0;
+  updateFairnessLabel(0, "tournament-fairness-value", "tournament-fairness-warning");
+  const defaultRotRadio = document.querySelector('input[name="tournament-rotation"][value="50"]');
+  if (defaultRotRadio) defaultRotRadio.checked = true;
   document.getElementById("tournament-num-matches").value = "4";
   tournamentSelectSize(5);
   showScreen("screen-new-tournament");
@@ -2216,32 +2209,8 @@ document.getElementById("tournament-size-picker").addEventListener("click", e =>
   if (btn) tournamentSelectSize(parseInt(btn.dataset.size));
 });
 
-function updateTournamentFairnessLabel(value) {
-  const el = document.getElementById("tournament-fairness-value");
-  const v = parseInt(value);
-  if (v <= 15) el.textContent = "Equal play — everyone gets the same time";
-  else if (v <= 40) el.textContent = "Mostly fair — slight edge for stronger players";
-  else if (v <= 60) el.textContent = "Balanced — skill matters but everyone plays";
-  else if (v <= 85) el.textContent = "Competitive — best players get more time";
-  else el.textContent = "Win mode — strongest lineup prioritised";
-}
-
 document.getElementById("tournament-fairness-slider").addEventListener("input", e => {
-  updateTournamentFairnessLabel(e.target.value);
-});
-
-function updateTournamentRotationLabel(value) {
-  const el = document.getElementById("tournament-rotation-value");
-  const v = parseInt(value);
-  if (v <= 15) el.textContent = "Specialist — players stay in one position";
-  else if (v <= 40) el.textContent = "Mostly fixed — occasional position changes";
-  else if (v <= 60) el.textContent = "Balanced — regular position rotation";
-  else if (v <= 85) el.textContent = "High rotation — players try most positions";
-  else el.textContent = "All-rounder — everyone plays everywhere";
-}
-
-document.getElementById("tournament-rotation-slider").addEventListener("input", e => {
-  updateTournamentRotationLabel(e.target.value);
+  updateFairnessLabel(e.target.value, "tournament-fairness-value", "tournament-fairness-warning");
 });
 
 let pendingTournamentId = null;
@@ -2255,7 +2224,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
   const duration = parseInt(document.getElementById("tournament-duration").value) || 10;
   const hasHalftime = document.getElementById("tournament-halftime").checked;
   const fairnessValue = parseInt(document.getElementById("tournament-fairness-slider").value);
-  const rotationIntensity = parseInt(document.getElementById("tournament-rotation-slider").value);
+  const rotationIntensity = getRotationValue("tournament");
   pendingNumMatches = Math.max(1, parseInt(document.getElementById("tournament-num-matches").value) || 1);
 
   if (!name) {
@@ -2578,10 +2547,13 @@ document.getElementById("btn-edit-tournament").addEventListener("click", async (
   document.getElementById("tournament-date").value = t.date || "";
   document.getElementById("tournament-duration").value = t.match_duration_mins || 10;
   document.getElementById("tournament-halftime").checked = t.has_halftime || false;
-  document.getElementById("tournament-fairness-slider").value = t.fairness_value ?? 50;
-  updateTournamentFairnessLabel(t.fairness_value ?? 50);
-  document.getElementById("tournament-rotation-slider").value = t.rotation_intensity ?? 50;
-  updateTournamentRotationLabel(t.rotation_intensity ?? 50);
+  const tFairness = t.fairness_value ?? 0;
+  document.getElementById("tournament-fairness-slider").value = tFairness;
+  updateFairnessLabel(tFairness, "tournament-fairness-value", "tournament-fairness-warning");
+  const tRotation = t.rotation_intensity ?? 50;
+  const tRotRadio = document.querySelector(`input[name="tournament-rotation"][value="${tRotation}"]`)
+    || document.querySelector('input[name="tournament-rotation"][value="50"]');
+  if (tRotRadio) tRotRadio.checked = true;
   // Show num-matches in edit mode so coach can add/remove group matches
   const currentGroupCount = (activeTournamentData?.matches || []).filter(m => m.stage === "group").length;
   document.getElementById("tournament-num-matches").value = currentGroupCount || 1;
@@ -2719,8 +2691,8 @@ function openAddMatchPanel(stage) {
     stage === "knockout" ? "Add Knockout Match" : "Add Group Match";
   document.getElementById("add-match-opponent").value = "";
   document.getElementById("knockout-options").hidden = stage !== "knockout";
-  document.getElementById("knockout-fairness-slider").value = 75;
-  updateKnockoutFairnessLabel(75);
+  document.getElementById("knockout-fairness-slider").value = 50;
+  updateFairnessLabel(50, "knockout-fairness-label");
   document.getElementById("add-match-panel").hidden = false;
 }
 
@@ -2730,23 +2702,35 @@ document.getElementById("btn-add-match-cancel").addEventListener("click", () => 
   document.getElementById("add-match-panel").hidden = true;
 });
 
-function updateKnockoutFairnessLabel(value) {
-  const el = document.getElementById("knockout-fairness-label");
-  const v = parseInt(value);
-  if (v <= 40) el.textContent = "Balanced — skill matters but everyone plays";
-  else if (v <= 70) el.textContent = "Competitive — best players get more time";
-  else el.textContent = "Win mode — strongest lineup prioritised";
-}
-
 document.getElementById("knockout-fairness-slider").addEventListener("input", e => {
-  updateKnockoutFairnessLabel(e.target.value);
+  updateFairnessLabel(e.target.value, "knockout-fairness-label");
 });
 
 // Guest player form (overlay)
+function updateGuestBestPositionOptions(selectedPositions, currentBest = "") {
+  const sel = document.getElementById("guest-best-position");
+  sel.innerHTML = '<option value="">Not set</option>';
+  selectedPositions.forEach(pos => {
+    const opt = document.createElement("option");
+    opt.value = pos;
+    opt.textContent = pos;
+    if (pos === currentBest) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("guest-position-checkboxes").addEventListener("change", () => {
+  const checked = [...document.querySelectorAll("#guest-position-checkboxes input:checked")].map(cb => cb.value);
+  const currentBest = document.getElementById("guest-best-position").value;
+  updateGuestBestPositionOptions(checked, checked.includes(currentBest) ? currentBest : "");
+});
+
 document.getElementById("btn-show-add-guest").addEventListener("click", () => {
   document.getElementById("guest-name").value = "";
   document.getElementById("guest-skill").value = "3";
-  document.getElementById("guest-gk-status").value = "can_play";
+  document.getElementById("guest-shirt-number").value = "";
+  document.querySelectorAll("#guest-position-checkboxes input").forEach(cb => cb.checked = false);
+  updateGuestBestPositionOptions([]);
   document.getElementById("guest-form-overlay").hidden = false;
   document.getElementById("guest-name").focus();
 });
@@ -2759,15 +2743,37 @@ document.getElementById("guest-player-form").addEventListener("submit", async e 
   e.preventDefault();
   const name = document.getElementById("guest-name").value.trim();
   if (!name) { document.getElementById("guest-name").focus(); return; }
-  const gkStatus = document.getElementById("guest-gk-status").value;
+
+  const preferred = [...document.querySelectorAll("#guest-position-checkboxes input:checked")].map(cb => cb.value);
+  const bestPos = document.getElementById("guest-best-position").value;
   const skill = parseInt(document.getElementById("guest-skill").value) || 3;
+  const shirtRaw = document.getElementById("guest-shirt-number").value.trim();
+
+  // Derive gk_status the same way as the normal player form
+  let gkStatus;
+  if (preferred.includes("GK") && preferred.length === 1) {
+    gkStatus = "specialist";
+  } else if (bestPos === "GK") {
+    gkStatus = "preferred";
+  } else if (preferred.includes("GK")) {
+    gkStatus = "can_play";
+  } else {
+    gkStatus = "emergency_only";
+  }
+  const defRestricted = preferred.length > 0 && !preferred.includes("DEF");
 
   const btn = document.getElementById("btn-add-guest-confirm");
   btn.disabled = true;
   btn.textContent = "Adding…";
 
   const guest = await api.addGuestPlayer(activeTournamentId, {
-    name, gk_status: gkStatus, skill_rating: skill,
+    name,
+    gk_status: gkStatus,
+    def_restricted: defRestricted,
+    skill_rating: skill,
+    preferred_positions: preferred,
+    best_position: bestPos,
+    shirt_number: shirtRaw !== "" ? parseInt(shirtRaw, 10) : null,
   }).catch(err => { alert(err.message); return null; });
 
   btn.disabled = false;

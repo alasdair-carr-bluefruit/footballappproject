@@ -1653,8 +1653,50 @@ html, body {
   font-style: italic;
 }
 
-.rotation-track {
-  background: linear-gradient(to right, #42a5f5, var(--btn-primary), #ab47bc) !important;
+.rotation-options {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+
+.rotation-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border: 1px solid var(--pitch-line);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.rotation-option input[type="radio"] { display: none; }
+
+.rotation-option:has(input:checked) {
+  background: rgba(46, 190, 107, 0.15);
+  border-color: var(--matchday);
+}
+
+.rotation-option-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chalk);
+}
+
+.rotation-option-desc {
+  font-size: 11px;
+  color: rgba(242, 244, 238, 0.55);
+  line-height: 1.3;
+}
+
+.rotation-clarifier {
+  font-size: 11px;
+  color: rgba(242, 244, 238, 0.45);
+  font-style: italic;
+  margin: 2px 0 8px;
 }
 
 /* ── Position checkboxes (pill toggles) ──────────────────────────── */

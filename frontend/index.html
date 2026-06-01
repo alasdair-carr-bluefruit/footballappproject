@@ -225,19 +225,29 @@
           <input type="range" id="fairness-slider" min="0" max="100" step="1" value="0" />
           <span class="fairness-label">Competitive</span>
         </div>
-        <div class="fairness-value" id="fairness-value">Equal play</div>
-        <div class="fairness-warning" id="fairness-warning" hidden>Remember — you're a grassroots coach, not Pep Guardiola. This isn't the World Cup.</div>
+        <div class="fairness-value" id="fairness-value">Equal play — everyone gets the same time</div>
+        <div class="fairness-warning" id="fairness-warning" hidden>Not recommended for grassroots — some players will get noticeably less pitch time.</div>
       </label>
 
-      <label>
-        Position Rotation
-        <div class="fairness-row">
-          <span class="fairness-label">Specialist</span>
-          <input type="range" id="rotation-slider" min="0" max="100" step="1" value="50" class="rotation-track" />
-          <span class="fairness-label">All-rounder</span>
-        </div>
-        <div class="fairness-value" id="rotation-value">Balanced rotation</div>
-      </label>
+      <label>Position Rotation</label>
+      <div class="rotation-options" id="rotation-options">
+        <label class="rotation-option">
+          <input type="radio" name="rotation" value="0" />
+          <span class="rotation-option-title">Fixed</span>
+          <span class="rotation-option-desc">Stays in their best position only</span>
+        </label>
+        <label class="rotation-option">
+          <input type="radio" name="rotation" value="50" checked />
+          <span class="rotation-option-title">Flexible</span>
+          <span class="rotation-option-desc">Rotates through two of their positions</span>
+        </label>
+        <label class="rotation-option">
+          <input type="radio" name="rotation" value="100" />
+          <span class="rotation-option-title">All-rounder</span>
+          <span class="rotation-option-desc">Cycles through all of their positions</span>
+        </label>
+      </div>
+      <div class="rotation-clarifier">Players only appear in positions you've set for them in Squad Management.</div>
 
       <button class="btn btn-primary btn-full" type="button" id="btn-select-players">
         Next: Select Players →
@@ -402,15 +412,35 @@
         Matches have a half-time break
       </label>
       <label>
-        Playing Time Priority
-        <input type="range" id="tournament-fairness-slider" min="0" max="100" value="50" />
-        <span id="tournament-fairness-value" class="slider-label"></span>
+        Playing Time
+        <div class="fairness-row">
+          <span class="fairness-label">Equal</span>
+          <input type="range" id="tournament-fairness-slider" min="0" max="100" step="1" value="0" />
+          <span class="fairness-label">Competitive</span>
+        </div>
+        <div class="fairness-value" id="tournament-fairness-value">Equal play — everyone gets the same time</div>
+        <div class="fairness-warning" id="tournament-fairness-warning" hidden>Not recommended for grassroots — some players will get noticeably less pitch time.</div>
       </label>
-      <label>
-        Position Rotation
-        <input type="range" id="tournament-rotation-slider" min="0" max="100" value="50" />
-        <span id="tournament-rotation-value" class="slider-label"></span>
-      </label>
+
+      <label>Position Rotation</label>
+      <div class="rotation-options" id="tournament-rotation-options">
+        <label class="rotation-option">
+          <input type="radio" name="tournament-rotation" value="0" />
+          <span class="rotation-option-title">Fixed</span>
+          <span class="rotation-option-desc">Stays in their best position only</span>
+        </label>
+        <label class="rotation-option">
+          <input type="radio" name="tournament-rotation" value="50" checked />
+          <span class="rotation-option-title">Flexible</span>
+          <span class="rotation-option-desc">Rotates through two of their positions</span>
+        </label>
+        <label class="rotation-option">
+          <input type="radio" name="tournament-rotation" value="100" />
+          <span class="rotation-option-title">All-rounder</span>
+          <span class="rotation-option-desc">Cycles through all of their positions</span>
+        </label>
+      </div>
+      <div class="rotation-clarifier">Players only appear in positions you've set for them in Squad Management.</div>
       <button class="btn btn-primary btn-full" type="submit" id="btn-create-tournament">Next: Select Players →</button>
     </form>
   </div>
@@ -463,10 +493,14 @@
 
         <div class="knockout-options" id="knockout-options" hidden>
           <label>
-            Knockout competitiveness
-            <input type="range" id="knockout-fairness-slider" min="0" max="100" value="75" />
-            <span id="knockout-fairness-label" class="slider-label"></span>
+            Knockout Competitiveness
+            <div class="fairness-row">
+              <span class="fairness-label">Equal</span>
+              <input type="range" id="knockout-fairness-slider" min="0" max="100" step="1" value="50" />
+              <span class="fairness-label">Competitive</span>
+            </div>
           </label>
+          <div class="fairness-value" id="knockout-fairness-label"></div>
         </div>
 
         <div class="add-match-actions">
@@ -486,14 +520,27 @@
         Name
         <input type="text" id="guest-name" placeholder="Player name" autocomplete="off" required />
       </label>
-      <label>Can Play GK?
-        <select id="guest-gk-status">
-          <option value="can_play">Can play GK</option>
-          <option value="preferred">Prefers GK</option>
-          <option value="specialist">GK specialist</option>
-          <option value="emergency_only">No GK</option>
+
+      <label>Can Play</label>
+      <div class="position-checkboxes" id="guest-position-checkboxes">
+        <label class="pos-check"><input type="checkbox" value="GK" /><span class="pos-label pos-gk">GK</span></label>
+        <label class="pos-check"><input type="checkbox" value="DEF" /><span class="pos-label pos-def">DEF</span></label>
+        <label class="pos-check"><input type="checkbox" value="MID" /><span class="pos-label pos-mid">MID</span></label>
+        <label class="pos-check"><input type="checkbox" value="FWD" /><span class="pos-label pos-fwd">FWD</span></label>
+      </div>
+
+      <label>
+        Best Position
+        <select id="guest-best-position">
+          <option value="">Not set</option>
         </select>
       </label>
+
+      <label>
+        Shirt Number <span style="font-weight:400;opacity:0.6">(optional)</span>
+        <input type="number" id="guest-shirt-number" min="1" max="99" placeholder="e.g. 7" />
+      </label>
+
       <label>
         Skill Rating (1–5)
         <input type="number" id="guest-skill" min="1" max="5" value="3" />
