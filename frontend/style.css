@@ -2673,6 +2673,12 @@ html, body {
 
 .match-timer { gap: 8px; }
 
+/* An explicit display rule otherwise overrides the [hidden] attribute (equal
+   specificity, author beats UA), leaving these visible when JS sets hidden. */
+.match-timer[hidden],
+.timer-btn[hidden],
+.new-period-hint[hidden] { display: none; }
+
 .timer-display {
   display: inline-flex;
   align-items: center;
