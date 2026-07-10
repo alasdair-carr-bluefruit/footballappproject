@@ -15,7 +15,7 @@ A mobile-first Progressive Web App for grassroots youth football coaches to mana
 
 ## Current Phase
 
-**v0.7 — Match Day Polish** (next)
+**v0.9 — Fairness & Trust** (next; see DEVELOPMENT_PLAN.md for the full roadmap)
 
 Completed phases:
 - v0.1: Core rotation algorithm (Python only)
@@ -24,8 +24,10 @@ Completed phases:
 - v0.4: Web UI, pitch view, match day controls
 - v0.5: FastAPI backend, SQLite persistence (SQLModel), Render deployment, integration tests
 - v0.6: Multi-size (5v5–9v9), formations, fairness slider, rotation intensity, player position preferences, tinkering mode, shirt numbers, goal recording, share image, season stats, branding
+- v0.7: Start Match lock, mid-match player removal/reinstatement, player history view (shipped 2026-05-23/24)
+- v0.8: Tournament mode — tournament entity, cross-match cumulative fairness (`prior_slots`), guest players, manual rotation mode, tournament stats (shipped 2026-05-24 onwards). Not built: 8-a-side preset, knockout bracket structure (knockout matches can be added individually).
 
-Next significant work: v0.7 (Start Match, player removal/reinstatement, history view), then v1.0 multi-user.
+Next significant work: v0.9 (consecutive sit-out constraint, match timer, tinkering warning clarity, in-app bug reporting), then refactor phase, then v1.0 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md Phase D).
 
 ---
 
@@ -39,7 +41,7 @@ Next significant work: v0.7 (Start Match, player removal/reinstatement, history 
 | Frontend | Vanilla JS (ES modules), Pico.css, PWA/Service Worker |
 | Testing | pytest + pytest-bdd (Gherkin), pytest-asyncio |
 | Linting | ruff, mypy |
-| Hosting | Render (single-user); evaluate Render Postgres/Supabase/Railway for multi-user |
+| Hosting | Render + Neon (single-user instances); DECIDED for v1.0 multi-user: Railway Hobby + fresh Neon Postgres (V1_MULTIUSER_PLAN.md §8) |
 
 ---
 
@@ -47,7 +49,7 @@ Next significant work: v0.7 (Start Match, player removal/reinstatement, history 
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # all tests (~105)
+pytest                    # all tests (~115)
 pytest -m unit            # fast, no DB/server
 pytest -m bdd             # Gherkin BDD scenarios
 pytest -m integration     # DB + HTTP tests
@@ -87,7 +89,7 @@ football-app-project/
 │   │   ├── time_balancer.py   ← equal + competitive modes
 │   │   ├── skill_balancer.py
 │   │   └── validator.py       ← configurable sub limits, position variety
-│   ├── api/              ← FastAPI routers (matches, squad)
+│   ├── api/              ← FastAPI routers (matches, squad, tournaments)
 │   └── db/               ← SQLite repositories, additive migration pattern
 │
 ├── frontend/
@@ -137,7 +139,7 @@ football-app-project/
 - Optional `shirt_number: int | None` stored on PlayerDB
 - Displayed in player token instead of initials when set
 - Duplicate detection: second player with same number shown with red token/badge
-- API rejects duplicate player names (422) — names are used as keys for goal counts
+- API rejects duplicate player names (422); goal counts are stored keyed by player id (names are only used in the UI and converted to ids at the API boundary)
 
 ### Position rotation intensity (configurable, 0-100)
 - 0 (Specialist): players stay in best_position, max 1 position type
@@ -218,7 +220,7 @@ GameConfig
 - Period labels: "Quarter" for 5/6/7v7, "Half" for 9v9
 - Position codes vary by formation — always use `config.formation.outfield_positions()`
 - `normalize_position()` converts DEF2→"DEF", MID3→"MID", etc.
-- Goal counts keyed by player name — duplicate names produce shared counts (prevented by API)
+- Goal counts stored keyed by `str(player_id)` in `goals_json`; the frontend sends names which the API converts to ids (duplicate names rejected at creation)
 - DB migrations: additive only via `ALTER TABLE ... ADD COLUMN` in `create_db_and_tables()`; wrap in try/except for idempotency
 - Keep commit messages to terse one-line comments
 - Push directly to main — no PRs unless explicitly requested
@@ -227,8 +229,9 @@ GameConfig
 
 ## Known Limitations / Flaky Tests
 
-- `test_players_with_no_specialist` — ~10% failure rate; over-budget fallback redistributes time unevenly. Accepted.
-- `test_7v7_mid_period_sub_limit` — ~5-10% failure rate. Accepted.
+- `test_9_players_no_specialist_max_diff_1` (tests/unit/algorithm/test_validator.py) — ~10% failure rate; over-budget fallback redistributes time unevenly. Accepted.
+- `test_7v7_mid_period_max_3_subs` (tests/unit/algorithm/test_multi_size.py) — ~5-10% failure rate. Accepted.
+- Root cause for both: intentional `random.shuffle` in gk_selector/rotation_engine + over-budget fallback; consider seeding randomness in tests (DEVELOPMENT_PLAN.md Part 4).
 - Position variety (≤2 types) can be violated for 9-player no-specialist squads. Accepted as algorithm warning.
 
 ---
@@ -237,10 +240,12 @@ GameConfig
 
 | Phase | What's built | Tests |
 |---|---|---|
-| v0.1–v0.3 | Algorithm + models + skill balance | unit + BDD |
-| v0.4 | Web UI + pitch view | Manual browser test |
-| v0.5 | FastAPI + SQLite | integration tests |
-| v0.6 | Multi-size, tinkering, shirt numbers, match day | 105 tests |
-| v0.7 | Start Match, removal/reinstatement, history | BDD + integration |
-| v0.8 | Tournament mode | BDD |
-| v1.0 | Multi-user, auth, PostgreSQL | All tests green |
+| v0.1–v0.3 | Algorithm + models + skill balance | unit + BDD ✓ |
+| v0.4 | Web UI + pitch view | Manual browser test ✓ |
+| v0.5 | FastAPI + SQLite | integration tests ✓ |
+| v0.6 | Multi-size, tinkering, shirt numbers, match day | 105 tests ✓ |
+| v0.7 | Start Match, removal/reinstatement, history | integration ✓ |
+| v0.8 | Tournament mode | integration (test_tournaments.py) ✓ |
+| v0.9 | Consecutive sit-out constraint, timer, tinkering clarity, in-app bug report | BDD + integration |
+| refactor | app.js modularisation, shared season/tournament components, Playwright smoke suite | Playwright parity tests |
+| v1.0 | Multi-user, email + magic-link auth, PostgreSQL | All tests green + isolation/IDOR tests |

@@ -163,10 +163,28 @@ Coach can enter Tinkering mode at any point during a match to adjust the plan:
 - FR-25: Goal recording via long-press
 - FR-26: Full Time screen with score entry and share image
 
-### 9.6 History & Development (planned v0.7)
+### 9.6 History & Development (delivered v0.7)
 - FR-27: Per-player summary: positions played, slots, goals across matches
 - FR-28: Mid-match player removal with re-calculation from specified slot
 - FR-29: Player reinstatement and re-calculation
+
+### 9.7 Tournament Mode (delivered v0.8)
+- FR-30: Coach creates a tournament (name, date, team size, formation, match duration, half-time toggle, fairness, rotation intensity)
+- FR-31: Tournament groups multiple short matches; matches added individually (group or knockout)
+- FR-32: Cross-match cumulative slot tracking feeds rotation targets (`prior_slots`)
+- FR-33: Guest players scoped to a tournament, excluded from the season squad list
+- FR-34: Tournament-scoped position overrides per player (non-mutating)
+- FR-35: Manual rotation mode — blank plan, all slots locked, coach assigns by hand
+- FR-36: Tournament stats view — cumulative slots per player across the day
+- FR-37 (v0.9): No player sits out two consecutive tournament matches when fairness ≤ 50; validator flags violations
+
+### 9.8 Match Timer (planned v0.9)
+- FR-38: Live match shows a timer; count-up by default, configurable countdown
+- FR-39: Countdown starts from the slot length derived from match/tournament duration settings
+- FR-40: Audible alert and/or vibration when the countdown reaches zero
+
+### 9.9 Feedback (planned v0.9)
+- FR-41: In-app bug report — no GitHub account required; report created server-side with app context
 
 ---
 
@@ -182,17 +200,23 @@ Coach can enter Tinkering mode at any point during a match to adjust the plan:
 
 ## 11. Out of Scope (current)
 
-- Countdown timer / auto-advance
+- Auto-advance of slots (timer is now in scope — §9.8 — but never auto-advances the plan)
 - Tactical formation drawing
 - Player performance stats input during match
-- Export (removed; re-add when stable)
+- Export (removed; revisit after the plan-review screen, v1.1)
+- Local-first offline sync, ads/subscriptions (re-evaluate post-v1.0 only if usage demands)
 
 ---
 
 ## 12. Planned Future Phases
 
-| Phase | Scope |
-|-------|-------|
-| v0.7 | Start Match lock, mid-match removal/reinstatement, player history view |
-| v0.8 | Tournament mode — cross-match minutes, short match structure, knockout support |
-| v1.0 | Multi-user & auth — accounts, team sharing, PostgreSQL, JWT auth |
+Roadmap detail lives in DEVELOPMENT_PLAN.md (2026-07-10).
+
+| Phase | Scope | Status |
+|-------|-------|--------|
+| v0.7 | Start Match lock, mid-match removal/reinstatement, player history view | ✓ shipped 2026-05 |
+| v0.8 | Tournament mode — cross-match slots, guest players, manual mode | ✓ shipped 2026-05 |
+| v0.9 | Consecutive sit-out constraint, match timer, tinkering warning clarity, in-app bug report | next |
+| refactor | app.js modularisation, shared season/tournament components, Playwright parity suite | pre-v1.0 |
+| v1.0 | Multi-user — email + magic-link auth, invite-only, PostgreSQL (Neon), Railway | planned |
+| v1.1 | Plan-review screen, tinkering undo/redo, export revisit | planned |

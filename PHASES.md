@@ -86,44 +86,85 @@ Acceptance: Multi-size BDD scenarios pass. Real-world match tested at 7v7.
 
 ---
 
-## v0.7 — Match Day Polish ← NEXT
+## v0.7 — Match Day Polish ✓ DONE (2026-05-23/24)
 **Goal:** Lock match state, handle mid-match disruptions, and track player history.
 
-Planned:
+Delivered:
 - **Start Match** — explicit "Start Match ▶" button; past slots auto-locked, not editable
-- **Mid-match player removal** (FR-30-34) — mark player unavailable from a slot onward, re-calculate remaining slots
-- **Player reinstatement** (FR-35) — restore removed player and re-calculate
+- **Mid-match player removal** — mark player unavailable from a slot onward, re-calculate remaining slots
+- **Player reinstatement** — restore removed player and re-calculate
 - **Player history** — per-player summary view: positions played, slots, goals across matches
-- **Export** — CSV/Google Sheets from season mode (re-add once stable)
 
-Acceptance: Start Match locks past slots. Removal/reinstatement produces valid plans. History view shows cumulative stats.
+Not delivered (still open): CSV/Google Sheets export (added in v0.6, removed again; revisit after the plan-review screen).
 
 ---
 
-## v0.8 — Tournament Mode
+## v0.8 — Tournament Mode ✓ DONE (2026-05-24 → 2026-05-31)
 **Goal:** Manage back-to-back short matches at tournament days with cross-match minute tracking.
 
-Planned:
-- Tournament entity grouping multiple matches
-- Cross-match cumulative minutes tracking
-- "Start strong" competitive default for short matches
-- Knockout stage support (configurable count)
-- 8-a-side support
+Delivered:
+- Tournament entity grouping multiple matches (`TournamentDB`, tournaments router, 12 endpoints)
+- Cross-match cumulative slot tracking (`prior_slots` in time_balancer)
+- Guest players scoped to a tournament (`source_tournament_id`)
+- Tournament-scoped position overrides, manual rotation mode, tournament stats overlay
+- Knockout matches can be added individually from the lobby
 
-Acceptance: Tournament day with 4+ group matches produces fair cumulative minutes.
+Not delivered (still open):
+- 8-a-side preset
+- Knockout bracket structure (configurable count)
+- **Known defect:** no consecutive sit-out constraint — cumulative fairness balances totals only, so a player can be benched for two consecutive matches (user-reported; see Issue1/ screenshots). Fixed in v0.9.
 
 ---
 
-## v1.0 — Multi-User & Auth
-**Goal:** Multiple coaches, multiple teams, shared access.
+> The roadmap from here is maintained in **DEVELOPMENT_PLAN.md** (2026-07-10), which
+> consolidates user feedback, the audit findings, and the multi-user plan. Summary:
 
-Planned:
-- User accounts (email/password or OAuth)
-- User → Team → Squad → Players/Matches data model
-- Invite-based team sharing (edit access for all coaches)
-- JWT/session auth middleware on all API endpoints
-- PostgreSQL migration (SQLite → Postgres for concurrent access)
-- Hosting: evaluate Render Postgres vs Supabase/Railway/Fly.io
-- Data migration for existing single-squad data
+## v0.9 — Fairness & Trust ← NEXT
+- Consecutive sit-out hard constraint + validator check (BDD scenarios pin the Issue1 case)
+- Match timer: count-up default, configurable countdown from slot length, vibration/audio alert
+- Tinkering warning clarity; surface recalculation impact on player removal
+- In-app bug reporting (`POST /api/feedback` → GitHub issue server-side; no GitHub account needed)
+- Rotating light-hearted max-competitive slider messages; tournament add-match form fix
 
-Acceptance: Two coaches can independently manage their own teams. Invited coaches see shared squad/matches.
+Acceptance: no player sits out two consecutive tournament matches on fairness ≤ 50. Timer visible in both modes.
+
+---
+
+## Refactor Phase (pre-v1.0)
+- Split `frontend/app.js` (2,843 lines) into ES modules with a shared season/tournament setup form
+- Playwright smoke suite asserting season/tournament parity
+- Shared `get_prior_tournament_slots()`; inspection-based (or Alembic) migrations; stats extraction to `analytics.py`
+- Replace silent frontend `.catch()`s; fix service-worker cache list
+
+Acceptance: smoke suite green in both modes; no behaviour change.
+
+---
+
+## v1.0 — Multi-User & Auth (email + magic link)
+**Goal:** One always-on deployment serving many coaches, each isolated to their own squad.
+
+Per V1_MULTIUSER_PLAN.md with magic-link-first substitutions (DEVELOPMENT_PLAN.md Phase D):
+- `AccountDB` (email required + unique), `InviteDB`, `LoginTokenDB` (hashed one-time login tokens)
+- Sign up / log in via emailed magic link (Resend or Postmark); invite-only onboarding
+- Signed HttpOnly session cookie; `get_current_account` / `get_current_squad` dependencies
+- `owned_*()` IDOR guards on every id-path route + isolation tests
+- Swap `get_or_create_squad()` → injected `current_squad` in all routers
+- PostgreSQL (fresh Neon DB), Railway Hobby single instance; old Render instances untouched as fallback
+- CORS tightened, secrets fail-fast, rate-limited `/auth/*`
+
+Acceptance: two coaches manage independent squads; unauthenticated requests 401; coach A cannot read coach B's data (404).
+
+---
+
+## v1.1 — Plan Review UX
+- "Review the match plan" table view (slots × GK/DEF/MID/ATT, per-player slot counts) shared by season + tournament
+- Actions: Tinker / Save changes / Start match / Back; edits persist
+- Tinkering undo/redo command stack (V2_Requirements.md §6 spec)
+- Revisit CSV/Sheets export
+
+---
+
+## Later (decision points — DEVELOPMENT_PLAN.md Phase F)
+- Multi-squad per account, co-coach roles/sharing, open self-serve signup
+- 8-a-side preset; knockout brackets
+- Local-first sync / monetization: only if real usage demands them
