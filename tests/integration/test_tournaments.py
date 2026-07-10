@@ -265,6 +265,21 @@ def test_tournament_match_with_guest_player(
     assert resp.status_code == 200
 
 
+def test_tournament_matches_inherit_timer_mode(
+    client: TestClient, squad_ids: list[int]
+) -> None:
+    t = client.post(
+        "/api/tournaments/", json={**TOURNAMENT_BASE, "timer_mode": "down"}
+    ).json()
+    match = client.post(
+        f"/api/tournaments/{t['id']}/matches",
+        json={"opponent": "Team", "stage": "group", "available_player_ids": squad_ids},
+    ).json()
+    fetched = client.get(f"/api/matches/{match['match']['id']}").json()
+    assert fetched["match"]["timer_mode"] == "down"
+    assert fetched["match"]["quarters"] * fetched["match"]["quarter_length_mins"] == 10
+
+
 # ── Consecutive sit-out constraint (Issue1) ───────────────────────────────────
 
 @pytest.fixture()

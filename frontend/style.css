@@ -2649,3 +2649,47 @@ html, body {
   border-radius: 8px;
   font-size: 14px;
 }
+
+/* ── Match timer ─────────────────────────────────────────────────────────── */
+
+.match-timer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-display {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-light);
+  cursor: pointer;
+  min-width: 96px;
+  min-height: 44px;
+  text-align: center;
+}
+
+.timer-display.timer-over {
+  color: #F5B544;
+  border-color: rgba(245,181,68,0.5);
+  animation: timer-pulse 1s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+  50% { background: rgba(245,181,68,0.18); }
+}
+
+.timer-pause {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: var(--text-light);
+  font-size: 16px;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}

@@ -25,6 +25,7 @@ class TournamentDB(SQLModel, table=True):
     fairness_value: int = 50  # 0=equal time, 100=start strong
     rotation_intensity: int = 50
     status: str = "active"  # "active" | "completed"
+    timer_mode: str = "up"  # "up" (count-up, default) | "down" (countdown per slot)
     player_position_overrides_json: str = "{}"  # JSON dict: {player_id: [positions]} — tournament-scoped overrides
 
 
@@ -64,6 +65,7 @@ class MatchDB(SQLModel, table=True):
     tournament_id: int | None = None  # if set, this match belongs to a tournament
     tournament_stage: str = ""  # "group" or "knockout" (empty for season matches)
     match_number: int | None = None  # sequence within tournament (1-based)
+    timer_mode: str = "up"  # "up" (count-up, default) | "down" (countdown per slot)
 
 
 class RotationPlanDB(SQLModel, table=True):

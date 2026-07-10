@@ -15,6 +15,8 @@ let gameConfigs = null; // cached from /api/matches/config/game-configs
 let selectedSize = 5;
 let selectedHomeAway = "home";
 let selectedPeriods = 4;
+let selectedTimerMode = "up"; // season new-match form: "up" | "down"
+let tournamentSelectedTimerMode = "up"; // tournament form: "up" | "down"
 let manualRotationMode = false;
 let teamInfo = { team_name: "My Team", team_logo: "" }; // cached squad info
 let shirtNumbers = {}; // { playerName: shirtNumber } — populated from squad API
@@ -276,6 +278,15 @@ function enterPitchView(data) {
   matchStarted = status !== "planned";
   currentSlot = matchStarted ? (data.match?.current_slot || 0) : 0;
 
+  // Timer: default mode from match settings; run only while live
+  timerMode = data.match?.timer_mode || "up";
+  if (status === "in_progress") {
+    resetSlotTimer();
+    startTimerTicker();
+  } else {
+    stopTimerTicker();
+  }
+
   showScreen("screen-pitch");
   document.querySelector(".pitch-wrapper").style.display = "";
   document.querySelector(".bench-section").style.display = "";
@@ -329,6 +340,7 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   // Reset rotation to Flexible (default)
   const flexRadio = document.querySelector('input[name="rotation"][value="50"]');
   if (flexRadio) flexRadio.checked = true;
+  selectTimerMode("up");
 
   // Load game configs if not cached
   if (!gameConfigs) {
@@ -360,6 +372,24 @@ function selectPeriods(periods) {
 document.getElementById("period-picker").addEventListener("click", e => {
   const btn = e.target.closest(".size-btn");
   if (btn) selectPeriods(parseInt(btn.dataset.periods));
+});
+
+function selectTimerMode(mode, pickerId = "timer-mode-picker") {
+  if (pickerId === "timer-mode-picker") selectedTimerMode = mode;
+  else tournamentSelectedTimerMode = mode;
+  document.querySelectorAll(`#${pickerId} .size-btn`).forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.timer === mode);
+  });
+}
+
+document.getElementById("timer-mode-picker").addEventListener("click", e => {
+  const btn = e.target.closest(".size-btn");
+  if (btn) selectTimerMode(btn.dataset.timer);
+});
+
+document.getElementById("tournament-timer-mode-picker").addEventListener("click", e => {
+  const btn = e.target.closest(".size-btn");
+  if (btn) selectTimerMode(btn.dataset.timer, "tournament-timer-mode-picker");
 });
 
 function updateFormationOptions() {
@@ -471,6 +501,7 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
     home_away: selectedHomeAway,
     quarters: selectedPeriods,
     quarter_length_mins: selectedPeriods === 2 ? 20 : 10,
+    timer_mode: selectedTimerMode,
   };
 
   const players = await api.getPlayers().catch(() => []);
@@ -1372,6 +1403,7 @@ document.getElementById("btn-next").addEventListener("click", async () => {
       matchData.match.current_slot = currentSlot;
       api.updateProgress(matchData.match.id, currentSlot).catch(() => {});
     }
+    if (matchStarted) resetSlotTimer();
 
     // Manual mode: carry prev slot's lineup into the next empty slot, then auto-tinker
     if (manualRotationMode) {
@@ -1419,7 +1451,11 @@ document.getElementById("btn-prev").addEventListener("click", () => {
     showMatch();
     return;
   }
-  if (currentSlot > 0) { currentSlot--; render(); }
+  if (currentSlot > 0) {
+    currentSlot--;
+    if (matchStarted) resetSlotTimer();
+    render();
+  }
 });
 
 // ── End match ─────────────────────────────────────────────────────────────────
@@ -1444,6 +1480,7 @@ document.getElementById("btn-end-confirm").addEventListener("click", () => {
 });
 
 async function doEndMatch() {
+  stopTimerTicker();
   // Save goals and mark match completed, then show Full Time screen
   if (matchData?.match.id) {
     const oppGoals = matchData.match.opponent_goals || 0;
@@ -1454,6 +1491,108 @@ async function doEndMatch() {
   await showFulltime();
 }
 
+// ── Match timer ───────────────────────────────────────────────────────────────
+// Count-up (default) or countdown per slot. The countdown starts from the slot
+// duration (total match time / number of slots) and alerts at zero; count-up
+// alerts when the slot duration is reached. Timestamp-based so background-tab
+// throttling can't drift it.
+let timerMode = "up";
+let timerSlotStart = null; // epoch ms when the current slot's timer (re)started
+let timerPausedAt = null; // epoch ms when paused; null = running
+let timerAlertFired = false;
+let timerInterval = null;
+
+function slotDurationSecs() {
+  const m = matchData?.match;
+  if (!m || !matchData.slots?.length) return 0;
+  return (m.quarters * m.quarter_length_mins * 60) / matchData.slots.length;
+}
+
+function timerElapsedSecs() {
+  if (timerSlotStart == null) return 0;
+  return Math.max(0, ((timerPausedAt ?? Date.now()) - timerSlotStart) / 1000);
+}
+
+function resetSlotTimer() {
+  timerSlotStart = Date.now();
+  timerPausedAt = null;
+  timerAlertFired = false;
+  document.getElementById("btn-timer-pause").textContent = "⏸";
+  updateTimerDisplay();
+}
+
+function startTimerTicker() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimerDisplay, 500);
+  updateTimerDisplay();
+}
+
+function stopTimerTicker() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerSlotStart = null;
+  document.getElementById("match-timer").hidden = true;
+}
+
+function updateTimerDisplay() {
+  const wrap = document.getElementById("match-timer");
+  if (!matchStarted || showingReport || timerSlotStart == null) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  const dur = slotDurationSecs();
+  const elapsed = timerElapsedSecs();
+  const shown = timerMode === "down" ? Math.max(0, dur - elapsed) : elapsed;
+  const mm = String(Math.floor(shown / 60)).padStart(2, "0");
+  const ss = String(Math.floor(shown % 60)).padStart(2, "0");
+  const el = document.getElementById("timer-display");
+  el.textContent = `${timerMode === "down" ? "▾" : "▴"} ${mm}:${ss}`;
+  const slotOver = dur > 0 && elapsed >= dur;
+  el.classList.toggle("timer-over", slotOver);
+  if (slotOver && !timerAlertFired && timerPausedAt == null) {
+    timerAlertFired = true;
+    timerAlert();
+  }
+}
+
+function timerAlert() {
+  if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.25].forEach(offset => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.2);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.22);
+    });
+  } catch (_) { /* audio unavailable — vibration (if any) already fired */ }
+}
+
+// Tap the time to flip count-up ↔ countdown for this match
+document.getElementById("timer-display").addEventListener("click", () => {
+  timerMode = timerMode === "up" ? "down" : "up";
+  updateTimerDisplay();
+});
+
+document.getElementById("btn-timer-pause").addEventListener("click", () => {
+  const btn = document.getElementById("btn-timer-pause");
+  if (timerPausedAt == null) {
+    timerPausedAt = Date.now();
+    btn.textContent = "▶";
+  } else {
+    timerSlotStart += Date.now() - timerPausedAt;
+    timerPausedAt = null;
+    btn.textContent = "⏸";
+  }
+  updateTimerDisplay();
+});
+
 // ── Start match ───────────────────────────────────────────────────────────────
 async function doStartMatch() {
   try {
@@ -1461,6 +1600,8 @@ async function doStartMatch() {
     matchStarted = true;
     matchData.match.status = "in_progress";
     matchData.match.current_slot = 0;
+    resetSlotTimer();
+    startTimerTicker();
     render();
     showGoalTip();
   } catch (err) {
@@ -1485,6 +1626,7 @@ document.getElementById("btn-return-plan").addEventListener("click", async () =>
     await api.unstartMatch(matchData.match.id);
     matchStarted = false;
     matchData.match.status = "planned";
+    stopTimerTicker();
     render();
   } catch (err) {
     alert("Could not return to plan review: " + err.message);
@@ -1537,6 +1679,7 @@ document.getElementById("btn-action-remove").addEventListener("click", async () 
     matchData.slots = result.slots;
     matchData.warnings = result.warnings;
     render();
+    showFairnessInfo(result.fairness_warnings);
   } catch (err) {
     statusEl.hidden = true;
     alert("Could not remove player: " + err.message);
@@ -1564,6 +1707,7 @@ document.getElementById("btn-reinstate-confirm").addEventListener("click", async
     matchData.slots = result.slots;
     matchData.warnings = result.warnings;
     render();
+    showFairnessInfo(result.fairness_warnings);
   } catch (err) {
     statusEl.hidden = true;
     alert("Could not reinstate player: " + err.message);
@@ -1687,10 +1831,10 @@ async function executeSwap(newPlayerId, newPlayerName) {
   pendingSwap = null;
 }
 
-function showFairnessWarning(result) {
+function fillFairnessList(warnings) {
   const list = document.getElementById("fairness-list");
   list.innerHTML = "";
-  result.fairness_warnings.forEach(w => {
+  warnings.forEach(w => {
     const li = document.createElement("li");
     li.className = "fairness-item";
     const cls = w.diff < 0 ? "fairness-loss" : "fairness-gain";
@@ -1698,9 +1842,15 @@ function showFairnessWarning(result) {
     li.innerHTML = `${w.player} <span class="${cls}">${verb} ${Math.abs(w.diff)} slot${Math.abs(w.diff) !== 1 ? "s" : ""}</span> (${w.before} → ${w.after})`;
     list.appendChild(li);
   });
+}
+
+function showFairnessWarning(result) {
+  fillFairnessList(result.fairness_warnings);
+  document.getElementById("btn-fairness-cancel").hidden = false;
+  const confirmBtn = document.getElementById("btn-fairness-confirm");
+  confirmBtn.textContent = "Apply anyway";
 
   // Wire confirm button to apply
-  const confirmBtn = document.getElementById("btn-fairness-confirm");
   const handler = () => {
     document.getElementById("fairness-overlay").hidden = true;
     document.getElementById("adjust-status").hidden = false;
@@ -1712,6 +1862,24 @@ function showFairnessWarning(result) {
   };
   confirmBtn.addEventListener("click", handler);
 
+  document.getElementById("fairness-overlay").hidden = false;
+}
+
+// Informational variant: the recalculation has already been applied (e.g. after
+// removing or reinstating a player) — show who gained/lost time, no decision needed
+function showFairnessInfo(warnings) {
+  if (!warnings || warnings.length === 0) return;
+  fillFairnessList(warnings);
+  document.getElementById("btn-fairness-cancel").hidden = true;
+  const confirmBtn = document.getElementById("btn-fairness-confirm");
+  confirmBtn.textContent = "OK";
+  const handler = () => {
+    document.getElementById("fairness-overlay").hidden = true;
+    document.getElementById("btn-fairness-cancel").hidden = false;
+    confirmBtn.textContent = "Apply anyway";
+    confirmBtn.removeEventListener("click", handler);
+  };
+  confirmBtn.addEventListener("click", handler);
   document.getElementById("fairness-overlay").hidden = false;
 }
 
@@ -1734,6 +1902,7 @@ async function saveGoalsIfNeeded() {
 }
 
 document.getElementById("btn-pitch-back").addEventListener("click", async () => {
+  stopTimerTicker();
   await saveGoalsIfNeeded();
   if (pitchBackContext === "tournament" && activeTournamentId) {
     loadTournamentLobby(activeTournamentId);
@@ -2227,6 +2396,7 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   updateFairnessLabel(0, "tournament-fairness-value", "tournament-fairness-warning");
   const defaultRotRadio = document.querySelector('input[name="tournament-rotation"][value="50"]');
   if (defaultRotRadio) defaultRotRadio.checked = true;
+  selectTimerMode("up", "tournament-timer-mode-picker");
   document.getElementById("tournament-num-matches").value = "4";
   tournamentSelectSize(5);
   showScreen("screen-new-tournament");
@@ -2312,6 +2482,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     has_halftime: hasHalftime,
     fairness_value: fairnessValue,
     rotation_intensity: rotationIntensity,
+    timer_mode: tournamentSelectedTimerMode,
   };
 
   if (editingTournamentId) {
@@ -2621,6 +2792,7 @@ document.getElementById("btn-edit-tournament").addEventListener("click", async (
   const tRotRadio = document.querySelector(`input[name="tournament-rotation"][value="${tRotation}"]`)
     || document.querySelector('input[name="tournament-rotation"][value="50"]');
   if (tRotRadio) tRotRadio.checked = true;
+  selectTimerMode(t.timer_mode || "up", "tournament-timer-mode-picker");
   // Show num-matches in edit mode so coach can add/remove group matches
   const currentGroupCount = (activeTournamentData?.matches || []).filter(m => m.stage === "group").length;
   document.getElementById("tournament-num-matches").value = currentGroupCount || 1;

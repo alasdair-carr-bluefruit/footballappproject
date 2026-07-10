@@ -62,6 +62,7 @@ class MatchCreate(BaseModel):
     fairness_value: int = 0
     rotation_intensity: int = 50
     home_away: str = "home"
+    timer_mode: str = "up"  # "up" | "down"
 
 
 class MatchRead(BaseModel):
@@ -128,6 +129,9 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "opponent_goals": m.opponent_goals,
             "status": m.status,
             "current_slot": m.current_slot,
+            "quarters": m.quarters,
+            "quarter_length_mins": m.quarter_length_mins,
+            "timer_mode": m.timer_mode,
             "tournament_id": m.tournament_id,
             "tournament_stage": m.tournament_stage or "",
             "match_number": m.match_number,
@@ -734,7 +738,7 @@ def remove_player_from_match(
         must_play_players = get_must_play_players(
             session, db_match.tournament_id, db_match.match_number, players_db, squad.available,
         )
-    new_plan, _ = adjust_rotation(
+    new_plan, fairness_warnings = adjust_rotation(
         current_plan, {}, squad, match,
         previous_match_zero_slot_players=must_play_players,
     )
@@ -752,6 +756,7 @@ def remove_player_from_match(
     plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
     response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
     response["removed_players"] = removed
+    response["fairness_warnings"] = fairness_warnings
     return response
 
 
@@ -816,7 +821,7 @@ def reinstate_player_in_match(
         must_play_players = get_must_play_players(
             session, db_match.tournament_id, db_match.match_number, players_db, squad.available,
         )
-    new_plan, _ = adjust_rotation(
+    new_plan, fairness_warnings = adjust_rotation(
         current_plan, {}, squad, match,
         previous_match_zero_slot_players=must_play_players,
     )
@@ -834,6 +839,7 @@ def reinstate_player_in_match(
     plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
     response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
     response["removed_players"] = removed
+    response["fairness_warnings"] = fairness_warnings
     return response
 
 
