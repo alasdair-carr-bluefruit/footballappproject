@@ -1606,6 +1606,8 @@ async function doStartMatch() {
     matchStarted = true;
     matchData.match.status = "in_progress";
     matchData.match.current_slot = 0;
+    currentSlot = 0;          // kick off at the first slot regardless of plan-review position
+    newPeriodHintSlot = null; // clear any dismissed-hint state from a previous match
     beginMatchTimer();
     render();
     showGoalTip();
