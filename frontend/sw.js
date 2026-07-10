@@ -1,5 +1,5 @@
 // Service Worker — network-first with cache fallback
-const CACHE = "squad-rotation-v2";
+const CACHE = "squad-rotation-v3";
 const SHELL = ["/", "/app.js", "/api.js", "/style.css", "/manifest.json"];
 
 self.addEventListener("install", e => {
