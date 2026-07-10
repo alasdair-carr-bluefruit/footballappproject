@@ -1,5 +1,8 @@
 /* ── Reset & base ─────────────────────────────────────────────────── */
 
+/* Ensure [hidden] always wins over any display:flex/grid author rules */
+[hidden] { display: none !important; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -98,7 +101,6 @@ html, body {
   border-radius: 10px;
   padding: 1px 7px;
 }
-.slot-skill[hidden] { display: none; }
 
 /* Progress dots */
 .progress-dots {
@@ -254,7 +256,6 @@ html, body {
   padding: 9px 14px;
   animation: badgeFadeIn 0.3s ease;
 }
-.goal-tip[hidden] { display: none; }
 .goal-tip-text {
   font-size: 0.8rem;
   color: var(--text-dim);
@@ -763,7 +764,6 @@ html, body {
   padding: 2px 8px 2px 5px;
   border-radius: 10px;
 }
-.live-badge[hidden] { display: none; }
 .live-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -774,7 +774,6 @@ html, body {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.35; }
 }
-.start-match-bar[hidden] { display: none !important; }
 
 /* ── Removed player bench state ──────────────────────────────────── */
 .bench-player.bench-removed {
@@ -816,7 +815,6 @@ html, body {
   z-index: 100;
   padding: 16px;
 }
-.swap-overlay[hidden] { display: none; }
 
 .swap-panel {
   width: 100%;
@@ -1343,7 +1341,6 @@ html, body {
 /* ── Screen management ────────────────────────────────────────────── */
 
 .screen { display: flex; flex-direction: column; min-height: 100dvh; }
-.screen[hidden] { display: none; }
 
 /* ── Home screen ──────────────────────────────────────────────────── */
 
@@ -1486,8 +1483,6 @@ html, body {
   letter-spacing: 0.01em;
 }
 .btn-return-plan:active { opacity: 0.5; }
-.btn-return-plan[hidden] { display: none; }
-.end-match-bar[hidden] { display: none; }
 
 .match-delete {
   background: none;
@@ -2021,7 +2016,6 @@ html, body {
   padding: 16px;
 }
 
-.form-overlay[hidden] { display: none; }
 
 .form-overlay .form-card {
   width: 100%;
@@ -2674,10 +2668,6 @@ html, body {
 .match-timer { gap: 8px; }
 
 /* An explicit display rule otherwise overrides the [hidden] attribute (equal
-   specificity, author beats UA), leaving these visible when JS sets hidden. */
-.match-timer[hidden],
-.timer-btn[hidden],
-.new-period-hint[hidden] { display: none; }
 
 .timer-display {
   display: inline-flex;
