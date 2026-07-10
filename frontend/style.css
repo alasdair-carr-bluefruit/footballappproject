@@ -1104,6 +1104,10 @@ html, body {
 
 .bug-report {
   display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
   text-align: center;
   padding: 12px 0 8px;
   font-size: 12px;
@@ -1549,6 +1553,7 @@ html, body {
 }
 
 .form-card input:not([type="checkbox"]):not([type="range"]),
+.form-card textarea,
 .form-card select {
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.15);
@@ -1561,6 +1566,7 @@ html, body {
 }
 
 .form-card input:not([type="checkbox"]):not([type="range"]):focus,
+.form-card textarea:focus,
 .form-card select:focus {
   outline: none;
   border-color: var(--btn-primary);

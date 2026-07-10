@@ -149,7 +149,7 @@
           <span class="mode-desc">Add or remove players, set positions, update your team name and badge.</span>
         </button>
       </div>
-      <a class="bug-report" href="https://github.com/alasdair-carr-bluefruit/footballappproject/issues/new?labels=bug&template=bug_report.md&title=%5BBug%5D+" target="_blank" rel="noopener">Report a bug</a>
+      <button type="button" class="bug-report" id="btn-bug-report">Report a bug</button>
     </div>
   </div>
 
@@ -549,6 +549,22 @@
       <div class="form-actions">
         <button class="btn btn-secondary" type="button" id="btn-add-guest-cancel">Cancel</button>
         <button class="btn btn-primary" type="submit" id="btn-add-guest-confirm">Add Player</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Modal: Report a bug ──────────────────────────────────────────────── -->
+  <div class="form-overlay" id="bug-report-overlay" hidden>
+    <form class="form-card" id="bug-report-form">
+      <h3>Report a bug</h3>
+      <p class="form-hint">Describe what happened and what you expected. Your report goes straight to the developer — no account needed.</p>
+      <label>
+        What went wrong?
+        <textarea id="bug-report-description" rows="5" maxlength="5000" required placeholder="e.g. After I subbed Kobe off in the second quarter, the bench showed him twice"></textarea>
+      </label>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" id="btn-bug-report-cancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="btn-bug-report-send">Send report</button>
       </div>
     </form>
   </div>

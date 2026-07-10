@@ -76,3 +76,14 @@ class RotationPlanDB(SQLModel, table=True):
     goals_json: str = "{}"  # JSON dict: {player_id: goal_count}
     available_player_ids_json: str = "[]"  # JSON list of player IDs selected for this match
     removed_players_json: str = "{}"  # JSON dict: {player_id: from_slot_index}
+
+
+class FeedbackDB(SQLModel, table=True):
+    __tablename__ = "feedback"  # type: ignore[assignment]
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: str  # ISO datetime
+    description: str
+    context_json: str = "{}"  # JSON dict: screen, match id, user agent, etc.
+    forwarded: bool = False  # True once successfully sent to GitHub
+    issue_url: str = ""  # GitHub issue URL when forwarded

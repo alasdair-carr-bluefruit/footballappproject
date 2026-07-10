@@ -56,4 +56,7 @@ export const api = {
   setAvailablePlayers:   (id, ids)      => request(`/tournaments/${id}/set-available-players`, { method: "POST", body: { available_player_ids: ids } }),
   setPositionOverrides:  (id, overrides) => request(`/tournaments/${id}/set-position-overrides`, { method: "POST", body: { overrides } }),
   updateMatchOpponent:   (tid, mid, name) => request(`/tournaments/${tid}/matches/${mid}/opponent`, { method: "PATCH", body: { opponent: name } }),
+
+  // Feedback
+  submitFeedback:        (description, context) => request("/feedback/", { method: "POST", body: { description, context } }),
 };

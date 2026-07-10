@@ -155,6 +155,44 @@ document.getElementById("btn-squad-management").addEventListener("click", () => 
   loadSquad();
 });
 
+// ── Bug reporting ─────────────────────────────────────────────────────────────
+
+document.getElementById("btn-bug-report").addEventListener("click", () => {
+  document.getElementById("bug-report-description").value = "";
+  document.getElementById("bug-report-overlay").hidden = false;
+});
+
+document.getElementById("btn-bug-report-cancel").addEventListener("click", () => {
+  document.getElementById("bug-report-overlay").hidden = true;
+});
+
+document.getElementById("bug-report-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const description = document.getElementById("bug-report-description").value.trim();
+  if (description.length < 3) return;
+
+  const context = {
+    screen: document.querySelector(".screen:not([hidden])")?.id || "unknown",
+    match_id: matchData?.match?.id ?? null,
+    tournament_id: activeTournamentId,
+    user_agent: navigator.userAgent,
+  };
+
+  const btn = document.getElementById("btn-bug-report-send");
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  const result = await api.submitFeedback(description, context).catch(err => {
+    alert(`Could not send the report: ${err.message}`);
+    return null;
+  });
+  btn.disabled = false;
+  btn.textContent = "Send report";
+
+  if (!result) return;
+  document.getElementById("bug-report-overlay").hidden = true;
+  alert("Thanks — your report has been sent.");
+});
+
 // ── Home screen ───────────────────────────────────────────────────────────────
 async function loadHome() {
   showScreen("screen-home");

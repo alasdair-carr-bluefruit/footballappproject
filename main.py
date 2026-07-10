@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.api.routers import match_router, squad_router, tournament_router
+from backend.api.routers import feedback_router, match_router, squad_router, tournament_router
 from backend.db.database import create_db_and_tables
 
 
@@ -27,6 +27,7 @@ app.add_middleware(
 app.include_router(squad_router, prefix="/api/squad", tags=["squad"])
 app.include_router(match_router, prefix="/api/matches", tags=["matches"])
 app.include_router(tournament_router, prefix="/api/tournaments", tags=["tournaments"])
+app.include_router(feedback_router, prefix="/api/feedback", tags=["feedback"])
 
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
