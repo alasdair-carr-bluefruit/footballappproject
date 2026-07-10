@@ -28,7 +28,7 @@ Completed phases:
 - v0.8: Tournament mode — tournament entity, cross-match cumulative fairness (`prior_slots`), guest players, manual rotation mode, tournament stats (shipped 2026-05-24 onwards). Not built: 8-a-side preset, knockout bracket structure.
 - v0.9: Consecutive sit-out constraint, match timer (count-up, persistent), fairness impact on removal/reinstatement, in-app bug reporting, All-rounder default rotation, inspection-based DB migrations (shipped 2026-07-10)
 
-Next significant work: Refactor phase (app.js modularisation, Playwright smoke suite), then v1.0 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md Phase D).
+Next significant work: Refactor phase (app.js modularisation, Playwright smoke suite, CSS/HTML unit tests), then v1.0 Plan Review UX (first feature on the new structure), then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
 
 ---
 
@@ -248,5 +248,6 @@ GameConfig
 | v0.7 | Start Match, removal/reinstatement, history | integration ✓ |
 | v0.8 | Tournament mode | integration (test_tournaments.py) ✓ |
 | v0.9 | Consecutive sit-out constraint, timer, tinkering clarity, in-app bug report | BDD + integration ✓ |
-| refactor | app.js modularisation, shared season/tournament components, Playwright smoke suite | Playwright parity tests |
-| v1.0 | Multi-user, email + magic-link auth, PostgreSQL | All tests green + isolation/IDOR tests |
+| refactor | app.js modularisation, Playwright smoke suite, CSS/HTML unit tests | Playwright parity tests |
+| v1.0 | Plan Review UX (table view, per-player counts, tinker/undo) | Playwright golden path |
+| v1.1 | Multi-user, email + magic-link auth, PostgreSQL | All tests green + isolation/IDOR tests |

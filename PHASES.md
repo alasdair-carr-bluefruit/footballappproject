@@ -133,16 +133,30 @@ Not delivered (still open):
 ---
 
 ## Refactor Phase (pre-v1.0)
-- Split `frontend/app.js` (2,843 lines) into ES modules with a shared season/tournament setup form
-- Playwright smoke suite asserting season/tournament parity
-- Shared `get_prior_tournament_slots()`; inspection-based (or Alembic) migrations; stats extraction to `analytics.py`
-- Replace silent frontend `.catch()`s; fix service-worker cache list
+- Split `frontend/app.js` (~3,000 lines) into ES modules with a shared season/tournament setup form
+- Playwright smoke suite asserting season/tournament parity — lands first so subsequent changes are regression-safe
+- CSS/HTML unit tests to prevent recurrence of `display:flex` / `[hidden]` class of bug
+- Shared `get_prior_tournament_slots()`; stats extraction to `analytics.py`
+- Replace silent frontend `.catch()`s; fix service-worker cache strategy
 
 Acceptance: smoke suite green in both modes; no behaviour change.
 
 ---
 
-## v1.0 — Multi-User & Auth (email + magic link)
+## v1.0 — Plan Review UX
+- "Review the match plan" screen after generation (season *and* tournament — same component)
+- Table view: slots × GK/DEF/MID/ATT, changes highlighted, per-player slot-count summary
+- Actions: Tinker / Save changes / Start match / Back; edits already persist server-side
+- Tinkering undo/redo command stack (V2_Requirements.md §6 spec)
+- Revisit CSV/Sheets export once review screen exposes the data
+
+**Why here:** first real feature built on the new modular structure — validates the refactor and gives the Playwright suite a meaningful new golden path to cover.
+
+Acceptance: plan review works identically in season and tournament; tinkering round-trips correctly; existing tests still green.
+
+---
+
+## v1.1 — Multi-User & Auth (email + magic link)
 **Goal:** One always-on deployment serving many coaches, each isolated to their own squad.
 
 Per V1_MULTIUSER_PLAN.md with magic-link-first substitutions (DEVELOPMENT_PLAN.md Phase D):
@@ -155,14 +169,6 @@ Per V1_MULTIUSER_PLAN.md with magic-link-first substitutions (DEVELOPMENT_PLAN.m
 - CORS tightened, secrets fail-fast, rate-limited `/auth/*`
 
 Acceptance: two coaches manage independent squads; unauthenticated requests 401; coach A cannot read coach B's data (404).
-
----
-
-## v1.1 — Plan Review UX
-- "Review the match plan" table view (slots × GK/DEF/MID/ATT, per-player slot counts) shared by season + tournament
-- Actions: Tinker / Save changes / Start match / Back; edits persist
-- Tinkering undo/redo command stack (V2_Requirements.md §6 spec)
-- Revisit CSV/Sheets export
 
 ---
 

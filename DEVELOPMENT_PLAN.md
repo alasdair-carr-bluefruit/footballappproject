@@ -173,20 +173,31 @@ onto the shared instance instead of yet more Render clones.
    issue server-side via a repo-scoped token (users never see GitHub), including
    app-state context (screen, match id). Keep the existing link as a fallback.
 
-### Phase C — Refactor for leverage (the V1_Improvements list, finally)
+### Phase C — Refactor for leverage
 1. Split `frontend/app.js` into ES modules: `state.js`, `screens.js`, `pitch.js`,
    `setup-form.js` (shared season+tournament config form — kills the ~200 duplicated
    lines), `season.js`, `tournament.js`. No framework.
 2. Add a **Playwright smoke suite** exercising both modes through the same flows
-   (create → generate → tinker → start → advance → full time) — this is the
-   "automated tests should check tournament and season parity" feedback item.
-3. Backend tidy-ups: shared `get_prior_tournament_slots()` repository function;
-   inspection-based migrations (or Alembic — decide here, before the auth tables land);
-   extract stats/history aggregation out of `matches.py` into `analytics.py`;
-   replace silent frontend `.catch()`s with a small toast/retry helper;
+   (create → generate → tinker → start → advance → full time). Lands first so subsequent
+   changes are regression-safe.
+3. Add CSS/HTML unit tests to prevent recurrence of the `display:flex` / `[hidden]`
+   class of bug (e.g. Playwright assertions that key elements are not visible when they
+   should be hidden, across both season and tournament flows).
+4. Backend tidy-ups: extract stats/history aggregation out of `matches.py` into
+   `analytics.py`; replace silent frontend `.catch()`s with a toast/retry helper;
    fix SW cache list + add a network timeout fallback.
 
-### Phase D — v1.0 Multi-user (magic link)
+### Phase D — v1.0 "Plan Review" UX (first feature on the new structure)
+1. **Review the match plan** screen after generation (season *and* tournament — same
+   component): simplified table of slots (GK/DEF/MID/ATT rows, changes highlighted),
+   per-player slot-count summary underneath, actions: Tinker / Save changes /
+   Start match / Back. All edits already persist server-side via `/adjust`.
+2. Tinkering undo/redo command stack (adopt the V2 §6 spec).
+3. Revisit export (CSV/Sheets) once the review screen exposes the same data.
+4. This is the proving ground for the new module structure — if the component can be
+   shared cleanly between season and tournament, the refactor worked.
+
+### Phase E — v1.1 Multi-user (magic link)
 Follow `V1_MULTIUSER_PLAN.md` §5–§10 with the magic-link substitutions from Part 2:
 1. Tables: `AccountDB` (email required/unique), `InviteDB`, `LoginTokenDB`.
 2. Auth core: token gen/hash/verify, signed session cookie, email send via Resend/Postmark.
@@ -201,15 +212,6 @@ Follow `V1_MULTIUSER_PLAN.md` §5–§10 with the magic-link substitutions from 
 8. Deploy: Dockerfile, Railway + fresh Neon Postgres; invite the existing coaches;
    retire Render clones once they've migrated (manual data re-entry or a one-off
    export/import script per squad — decide per coach).
-
-### Phase E — v1.1 "Plan Review" UX (the big feedback item)
-1. **Review the match plan** screen after generation (season *and* tournament — same
-   component): simplified table of slots (GK/DEF/MID/ATT rows, changes highlighted),
-   per-player slot-count summary underneath, actions: Tinker / Save changes /
-   Start match / Back. All edits persist (they already do server-side via `/adjust`;
-   the screen makes the state visible and adds the explicit save affordance users expect).
-2. Tinkering undo/redo command stack (adopt the V2 §6 spec — it's well thought out).
-3. Revisit export (CSV/Sheets) once the review screen exposes the same data.
 
 ### Phase F — Later / decision points
 - Multiple squads per account, co-coach sharing & roles (join-table design already in
