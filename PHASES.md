@@ -135,11 +135,13 @@ Not delivered (still open):
 ## Refactor Phase (pre-v1.0)
 - Split `frontend/app.js` (~3,000 lines) into ES modules with a shared season/tournament setup form
 - Playwright smoke suite asserting season/tournament parity — lands first so subsequent changes are regression-safe
-- CSS/HTML unit tests to prevent recurrence of `display:flex` / `[hidden]` class of bug
-- Shared `get_prior_tournament_slots()`; stats extraction to `analytics.py`
-- Replace silent frontend `.catch()`s; fix service-worker cache strategy
+- CSS/HTML unit tests (Playwright assertions on hidden/visible state) and Vitest unit tests for pure JS functions
+- Mutation testing (`mutmut`) on algorithm modules; seed `random.shuffle` to fix flaky tests first
+- **Service layer extraction**: `match_service.py`, `tournament_service.py` — routers become thin HTTP adapters
+- **Schema normalisation**: replace `slots_json`, `goals_json`, `removed_players_json` blobs with proper tables (`SlotDB`, `SlotAssignmentDB`, `GoalRecordDB`, `MatchAvailabilityDB`); migrate via Alembic
+- Replace silent frontend `.catch()`s with toast/retry; fix SW cache strategy
 
-Acceptance: smoke suite green in both modes; no behaviour change.
+Acceptance: smoke suite green in both modes; no behaviour change; Alembic migration runs cleanly on existing data.
 
 ---
 
@@ -147,32 +149,46 @@ Acceptance: smoke suite green in both modes; no behaviour change.
 - "Review the match plan" screen after generation (season *and* tournament — same component)
 - Table view: slots × GK/DEF/MID/ATT, changes highlighted, per-player slot-count summary
 - Actions: Tinker / Save changes / Start match / Back; edits already persist server-side
-- Tinkering undo/redo command stack (V2_Requirements.md §6 spec)
+- Tinkering undo/redo command stack
 - Revisit CSV/Sheets export once review screen exposes the data
 
-**Why here:** first real feature built on the new modular structure — validates the refactor and gives the Playwright suite a meaningful new golden path to cover.
+**Why here:** first real feature on the new modular structure — validates the refactor and gives the Playwright suite a meaningful new golden path.
 
 Acceptance: plan review works identically in season and tournament; tinkering round-trips correctly; existing tests still green.
 
 ---
 
-## v1.1 — Multi-User & Auth (email + magic link)
-**Goal:** One always-on deployment serving many coaches, each isolated to their own squad.
+## v1.1 — Multi-User & Auth (email + magic link + co-coach)
+**Goal:** One always-on deployment serving many coaches, each isolated to their own squad, with co-coach support from day one.
 
-Per V1_MULTIUSER_PLAN.md with magic-link-first substitutions (DEVELOPMENT_PLAN.md Phase D):
-- `AccountDB` (email required + unique), `InviteDB`, `LoginTokenDB` (hashed one-time login tokens)
+- `AccountDB`, `InviteDB`, `LoginTokenDB` (hashed one-time tokens), **`SquadMembershipDB`** (account, squad, role: owner/coach/viewer)
 - Sign up / log in via emailed magic link (Resend or Postmark); invite-only onboarding
+- Co-coach invited by email → gets their own identity → role revocable without affecting other members
 - Signed HttpOnly session cookie; `get_current_account` / `get_current_squad` dependencies
 - `owned_*()` IDOR guards on every id-path route + isolation tests
-- Swap `get_or_create_squad()` → injected `current_squad` in all routers
-- PostgreSQL (fresh Neon DB), Railway Hobby single instance; old Render instances untouched as fallback
-- CORS tightened, secrets fail-fast, rate-limited `/auth/*`
+- PostgreSQL (Neon), Railway Hobby; retire Render instances once coaches migrated
 
-Acceptance: two coaches manage independent squads; unauthenticated requests 401; coach A cannot read coach B's data (404).
+Acceptance: two coaches manage independent squads; coach A cannot read coach B's data; co-coach can be added and removed without credential rotation.
 
 ---
 
-## Later (decision points — DEVELOPMENT_PLAN.md Phase F)
-- Multi-squad per account, co-coach roles/sharing, open self-serve signup
-- 8-a-side preset; knockout brackets
+## v1.2 — Co-coach Plan Proposals
+**Goal:** A co-coach can tinker a plan and put it in front of the head coach for sign-off before it goes live.
+
+- `PlanProposalDB`: match_id, proposed_by (account), slot assignment snapshot, status (pending/accepted/rejected), optional note
+- Co-coach uses Plan Review screen → "Propose to head coach" instead of "Start match"
+- Head coach sees notification on that match; opens Plan Review with current plan vs proposed plan side-by-side, changes highlighted
+- Actions: Accept (proposed slots become live) / Request changes / Reject
+- Requires Phase C schema normalisation (proposals are relational diffs, not JSON blob copies) and Phase D Plan Review UI
+
+Acceptance: proposal round-trip works; accepting a proposal updates the live plan correctly; rejection leaves current plan untouched.
+
+---
+
+## Later (decision points — DEVELOPMENT_PLAN.md Phase G)
+- Open self-serve signup (drop invite gate) — only after magic link + rate limiting proven
+- Multi-squad per account; 8-a-side preset; knockout bracket structure
 - Local-first sync / monetization: only if real usage demands them
+- Developer back-end view for support/onboarding troubleshooting
+
+- 8-a-side preset; knockout brackets

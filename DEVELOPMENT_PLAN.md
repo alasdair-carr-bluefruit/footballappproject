@@ -189,9 +189,20 @@ onto the shared instance instead of yet more Render clones.
    hollow tests — fix by strengthening assertions, not by adding more tests. Note: seed
    `random.shuffle` in algorithm unit tests first (see known flaky tests in CLAUDE.md)
    so mutation runs are deterministic.
-5. Backend tidy-ups: extract stats/history aggregation out of `matches.py` into
-   `analytics.py`; replace silent frontend `.catch()`s with a toast/retry helper;
-   fix SW cache list + add a network timeout fallback.
+5. **Service layer extraction**: pull business logic out of `matches.py` (~600 lines)
+   and `tournaments.py` into `backend/services/match_service.py` and
+   `tournament_service.py`. Routers become thin HTTP adapters; services own
+   orchestration; repositories own queries. Makes unit testing endpoints practical
+   without spinning up a full DB.
+6. **Schema normalisation** (do before multi-user to avoid concurrent-write races):
+   replace JSON blob columns (`slots_json`, `goals_json`, `removed_players_json`,
+   `available_player_ids_json`) with proper relational tables — `SlotDB`,
+   `SlotAssignmentDB`, `GoalRecordDB`, `MatchAvailabilityDB`. Use Alembic for this
+   migration (decide on Alembic here — it's the right tool once the schema evolves
+   beyond simple additive columns). Deleting a player then correctly cascades;
+   stats queries become SQL not in-memory JSON parsing.
+7. Backend tidy-ups: extract stats/history aggregation into `analytics.py`; replace
+   silent frontend `.catch()`s with a toast/retry helper; fix SW cache list.
 
 ### Phase D — v1.0 "Plan Review" UX (first feature on the new structure)
 1. **Review the match plan** screen after generation (season *and* tournament — same
@@ -203,25 +214,38 @@ onto the shared instance instead of yet more Render clones.
 4. This is the proving ground for the new module structure — if the component can be
    shared cleanly between season and tournament, the refactor worked.
 
-### Phase E — v1.1 Multi-user (magic link)
+### Phase E — v1.1 Multi-user (magic link + co-coach)
 Follow `V1_MULTIUSER_PLAN.md` §5–§10 with the magic-link substitutions from Part 2:
-1. Tables: `AccountDB` (email required/unique), `InviteDB`, `LoginTokenDB`.
+1. Tables: `AccountDB` (email required/unique), `InviteDB`, `LoginTokenDB`,
+   **`SquadMembershipDB`** (account_id FK, squad_id FK, role: `owner | coach | viewer`).
+   Co-coach is a membership row — no shared credentials, individual identity per coach,
+   role-based access revocable per member without affecting others.
 2. Auth core: token gen/hash/verify, signed session cookie, email send via Resend/Postmark.
 3. `deps.py`: `get_current_account`, `get_current_squad`, `owned_match/tournament/player`
    — audit every id-path route (IDOR list already enumerated in the plan doc).
 4. Swap `get_or_create_squad()` → injected `current_squad` across all routers.
-5. Frontend: `credentials:"include"`, 401 → login screen ("enter your email, we'll send
-   a link"), `/join` invite redemption, account menu; move `gaffer_onboarded` server-side.
+5. Frontend: `credentials:"include"`, 401 → login screen, `/join` invite redemption,
+   account menu, co-coach invite UI; move `gaffer_onboarded` server-side.
 6. Harden: CORS to real origin, secrets fail-fast, rate-limit `/auth/*`.
-7. Tests: authenticated-client fixture for the existing suite; isolation/IDOR tests;
-   `multi_user.feature` BDD.
-8. Deploy: Dockerfile, Railway + fresh Neon Postgres; invite the existing coaches;
-   retire Render clones once they've migrated (manual data re-entry or a one-off
-   export/import script per squad — decide per coach).
+7. Tests: authenticated-client fixture; isolation/IDOR tests; `multi_user.feature` BDD.
+8. Deploy: Dockerfile, Railway + fresh Neon Postgres; invite existing coaches; retire
+   Render clones once migrated.
 
-### Phase F — Later / decision points
-- Multiple squads per account, co-coach sharing & roles (join-table design already in
-  V1 plan §11).
+### Phase F — v1.2 Co-coach plan proposals
+Once individual identity exists (Phase E), a co-coach can propose a rotation plan to
+the head coach for review before it goes live:
+- **`PlanProposalDB`**: match_id FK, proposed_by (account_id) FK, snapshot of
+  `SlotAssignment` rows (requires Phase C schema normalisation — proposals are diffs,
+  not JSON blob copies), status: `pending | accepted | rejected`, optional note.
+- Co-coach opens the Plan Review screen (Phase D), tinkers, hits "Propose to head coach"
+  instead of "Start match." Head coach sees a notification badge on that match.
+- Head coach opens Plan Review with two columns: current plan vs proposed plan,
+  changes highlighted. Actions: Accept (replaces current plan) / Request changes /
+  Reject. If accepted, the proposal's `SlotAssignment` rows become the live plan.
+- This is intentionally a Phase F feature — it requires individual identity (E),
+  relational slot storage (C), and the Plan Review UI (D) to all exist first.
+
+### Phase G — Later / decision points
 - Open self-serve signup (drop invite gate) — only after magic link + rate limiting
   proven.
 - 8-a-side preset; knockout bracket structure.
