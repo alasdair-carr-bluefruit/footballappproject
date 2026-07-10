@@ -2659,6 +2659,9 @@ html, body {
 }
 
 .timer-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 8px;
@@ -2667,20 +2670,9 @@ html, body {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-light);
-  cursor: pointer;
-  min-width: 96px;
+  min-width: 84px;
   min-height: 44px;
   text-align: center;
-}
-
-.timer-display.timer-over {
-  color: #F5B544;
-  border-color: rgba(245,181,68,0.5);
-  animation: timer-pulse 1s ease-in-out infinite;
-}
-
-@keyframes timer-pulse {
-  50% { background: rgba(245,181,68,0.18); }
 }
 
 .timer-pause {

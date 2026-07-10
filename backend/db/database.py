@@ -24,8 +24,6 @@ _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     ("matches", "match_number", "INTEGER"),
     ("rotation_plans", "removed_players_json", "TEXT DEFAULT '{}'"),
     ("tournaments", "player_position_overrides_json", "TEXT DEFAULT '{}'"),
-    ("matches", "timer_mode", "TEXT DEFAULT 'up'"),
-    ("tournaments", "timer_mode", "TEXT DEFAULT 'up'"),
 ]
 
 

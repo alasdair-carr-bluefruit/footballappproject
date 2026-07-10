@@ -45,7 +45,6 @@ class TournamentCreate(BaseModel):
     has_halftime: bool = False
     fairness_value: int = 50  # 0=equal, 100=start strong
     rotation_intensity: int = 50
-    timer_mode: str = "up"  # "up" | "down"
 
 
 class TournamentRead(BaseModel):
@@ -58,7 +57,6 @@ class TournamentRead(BaseModel):
     has_halftime: bool
     fairness_value: int
     rotation_intensity: int
-    timer_mode: str = "up"
     status: str
     match_count: int = 0
 
@@ -116,7 +114,6 @@ def _tournament_read(t: TournamentDB, match_count: int = 0) -> TournamentRead:
         has_halftime=bool(t.has_halftime),
         fairness_value=t.fairness_value,
         rotation_intensity=t.rotation_intensity,
-        timer_mode=t.timer_mode,
         status=t.status,
         match_count=match_count,
     )
@@ -202,7 +199,6 @@ def create_tournament(
         has_halftime=1 if body.has_halftime else 0,
         fairness_value=body.fairness_value,
         rotation_intensity=body.rotation_intensity,
-        timer_mode=body.timer_mode,
     )
     session.add(t)
     session.commit()
@@ -335,7 +331,6 @@ class TournamentUpdate(BaseModel):
     has_halftime: bool | None = None
     fairness_value: int | None = None
     rotation_intensity: int | None = None
-    timer_mode: str | None = None
 
 
 @router.put("/{tournament_id}", response_model=TournamentRead)
@@ -361,8 +356,6 @@ def update_tournament(
         t.fairness_value = body.fairness_value
     if body.rotation_intensity is not None:
         t.rotation_intensity = body.rotation_intensity
-    if body.timer_mode is not None:
-        t.timer_mode = body.timer_mode
     session.add(t)
     session.commit()
     session.refresh(t)
@@ -634,7 +627,6 @@ def add_tournament_match(
         tournament_id=tournament_id,
         tournament_stage=body.stage,
         match_number=match_number,
-        timer_mode=t.timer_mode,
     )
     session.add(db_match)
     session.commit()

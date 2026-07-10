@@ -31,18 +31,6 @@ def test_create_match(client: TestClient) -> None:
     assert data["has_rotation"] is False
 
 
-def test_match_timer_mode_stored_and_returned(client: TestClient) -> None:
-    match_id = client.post(
-        "/api/matches/",
-        json={"date": "2026-03-25", "opponent": "Rovers FC", "timer_mode": "down"},
-    ).json()["id"]
-    fetched = client.get(f"/api/matches/{match_id}").json()
-    assert fetched["match"]["timer_mode"] == "down"
-    # slot duration inputs the frontend timer needs
-    assert fetched["match"]["quarters"] == 4
-    assert fetched["match"]["quarter_length_mins"] == 10
-
-
 def test_list_matches(client: TestClient) -> None:
     client.post("/api/matches/", json={"date": "2026-03-25", "opponent": "Rovers FC"})
     client.post("/api/matches/", json={"date": "2026-04-01", "opponent": "City FC"})

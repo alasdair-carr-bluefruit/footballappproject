@@ -218,12 +218,6 @@
         <button type="button" class="size-btn" data-periods="2">2 Halves</button>
       </div>
 
-      <label>Match Timer</label>
-      <div class="size-picker" id="timer-mode-picker">
-        <button type="button" class="size-btn active" data-timer="up">Count up</button>
-        <button type="button" class="size-btn" data-timer="down">Count down</button>
-      </div>
-
       <label>
         Playing Time
         <div class="fairness-row">
@@ -417,12 +411,6 @@
         <input type="checkbox" id="tournament-halftime" />
         Matches have a half-time break
       </label>
-
-      <label>Match Timer</label>
-      <div class="size-picker" id="tournament-timer-mode-picker">
-        <button type="button" class="size-btn active" data-timer="up">Count up</button>
-        <button type="button" class="size-btn" data-timer="down">Count down</button>
-      </div>
       <label>
         Playing Time
         <div class="fairness-row">
@@ -613,7 +601,7 @@
           </div>
         </div>
         <div class="match-timer" id="match-timer" hidden>
-          <button type="button" class="timer-display" id="timer-display" title="Tap to switch between count-up and countdown">▴ 00:00</button>
+          <span class="timer-display" id="timer-display">00:00</span>
           <button type="button" class="timer-pause" id="btn-timer-pause" aria-label="Pause or resume timer">⏸</button>
         </div>
         <div class="start-match-bar" id="start-match-bar" hidden>
