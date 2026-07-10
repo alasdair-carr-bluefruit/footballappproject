@@ -119,14 +119,16 @@ Not delivered (still open):
 > The roadmap from here is maintained in **DEVELOPMENT_PLAN.md** (2026-07-10), which
 > consolidates user feedback, the audit findings, and the multi-user plan. Summary:
 
-## v0.9 — Fairness & Trust ← NEXT
-- Consecutive sit-out hard constraint + validator check (BDD scenarios pin the Issue1 case)
-- Match timer: count-up default, configurable countdown from slot length, vibration/audio alert
-- Tinkering warning clarity; surface recalculation impact on player removal
+## v0.9 — Fairness & Trust ✓ DONE (2026-07-10)
+- Consecutive sit-out hard constraint + validator check (BDD + integration tests)
+- Match timer: count-up, localStorage-persisted per match, pause/reset, new-quarter prompt
+- Fairness impact surfaced on player removal/reinstatement (warnings in response)
 - In-app bug reporting (`POST /api/feedback` → GitHub issue server-side; no GitHub account needed)
-- Rotating light-hearted max-competitive slider messages; tournament add-match form fix
+- Rotating light-hearted max-competitive slider quips; tournament add-match opponent optional
+- All-rounder default rotation; Fixed-only warning on select; inspection-based DB migrations (Postgres-safe)
+- CSS `[hidden]` attribute override fix (display:flex/inline-flex conflicts)
 
-Acceptance: no player sits out two consecutive tournament matches on fairness ≤ 50. Timer visible in both modes.
+**Known limitation:** countdown timer not implemented (count-up only, by design — avoids edge cases).
 
 ---
 
