@@ -604,7 +604,8 @@
         </div>
         <div class="match-timer" id="match-timer" hidden>
           <span class="timer-display" id="timer-display">00:00</span>
-          <button type="button" class="timer-pause" id="btn-timer-pause" aria-label="Pause or resume timer">⏸</button>
+          <button type="button" class="timer-btn" id="btn-timer-pause" aria-label="Pause or resume timer">⏸</button>
+          <button type="button" class="timer-btn" id="btn-timer-reset" aria-label="Reset match clock" title="Reset clock">↺</button>
         </div>
         <div class="start-match-bar" id="start-match-bar" hidden>
           <button class="btn-start-match-cta" id="btn-start-match-cta">
@@ -634,6 +635,12 @@
     <div class="goal-tip" id="goal-tip" hidden>
       <span class="goal-tip-text">Hold a player to record a goal ⚽ · Tap the badge to undo</span>
       <button class="goal-tip-dismiss" id="btn-goal-tip-dismiss" aria-label="Dismiss">✕</button>
+    </div>
+
+    <div class="new-period-hint" id="new-period-hint" hidden>
+      <span class="new-period-hint-text" id="new-period-hint-text">New quarter — reset the match clock?</span>
+      <button class="new-period-hint-btn" id="btn-new-period-reset">Reset clock</button>
+      <button class="new-period-hint-ghost" id="btn-new-period-dismiss">Keep running</button>
     </div>
 
     <section class="report-section" id="report-section" style="display:none">

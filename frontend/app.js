@@ -1152,6 +1152,20 @@ function render() {
   if (lockedSlots.has(currentSlot)) {
     slotLabelEl.innerHTML += ' <span class="slot-locked-badge">LOCKED</span>';
   }
+
+  // New-period clock prompt: at the start of a new quarter/half in a live match,
+  // offer to reset the clock (unless already handled for this slot)
+  const hint = document.getElementById("new-period-hint");
+  const atNewPeriod = matchStarted && !isCompleted && !showingReport
+    && currentSlot > 0 && currentSlot % 2 === 0;
+  if (atNewPeriod && newPeriodHintSlot !== currentSlot) {
+    const label = (matchData.match.period_label || "Quarter").toLowerCase();
+    document.getElementById("new-period-hint-text").textContent =
+      `New ${label} — reset the match clock?`;
+    hint.hidden = false;
+  } else {
+    hint.hidden = true;
+  }
 }
 
 // ── Quarter-break changes interstitial ────────────────────────────────────────
@@ -1471,6 +1485,7 @@ async function doEndMatch() {
 // time regardless of navigating between quarters, going back to the match list,
 // or reloading the page — it never resets to 0:00 until the match ends.
 let timerInterval = null;
+let newPeriodHintSlot = null; // slot for which the "reset clock?" prompt was handled
 
 function timerKey() {
   return matchData?.match?.id != null ? `gaffer_timer_${matchData.match.id}` : null;
@@ -1509,6 +1524,13 @@ function beginMatchTimer() {
 function resumeMatchTimer() {
   if (!readTimer()) writeTimer({ startedAt: Date.now(), pausedAt: null, pausedAccumMs: 0 });
   startTimerTicker();
+}
+
+// Reset the clock to 0:00 (running) — used from the reset button and the
+// new-period prompt
+function resetMatchTimer() {
+  writeTimer({ startedAt: Date.now(), pausedAt: null, pausedAccumMs: 0 });
+  updateTimerDisplay();
 }
 
 // Stop ticking + hide, but KEEP the stored clock so it persists across navigation
@@ -1557,6 +1579,21 @@ document.getElementById("btn-timer-pause").addEventListener("click", () => {
   }
   writeTimer(state);
   updateTimerDisplay();
+});
+
+document.getElementById("btn-timer-reset").addEventListener("click", () => {
+  if (readTimer() && confirm("Reset the match clock to 0:00?")) resetMatchTimer();
+});
+
+document.getElementById("btn-new-period-reset").addEventListener("click", () => {
+  resetMatchTimer();
+  newPeriodHintSlot = currentSlot;
+  document.getElementById("new-period-hint").hidden = true;
+});
+
+document.getElementById("btn-new-period-dismiss").addEventListener("click", () => {
+  newPeriodHintSlot = currentSlot;
+  document.getElementById("new-period-hint").hidden = true;
 });
 
 // ── Start match ───────────────────────────────────────────────────────────────

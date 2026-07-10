@@ -2683,7 +2683,7 @@ html, body {
   text-align: center;
 }
 
-.timer-pause {
+.timer-btn {
   background: none;
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 8px;
@@ -2692,4 +2692,42 @@ html, body {
   min-width: 44px;
   min-height: 44px;
   cursor: pointer;
+}
+
+/* New-period "reset clock?" prompt */
+.new-period-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 16px 0;
+  padding: 10px 12px;
+  background: rgba(245,181,68,0.12);
+  border: 1px solid rgba(245,181,68,0.4);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-light);
+}
+
+.new-period-hint-text { flex: 1; min-width: 140px; }
+
+.new-period-hint-btn {
+  background: #F5B544;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 700;
+  color: var(--pitch-deep, #0E3A29);
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.new-period-hint-ghost {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text-light);
+  cursor: pointer;
+  min-height: 40px;
 }
