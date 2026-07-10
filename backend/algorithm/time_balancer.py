@@ -6,9 +6,11 @@ but everyone is guaranteed a minimum. The fairness value (0-100) controls
 how much skill rating influences the distribution.
 
 Extra slots priority (equal mode):
-  1. Players with the most accumulated deficit from prior tournament matches
-  2. Players who covered non-specialist GK slots get rewarded first within deficit tier
-  3. Remaining players share further extra slots in rotation
+  1. Players who sat out the entire immediately preceding tournament match
+     (hard floor: guaranteed at least 1 slot this match)
+  2. Players with the most accumulated deficit from prior tournament matches
+  3. Players who covered non-specialist GK slots get rewarded first within deficit tier
+  4. Remaining players share further extra slots in rotation
 """
 from __future__ import annotations
 
@@ -20,6 +22,7 @@ def compute_target_slots(
     fairness: str = "equal",
     fairness_value: int = 0,
     prior_slots: dict | None = None,
+    must_play: set | None = None,
 ) -> dict:
     """Return target slot count per player.
 
@@ -32,10 +35,14 @@ def compute_target_slots(
         prior_slots: optional {player: slots_played_in_earlier_tournament_matches}.
             When provided, players who have played more than their fair share so far
             get lower priority for extra slots in this match (cross-match balancing).
+        must_play: optional set of players who sat out the entire immediately preceding
+            tournament match. These players are guaranteed at least 1 slot this match,
+            even if their computed target would otherwise be 0 (consecutive sit-out
+            hard constraint).
     """
     if fairness == "competitive" and fairness_value > 15:
-        return _competitive_targets(players, total_slots, fairness_value, prior_slots)
-    return _equal_targets(players, total_slots, non_specialist_gk_players, prior_slots)
+        return _competitive_targets(players, total_slots, fairness_value, prior_slots, must_play)
+    return _equal_targets(players, total_slots, non_specialist_gk_players, prior_slots, must_play)
 
 
 def _equal_targets(
@@ -43,17 +50,23 @@ def _equal_targets(
     total_slots: int,
     non_specialist_gk_players: list,
     prior_slots: dict | None = None,
+    must_play: set | None = None,
 ) -> dict:
     """Equal distribution: max 1 slot difference between any two players."""
     n = len(players)
     base = total_slots // n
     remainder = total_slots % n
 
-    priority_order = _extra_slot_priority(players, non_specialist_gk_players, prior_slots)
+    priority_order = _extra_slot_priority(
+        players, non_specialist_gk_players, prior_slots, must_play,
+    )
 
     targets: dict = {p: base for p in players}
     for i in range(remainder):
         targets[priority_order[i]] += 1
+
+    if must_play:
+        _enforce_must_play_floor(targets, must_play, players)
 
     return targets
 
@@ -63,6 +76,7 @@ def _competitive_targets(
     total_slots: int,
     fairness_value: int,
     prior_slots: dict | None = None,
+    must_play: set | None = None,
 ) -> dict:
     """Skill-weighted distribution: higher-skilled players get more time.
 
@@ -128,6 +142,9 @@ def _competitive_targets(
         targets[victim] -= 1
         current_total -= 1
 
+    if must_play:
+        _enforce_must_play_floor(targets, must_play, players)
+
     return targets
 
 
@@ -148,25 +165,52 @@ def _extra_slot_priority(
     players: list,
     non_specialist_gk_players: list,
     prior_slots: dict | None = None,
+    must_play: set | None = None,
 ) -> list:
     """Return players in priority order for receiving extra slots.
 
-    Priority: players with the most accumulated deficit first (fewest prior slots
-    relative to average), then GK-covering players, then others.
+    Priority: players who sat out the entire previous tournament match first,
+    then players with the most accumulated deficit (fewest prior slots relative
+    to average), then GK-covering players, then others.
     """
+    must_play = must_play or set()
+
     if prior_slots is not None and len(players) > 0:
         avg_prior = sum(prior_slots.get(p, 0) for p in players) / len(players)
-        # Sort: most deficit first (prior < avg), then GK bonus, then others
+        # Sort: must-play first, then most deficit first (prior < avg), then GK bonus
         gk_set = set(id(p) for p in non_specialist_gk_players if p in players)
 
         def sort_key(p):
+            must_play_bonus = 1 if p in must_play else 0
             deficit = avg_prior - prior_slots.get(p, 0)  # positive = behind on minutes
             gk_bonus = 1 if id(p) in gk_set else 0
-            return (-deficit, -gk_bonus)  # most deficit first
+            return (-must_play_bonus, -deficit, -gk_bonus)  # must-play first, then most deficit
 
         return sorted(players, key=sort_key)
 
-    # Original behaviour: GK players first, then others
-    priority = [p for p in non_specialist_gk_players if p in players]
+    # Original behaviour: must-play players first, then GK players, then others
+    priority = [p for p in players if p in must_play]
+    priority += [p for p in non_specialist_gk_players if p in players and p not in must_play]
     priority += [p for p in players if p not in priority]
     return priority
+
+
+def _enforce_must_play_floor(targets: dict, must_play: set, players: list) -> None:
+    """Guarantee every must_play player gets at least 1 slot, preserving the total.
+
+    Takes a slot away from whoever currently has the highest target (preferring
+    to steal from players not themselves in must_play) so the overall slot total
+    for this match is unchanged.
+    """
+    for p in players:
+        if p not in must_play or targets.get(p, 0) >= 1:
+            continue
+        donors = sorted(
+            (q for q in players if q is not p and targets.get(q, 0) > 0),
+            key=lambda q: (q in must_play, -targets[q]),
+        )
+        if not donors:
+            continue  # squad too small / slots too few to satisfy without breaking someone else
+        donor = donors[0]
+        targets[donor] -= 1
+        targets[p] = 1

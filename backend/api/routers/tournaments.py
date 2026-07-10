@@ -184,6 +184,43 @@ def _compute_prior_slots(
     return dict(prior_counts)
 
 
+def _compute_previous_match_zero_slot_players(
+    session: Session, tournament_id: int, current_match_number: int | None, players_db: list[PlayerDB],
+) -> set[str]:
+    """Return names of players who were available but got zero slots in the
+    immediately preceding tournament match (consecutive sit-out constraint input)."""
+    if not current_match_number or current_match_number <= 1:
+        return set()
+
+    prev_m = session.exec(
+        select(MatchDB).where(
+            MatchDB.tournament_id == tournament_id,
+            MatchDB.match_number == current_match_number - 1,
+        )
+    ).first()
+    if not prev_m:
+        return set()
+
+    plan_db = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == prev_m.id)
+    ).first()
+    if not plan_db:
+        return set()
+
+    id_to_name = {p.id: p.name for p in players_db if p.id is not None}
+    available_ids = (
+        json.loads(plan_db.available_player_ids_json) if plan_db.available_player_ids_json else []
+    )
+    played_ids: set = set()
+    for slot_data in json.loads(plan_db.slots_json):
+        played_ids.update(slot_data["lineup"].values())
+
+    return {
+        id_to_name[pid] for pid in available_ids
+        if pid in id_to_name and pid not in played_ids
+    }
+
+
 # ── Tournament CRUD ───────────────────────────────────────────────────────────
 
 @router.get("/", response_model=list[TournamentRead])
@@ -448,16 +485,27 @@ def set_available_players(
         match_domain, squad_domain = match_db_to_domain(db_match, players_db)
 
         prior_by_name = _compute_prior_slots(session, tournament_id, db_match.id, players_db)
+        player_name_map = {p.name: p for p in squad_domain.available}
         prior_slots_for_algo = None
         if prior_by_name:
-            player_name_map = {p.name: p for p in squad_domain.available}
             prior_slots_for_algo = {
                 player_name_map[name]: count
                 for name, count in prior_by_name.items()
                 if name in player_name_map
             }
 
-        plan = generate_rotation(squad_domain, match_domain, prior_slots=prior_slots_for_algo)
+        zero_slot_names = _compute_previous_match_zero_slot_players(
+            session, tournament_id, db_match.match_number, players_db,
+        )
+        must_play_players = {
+            player_name_map[name] for name in zero_slot_names if name in player_name_map
+        } or None
+
+        plan = generate_rotation(
+            squad_domain, match_domain,
+            prior_slots=prior_slots_for_algo,
+            previous_match_zero_slot_players=must_play_players,
+        )
         save_rotation(session, db_match.id, plan, players_db)
 
         rotation = session.exec(
@@ -674,16 +722,28 @@ def add_tournament_match(
 
     # Cross-match fairness: load prior slot counts from earlier tournament matches
     prior_by_name = _compute_prior_slots(session, tournament_id, db_match.id, players_db)
+    player_name_map = {p.name: p for p in squad_domain.available}
     prior_slots_for_algo = None
     if prior_by_name:
-        player_name_map = {p.name: p for p in squad_domain.available}
         prior_slots_for_algo = {
             player_name_map[name]: count
             for name, count in prior_by_name.items()
             if name in player_name_map
         }
 
-    plan = generate_rotation(squad_domain, match_domain, prior_slots=prior_slots_for_algo)
+    # Consecutive sit-out constraint: guarantee a slot for anyone benched entirely last match
+    zero_slot_names = _compute_previous_match_zero_slot_players(
+        session, tournament_id, db_match.match_number, players_db,
+    )
+    must_play_players = {
+        player_name_map[name] for name in zero_slot_names if name in player_name_map
+    } or None
+
+    plan = generate_rotation(
+        squad_domain, match_domain,
+        prior_slots=prior_slots_for_algo,
+        previous_match_zero_slot_players=must_play_players,
+    )
     save_rotation(session, db_match.id, plan, players_db)
 
     # Store available player IDs on the rotation plan

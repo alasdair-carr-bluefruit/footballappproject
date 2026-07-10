@@ -14,8 +14,15 @@ def validate(
     plan: RotationPlan,
     all_players: list,
     config: GameConfig | None = None,
+    previous_match_zero_slot_players: set | None = None,
 ) -> list:
-    """Return list of constraint violations. Empty = valid."""
+    """Return list of constraint violations. Empty = valid.
+
+    Args:
+        previous_match_zero_slot_players: optional set of players who sat out
+            the entire immediately preceding tournament match. Used to flag a
+            hard violation if any of them sit out this match too.
+    """
     cfg = config or DEFAULT_CONFIG
     violations: list = []
     violations += _check_def_restrictions(plan, all_players)
@@ -24,6 +31,7 @@ def validate(
     violations += _check_mid_period_sub_limit(plan, cfg)
     violations += _check_playing_time_equality(plan, all_players, cfg)
     violations += _check_specialist_never_outfield(plan, all_players)
+    violations += _check_consecutive_sit_out(plan, all_players, previous_match_zero_slot_players)
     return violations
 
 
@@ -110,6 +118,23 @@ def _check_playing_time_equality(
             f"(difference {max_slots - min_slots}, max allowed {max_allowed})"
         ]
     return []
+
+
+def _check_consecutive_sit_out(
+    plan: RotationPlan,
+    players: list,
+    previous_match_zero_slot_players: set | None,
+) -> list:
+    if not previous_match_zero_slot_players:
+        return []
+    violations = []
+    for player in players:
+        if player in previous_match_zero_slot_players and plan.slot_count_for_player(player) == 0:
+            violations.append(
+                f"Consecutive sit-out: {player.name} sat out the entire previous "
+                f"tournament match and sits out this match too"
+            )
+    return violations
 
 
 def _check_specialist_never_outfield(plan: RotationPlan, players: list) -> list:

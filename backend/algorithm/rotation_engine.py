@@ -34,7 +34,10 @@ def _resolve_config(match: Match) -> GameConfig:
 
 
 def generate_rotation(
-    squad: Squad, match: Match, prior_slots: dict | None = None,
+    squad: Squad,
+    match: Match,
+    prior_slots: dict | None = None,
+    previous_match_zero_slot_players: set | None = None,
 ) -> RotationPlan:
     """Generate a full rotation plan for the match.
 
@@ -43,6 +46,9 @@ def generate_rotation(
         match: match configuration
         prior_slots: optional {Player: int} mapping players to slots already played
             in earlier matches of the same tournament day (cross-match fairness).
+        previous_match_zero_slot_players: optional set of Players who sat out the
+            entire immediately preceding tournament match. They are guaranteed at
+            least 1 slot this match (consecutive sit-out hard constraint).
 
     Raises:
         ValueError: if the squad is too small to fill a lineup
@@ -100,10 +106,14 @@ def generate_rotation(
         {p: v for p, v in prior_slots.items() if p in outfield_players}
         if prior_slots else None
     )
+    outfield_must_play = (
+        {p for p in previous_match_zero_slot_players if p in outfield_players}
+        if previous_match_zero_slot_players else None
+    )
     outfield_targets = compute_target_slots(
         outfield_players, outfield_total_slots, non_specialist_gk_players,
         fairness=match.fairness, fairness_value=fairness_value,
-        prior_slots=outfield_prior,
+        prior_slots=outfield_prior, must_play=outfield_must_play,
     )
     targets = {**specialist_gk_targets, **outfield_targets}
 
@@ -114,7 +124,10 @@ def generate_rotation(
             future_gk[id(gk)] += 1
 
     # Step 3: Build slot assignments
-    plan = _build_slots(players, gk_assignments, targets, future_gk, num_slots, config, rotation_intensity)
+    plan = _build_slots(
+        players, gk_assignments, targets, future_gk, num_slots, config, rotation_intensity,
+        must_play=previous_match_zero_slot_players,
+    )
     plan.warnings.extend(warnings)
 
     # Step 4: Skill balance optimisation (soft preference)
@@ -126,7 +139,7 @@ def generate_rotation(
         plan = _align_mid_quarter_positions(plan, config)
 
     # Step 5: Validate
-    violations = validate(plan, players, config)
+    violations = validate(plan, players, config, previous_match_zero_slot_players)
     if violations:
         plan.warnings.extend(["VIOLATION: " + v for v in violations])
 
@@ -138,6 +151,7 @@ def adjust_rotation(
     edits: dict[int, dict[str, str]],
     squad: Squad,
     match: Match,
+    previous_match_zero_slot_players: set | None = None,
 ) -> tuple[RotationPlan, list[dict]]:
     """Re-generate unlocked slots around manual edits.
 
@@ -182,7 +196,7 @@ def adjust_rotation(
     if not unlocked_indices:
         # Everything is locked — just validate and return
         plan = RotationPlan(slots=new_slots, warnings=list(original_plan.warnings))
-        violations = validate(plan, players, config)
+        violations = validate(plan, players, config, previous_match_zero_slot_players)
         if violations:
             plan.warnings = ["VIOLATION: " + v for v in violations]
         return plan, _fairness_diff(original_counts, plan, players)
@@ -216,9 +230,14 @@ def adjust_rotation(
         adj_outfield_players = [p for p in players if p not in specialist_gk_set]
         adj_outfield_total = total_player_slots - sum(specialist_gk_targets_adj.values())
 
+    adj_outfield_must_play = (
+        {p for p in previous_match_zero_slot_players if p in adj_outfield_players}
+        if previous_match_zero_slot_players else None
+    )
     adj_outfield_targets = compute_target_slots(
         adj_outfield_players, adj_outfield_total, non_specialist_gk,
         fairness=match.fairness, fairness_value=fairness_value,
+        must_play=adj_outfield_must_play,
     )
     targets = {**specialist_gk_targets_adj, **adj_outfield_targets}
 
@@ -233,7 +252,7 @@ def adjust_rotation(
     locked_slot_map = {s.slot_index: s for s in new_slots if s.locked}
     merged_plan = _build_slots(
         players, gk_assignments_orig, targets, future_gk, num_slots, config, rotation_intensity,
-        pre_filled_slots=locked_slot_map,
+        pre_filled_slots=locked_slot_map, must_play=previous_match_zero_slot_players,
     )
 
     plan = RotationPlan(slots=merged_plan.slots, warnings=[])
@@ -243,7 +262,7 @@ def adjust_rotation(
     if rotation_intensity < 70:
         plan = _align_mid_quarter_positions(plan, config)
 
-    violations = validate(plan, players, config)
+    violations = validate(plan, players, config, previous_match_zero_slot_players)
     if violations:
         plan.warnings.extend(["VIOLATION: " + v for v in violations])
 
@@ -329,12 +348,15 @@ def _build_slots(
     config: GameConfig,
     rotation_intensity: int = 50,
     pre_filled_slots: dict | None = None,
+    must_play: set | None = None,
 ) -> RotationPlan:
     """Assign players to all slots respecting constraints.
 
     pre_filled_slots: optional dict[slot_index → SlotAssignment] for locked slots.
     Locked slots are inserted as-is and their players are counted into slot_counts
     so the algorithm correctly budgets the remaining unlocked slots.
+    must_play: optional set of players who must be prioritised into slots ahead of
+    others whenever they still have budget (consecutive sit-out hard constraint).
     """
     outfield_count = config.formation.outfield_count
     slot_counts: dict = defaultdict(int)
@@ -372,14 +394,14 @@ def _build_slots(
         if is_mid_period and prev_slot is not None:
             outfield_players = _select_outfield_mid_period(
                 players, gk_player, prev_slot, targets, slot_counts, remaining_gk,
-                outfield_count, config.mid_period_subs,
+                outfield_count, config.mid_period_subs, must_play,
             )
         else:
             outfield_candidates = _eligible_outfield(
                 players, gk_player, targets, slot_counts, remaining_gk
             )
             outfield_players = _select_outfield(
-                outfield_candidates, targets, slot_counts, remaining_gk, outfield_count,
+                outfield_candidates, targets, slot_counts, remaining_gk, outfield_count, must_play,
             )
 
         _assign_outfield_positions(
@@ -408,12 +430,13 @@ def _eligible_outfield(
 
 def _select_outfield(
     candidates: list, targets: dict, slot_counts: dict, remaining_gk: dict,
-    outfield_count: int,
+    outfield_count: int, must_play: set | None = None,
 ) -> list:
     """Select outfield players for a regular (period-start) slot."""
     def sort_key(p: Player) -> tuple:
+        must_play_bonus = 0 if (must_play and p in must_play) else 1
         outfield_budget = targets.get(p, 0) - slot_counts[p] - remaining_gk.get(id(p), 0)
-        return (slot_counts[p], -outfield_budget)
+        return (must_play_bonus, slot_counts[p], -outfield_budget)
 
     shuffled = list(candidates)
     random.shuffle(shuffled)
@@ -430,6 +453,7 @@ def _select_outfield_mid_period(
     remaining_gk: dict,
     outfield_count: int,
     mid_period_subs: int,
+    must_play: set | None = None,
 ) -> list:
     """Select outfield players for a mid-period slot (limited new players vs previous slot).
 
@@ -468,7 +492,8 @@ def _select_outfield_mid_period(
     random.shuffle(bench_candidates)
 
     def bench_sort_key(p: Player) -> tuple:
-        return (slot_counts[p], -budget(p))
+        must_play_bonus = 0 if (must_play and p in must_play) else 1
+        return (must_play_bonus, slot_counts[p], -budget(p))
 
     bench_sorted = sorted(bench_candidates, key=bench_sort_key)
     slots_needed = outfield_count - len(carry_over)
@@ -484,16 +509,20 @@ def _select_outfield_mid_period(
     result = carry_over + new_players
 
     # If still short, pull remaining within-budget players from anywhere
+    # (must_play players first, so the sub-limit cap above can't crowd them out)
     if len(result) < outfield_count:
         result_ids = {id(p) for p in result}
         if gk_player is not None:
             result_ids.add(id(gk_player))
-        extras_in_budget = [
-            p for p in all_players
-            if id(p) not in result_ids
-            and p.gk_status != GKTier.SPECIALIST
-            and budget(p) > 0
-        ]
+        extras_in_budget = sorted(
+            (
+                p for p in all_players
+                if id(p) not in result_ids
+                and p.gk_status != GKTier.SPECIALIST
+                and budget(p) > 0
+            ),
+            key=lambda p: 0 if (must_play and p in must_play) else 1,
+        )
         result += extras_in_budget[:outfield_count - len(result)]
 
     # Last resort: prefer over-budget carry-overs (minimizes changes), then bench
