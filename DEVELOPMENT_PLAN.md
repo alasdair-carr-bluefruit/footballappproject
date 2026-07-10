@@ -183,7 +183,13 @@ onto the shared instance instead of yet more Render clones.
 3. Add CSS/HTML unit tests to prevent recurrence of the `display:flex` / `[hidden]`
    class of bug (e.g. Playwright assertions that key elements are not visible when they
    should be hidden, across both season and tournament flows).
-4. Backend tidy-ups: extract stats/history aggregation out of `matches.py` into
+4. Add **mutation testing** (`mutmut`) against the pure algorithm modules
+   (`rotation_engine`, `time_balancer`, `gk_selector`, `skill_balancer`, `validator`).
+   Run after the module split so coverage is cleanly scoped. Surviving mutants reveal
+   hollow tests — fix by strengthening assertions, not by adding more tests. Note: seed
+   `random.shuffle` in algorithm unit tests first (see known flaky tests in CLAUDE.md)
+   so mutation runs are deterministic.
+5. Backend tidy-ups: extract stats/history aggregation out of `matches.py` into
    `analytics.py`; replace silent frontend `.catch()`s with a toast/retry helper;
    fix SW cache list + add a network timeout fallback.
 
