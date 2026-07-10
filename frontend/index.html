@@ -788,7 +788,15 @@
 <script type="module" src="app.js"></script>
 <script>
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js");
+    navigator.serviceWorker.register("/sw.js").then(reg => reg.update());
+    // When a new service worker takes control, reload once so the freshly
+    // deployed app.js/index.html/style.css are actually used (no manual cache clear)
+    let swRefreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (swRefreshing) return;
+      swRefreshing = true;
+      window.location.reload();
+    });
   }
 </script>
 </body>
