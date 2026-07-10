@@ -358,6 +358,31 @@ document.getElementById("home-away-picker").addEventListener("click", e => {
   document.querySelectorAll(".ha-btn").forEach(b => b.classList.toggle("active", b === btn));
 });
 
+// Light-hearted warnings for the competitive end of the slider — a fresh one
+// each time the coach slides into the zone (think Ted Lasso, not Roy Kent)
+const COMPETITIVE_QUIPS = [
+  "Careful, Sir Alex! It's grassroots, not a cup final.",
+  "Even Klopp rotates his squad! Give the bench a run.",
+  "Parking the bus? Make sure everyone gets on it first.",
+  "Save the tactical masterclass; let's ensure everyone gets a game.",
+  "Great team, but remember: no Ballon d'Ors at this level.",
+  "Three points are nice, but so is equal playing time.",
+  "Steady on, Pep — this isn't the Champions League.",
+  "Think more Ted Lasso, less Roy Kent.",
+  "Relax — the scouts aren't watching. Everyone gets a run-out.",
+  "The real trophy is the post-match snack bag.",
+];
+let lastQuipIndex = -1;
+
+function pickCompetitiveQuip() {
+  let i;
+  do {
+    i = Math.floor(Math.random() * COMPETITIVE_QUIPS.length);
+  } while (i === lastQuipIndex);
+  lastQuipIndex = i;
+  return COMPETITIVE_QUIPS[i];
+}
+
 function updateFairnessLabel(value, elId = "fairness-value", warnId = "fairness-warning") {
   const el = document.getElementById(elId);
   const warn = document.getElementById(warnId);
@@ -367,7 +392,11 @@ function updateFairnessLabel(value, elId = "fairness-value", warnId = "fairness-
   else if (v <= 60) el.textContent = "Balanced — skill matters but everyone plays";
   else if (v <= 85) el.textContent = "Competitive — best players get more time";
   else el.textContent = "Win mode — strongest lineup prioritised";
-  if (warn) warn.hidden = v <= 60;
+  if (warn) {
+    const show = v > 60;
+    if (show && warn.hidden) warn.textContent = pickCompetitiveQuip();
+    warn.hidden = !show;
+  }
 }
 
 document.getElementById("fairness-slider").addEventListener("input", e => {
@@ -2692,7 +2721,7 @@ function openAddMatchPanel(stage) {
   document.getElementById("add-match-opponent").value = "";
   document.getElementById("knockout-options").hidden = stage !== "knockout";
   document.getElementById("knockout-fairness-slider").value = 50;
-  updateFairnessLabel(50, "knockout-fairness-label");
+  updateFairnessLabel(50, "knockout-fairness-label", "knockout-fairness-warning");
   document.getElementById("add-match-panel").hidden = false;
 }
 
@@ -2703,7 +2732,7 @@ document.getElementById("btn-add-match-cancel").addEventListener("click", () => 
 });
 
 document.getElementById("knockout-fairness-slider").addEventListener("input", e => {
-  updateFairnessLabel(e.target.value, "knockout-fairness-label");
+  updateFairnessLabel(e.target.value, "knockout-fairness-label", "knockout-fairness-warning");
 });
 
 // Guest player form (overlay)
@@ -2786,11 +2815,10 @@ document.getElementById("guest-player-form").addEventListener("submit", async e 
 
 // Generate tournament match
 document.getElementById("btn-generate-tournament-match").addEventListener("click", async () => {
-  const opponent = document.getElementById("add-match-opponent").value.trim();
-  if (!opponent) {
-    document.getElementById("add-match-opponent").focus();
-    return;
-  }
+  // Opponent name is optional — auto-name like batch generation does; the
+  // coach can rename later from the lobby (✎)
+  const opponent = document.getElementById("add-match-opponent").value.trim()
+    || `Match ${(activeTournamentData?.matches?.length || 0) + 1}`;
 
   // Use all players currently in the tournament (squad + any guests)
   const t = activeTournamentData;
