@@ -1565,7 +1565,10 @@ function updateTimerDisplay() {
   const mm = String(Math.floor(total / 60)).padStart(2, "0");
   const ss = String(total % 60).padStart(2, "0");
   document.getElementById("timer-display").textContent = `${mm}:${ss}`;
-  document.getElementById("btn-timer-pause").textContent = state.pausedAt == null ? "⏸" : "▶";
+  const paused = state.pausedAt != null;
+  document.getElementById("btn-timer-pause").textContent = paused ? "▶" : "⏸";
+  // Reset is only offered while paused — prevents accidental resets during play
+  document.getElementById("btn-timer-reset").hidden = !paused;
 }
 
 document.getElementById("btn-timer-pause").addEventListener("click", () => {
