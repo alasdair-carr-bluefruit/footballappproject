@@ -1698,6 +1698,14 @@ html, body {
   line-height: 1.3;
 }
 
+.rotation-option-warn {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #F5B544;
+}
+
 .rotation-clarifier {
   font-size: 11px;
   color: rgba(242, 244, 238, 0.45);

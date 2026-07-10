@@ -333,9 +333,9 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
   document.getElementById("fairness-slider").value = 0;
   updateFairnessLabel(0);
-  // Reset rotation to Flexible (default)
-  const flexRadio = document.querySelector('input[name="rotation"][value="50"]');
-  if (flexRadio) flexRadio.checked = true;
+  // Reset rotation to All-rounder (default)
+  const defRotRadio = document.querySelector('input[name="rotation"][value="100"]');
+  if (defRotRadio) defRotRadio.checked = true;
 
   // Load game configs if not cached
   if (!gameConfigs) {
@@ -2359,7 +2359,7 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   document.getElementById("tournament-halftime").checked = false;
   document.getElementById("tournament-fairness-slider").value = 0;
   updateFairnessLabel(0, "tournament-fairness-value", "tournament-fairness-warning");
-  const defaultRotRadio = document.querySelector('input[name="tournament-rotation"][value="50"]');
+  const defaultRotRadio = document.querySelector('input[name="tournament-rotation"][value="100"]');
   if (defaultRotRadio) defaultRotRadio.checked = true;
   document.getElementById("tournament-num-matches").value = "4";
   tournamentSelectSize(5);
