@@ -21,8 +21,10 @@ from backend.algorithm.rotation_engine import generate_rotation
 from backend.db.database import get_session
 from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, TournamentDB
 from backend.db.repositories import (
+    get_must_play_players,
     get_or_create_squad,
     get_players,
+    get_prior_tournament_slots,
     match_db_to_domain,
     rotation_plan_from_json,
     save_rotation,
@@ -153,71 +155,6 @@ def _match_response(
         "slots": slots,
         "warnings": warnings,
         "removed_players": removed_players or {},
-    }
-
-
-def _compute_prior_slots(
-    session: Session, tournament_id: int, exclude_match_id: int, players_db: list[PlayerDB],
-) -> dict[str, int]:
-    """Return {player_name: slots_played} across all OTHER completed matches in tournament."""
-    id_to_name = {p.id: p.name for p in players_db if p.id is not None}
-    prior_counts: dict = defaultdict(int)
-
-    prev_matches = session.exec(
-        select(MatchDB).where(
-            MatchDB.tournament_id == tournament_id,
-            MatchDB.id != exclude_match_id,
-        )
-    ).all()
-
-    for prev_m in prev_matches:
-        plan_db = session.exec(
-            select(RotationPlanDB).where(RotationPlanDB.match_id == prev_m.id)
-        ).first()
-        if not plan_db:
-            continue
-        for slot_data in json.loads(plan_db.slots_json):
-            for pid in slot_data["lineup"].values():
-                if pid in id_to_name:
-                    prior_counts[id_to_name[pid]] += 1
-
-    return dict(prior_counts)
-
-
-def _compute_previous_match_zero_slot_players(
-    session: Session, tournament_id: int, current_match_number: int | None, players_db: list[PlayerDB],
-) -> set[str]:
-    """Return names of players who were available but got zero slots in the
-    immediately preceding tournament match (consecutive sit-out constraint input)."""
-    if not current_match_number or current_match_number <= 1:
-        return set()
-
-    prev_m = session.exec(
-        select(MatchDB).where(
-            MatchDB.tournament_id == tournament_id,
-            MatchDB.match_number == current_match_number - 1,
-        )
-    ).first()
-    if not prev_m:
-        return set()
-
-    plan_db = session.exec(
-        select(RotationPlanDB).where(RotationPlanDB.match_id == prev_m.id)
-    ).first()
-    if not plan_db:
-        return set()
-
-    id_to_name = {p.id: p.name for p in players_db if p.id is not None}
-    available_ids = (
-        json.loads(plan_db.available_player_ids_json) if plan_db.available_player_ids_json else []
-    )
-    played_ids: set = set()
-    for slot_data in json.loads(plan_db.slots_json):
-        played_ids.update(slot_data["lineup"].values())
-
-    return {
-        id_to_name[pid] for pid in available_ids
-        if pid in id_to_name and pid not in played_ids
     }
 
 
@@ -484,7 +421,7 @@ def set_available_players(
 
         match_domain, squad_domain = match_db_to_domain(db_match, players_db)
 
-        prior_by_name = _compute_prior_slots(session, tournament_id, db_match.id, players_db)
+        prior_by_name = get_prior_tournament_slots(session, tournament_id, db_match.id, players_db)
         player_name_map = {p.name: p for p in squad_domain.available}
         prior_slots_for_algo = None
         if prior_by_name:
@@ -494,12 +431,9 @@ def set_available_players(
                 if name in player_name_map
             }
 
-        zero_slot_names = _compute_previous_match_zero_slot_players(
-            session, tournament_id, db_match.match_number, players_db,
+        must_play_players = get_must_play_players(
+            session, tournament_id, db_match.match_number, players_db, squad_domain.available,
         )
-        must_play_players = {
-            player_name_map[name] for name in zero_slot_names if name in player_name_map
-        } or None
 
         plan = generate_rotation(
             squad_domain, match_domain,
@@ -721,7 +655,7 @@ def add_tournament_match(
     match_domain, squad_domain = match_db_to_domain(db_match, players_db)
 
     # Cross-match fairness: load prior slot counts from earlier tournament matches
-    prior_by_name = _compute_prior_slots(session, tournament_id, db_match.id, players_db)
+    prior_by_name = get_prior_tournament_slots(session, tournament_id, db_match.id, players_db)
     player_name_map = {p.name: p for p in squad_domain.available}
     prior_slots_for_algo = None
     if prior_by_name:
@@ -732,12 +666,9 @@ def add_tournament_match(
         }
 
     # Consecutive sit-out constraint: guarantee a slot for anyone benched entirely last match
-    zero_slot_names = _compute_previous_match_zero_slot_players(
-        session, tournament_id, db_match.match_number, players_db,
+    must_play_players = get_must_play_players(
+        session, tournament_id, db_match.match_number, players_db, squad_domain.available,
     )
-    must_play_players = {
-        player_name_map[name] for name in zero_slot_names if name in player_name_map
-    } or None
 
     plan = generate_rotation(
         squad_domain, match_domain,

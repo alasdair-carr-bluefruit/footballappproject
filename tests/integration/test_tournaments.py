@@ -263,3 +263,91 @@ def test_tournament_match_with_guest_player(
         },
     )
     assert resp.status_code == 200
+
+
+# ── Consecutive sit-out constraint (Issue1) ───────────────────────────────────
+
+@pytest.fixture()
+def squad_ids_12(client: TestClient, squad_10: None) -> list[int]:
+    """12 available players for a 5v5 2-slot match → 10 player-slots, so exactly
+    2 players must sit out each match entirely. Guarantees the sit-out case."""
+    for p in [
+        {"name": "Finn", "gk_status": "can_play", "def_restricted": False, "skill_rating": 3},
+        {"name": "Theo", "gk_status": "can_play", "def_restricted": False, "skill_rating": 3},
+    ]:
+        client.post("/api/squad/players", json=p)
+    return [p["id"] for p in client.get("/api/squad/players").json()]
+
+
+def _zero_slot_names(match_data: dict, all_names: set[str]) -> set[str]:
+    played: set[str] = set()
+    for slot in match_data["slots"]:
+        played.update(p["name"] for p in slot["lineup"].values())
+    return all_names - played
+
+
+def _add_match(client: TestClient, tournament_id: int, player_ids: list[int]) -> dict:
+    resp = client.post(
+        f"/api/tournaments/{tournament_id}/matches",
+        json={"opponent": "Team", "stage": "group", "available_player_ids": player_ids},
+    )
+    assert resp.status_code == 200
+    return resp.json()
+
+
+def test_no_consecutive_sit_outs_across_tournament_matches(
+    client: TestClient, tournament: dict, squad_ids_12: list[int]
+) -> None:
+    """A player benched for all of match N must get at least one slot in match N+1."""
+    all_names = {p["name"] for p in client.get("/api/squad/players").json()}
+
+    match1 = _add_match(client, tournament["id"], squad_ids_12)
+    benched_m1 = _zero_slot_names(match1, all_names)
+    assert benched_m1, "test setup expects 12 players / 10 slots to bench someone"
+
+    match2 = _add_match(client, tournament["id"], squad_ids_12)
+    benched_m2 = _zero_slot_names(match2, all_names)
+
+    repeat_offenders = benched_m1 & benched_m2
+    assert not repeat_offenders, (
+        f"{repeat_offenders} sat out two consecutive tournament matches entirely"
+    )
+
+
+def test_adjust_flags_consecutive_sit_out(
+    client: TestClient, tournament: dict, squad_ids_12: list[int]
+) -> None:
+    """Tinkering a benched-last-match player back out of match 2 must raise a
+    VIOLATION warning (the constraint survives manual adjustment)."""
+    all_names = {p["name"] for p in client.get("/api/squad/players").json()}
+
+    match1 = _add_match(client, tournament["id"], squad_ids_12)
+    benched_m1 = _zero_slot_names(match1, all_names)
+    assert benched_m1
+
+    match2 = _add_match(client, tournament["id"], squad_ids_12)
+    target_name = next(iter(benched_m1 - _zero_slot_names(match2, all_names)))
+
+    # Build edits replacing the must-play player with a bench player in every
+    # slot they appear, and lock all slots so no regeneration can restore them.
+    edits: dict[int, dict[str, int]] = {}
+    for slot in match2["slots"]:
+        for pos_key, player in slot["lineup"].items():
+            if player["name"] == target_name:
+                replacement = next(
+                    b for b in slot["bench"]
+                    if not b["def_restricted"] and b["name"] != target_name
+                )
+                edits.setdefault(slot["slot_index"], {})[pos_key] = replacement["id"]
+    assert edits, f"{target_name} should have at least one slot in match 2"
+
+    all_slot_indices = [s["slot_index"] for s in match2["slots"]]
+    resp = client.post(
+        f"/api/matches/{match2['match']['id']}/adjust",
+        json={"edits": edits, "locked_slots": all_slot_indices},
+    )
+    assert resp.status_code == 200
+    warnings = resp.json()["warnings"]
+    assert any("Consecutive sit-out" in w and target_name in w for w in warnings), (
+        f"expected a consecutive sit-out violation for {target_name}, got: {warnings}"
+    )

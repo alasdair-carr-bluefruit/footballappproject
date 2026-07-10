@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from datetime import date as date_type
 from typing import Any
 
@@ -63,6 +64,97 @@ def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squa
     )
     squad = Squad(players=[player_db_to_domain(p) for p in players])
     return match, squad
+
+
+def get_prior_tournament_slots(
+    session: Session, tournament_id: int, exclude_match_id: int, players_db: list[PlayerDB],
+) -> dict[str, int]:
+    """Return {player_name: slots_played} across all OTHER matches in the tournament.
+
+    Feeds cross-match cumulative fairness (prior_slots in the rotation engine).
+    """
+    id_to_name = {p.id: p.name for p in players_db if p.id is not None}
+    prior_counts: dict = defaultdict(int)
+
+    prev_matches = session.exec(
+        select(MatchDB).where(
+            MatchDB.tournament_id == tournament_id,
+            MatchDB.id != exclude_match_id,
+        )
+    ).all()
+
+    for prev_m in prev_matches:
+        plan_db = session.exec(
+            select(RotationPlanDB).where(RotationPlanDB.match_id == prev_m.id)
+        ).first()
+        if not plan_db:
+            continue
+        for slot_data in json.loads(plan_db.slots_json):
+            for pid in slot_data["lineup"].values():
+                if pid in id_to_name:
+                    prior_counts[id_to_name[pid]] += 1
+
+    return dict(prior_counts)
+
+
+def get_previous_match_zero_slot_players(
+    session: Session,
+    tournament_id: int,
+    current_match_number: int | None,
+    players_db: list[PlayerDB],
+) -> set[str]:
+    """Return names of players who were available but got zero slots in the
+    immediately preceding tournament match (consecutive sit-out constraint input)."""
+    if not current_match_number or current_match_number <= 1:
+        return set()
+
+    prev_m = session.exec(
+        select(MatchDB).where(
+            MatchDB.tournament_id == tournament_id,
+            MatchDB.match_number == current_match_number - 1,
+        )
+    ).first()
+    if not prev_m:
+        return set()
+
+    plan_db = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == prev_m.id)
+    ).first()
+    if not plan_db:
+        return set()
+
+    id_to_name = {p.id: p.name for p in players_db if p.id is not None}
+    available_ids = (
+        json.loads(plan_db.available_player_ids_json) if plan_db.available_player_ids_json else []
+    )
+    played_ids: set = set()
+    for slot_data in json.loads(plan_db.slots_json):
+        played_ids.update(slot_data["lineup"].values())
+
+    return {
+        id_to_name[pid] for pid in available_ids
+        if pid in id_to_name and pid not in played_ids
+    }
+
+
+def get_must_play_players(
+    session: Session,
+    tournament_id: int,
+    current_match_number: int | None,
+    players_db: list[PlayerDB],
+    domain_players: list[Player],
+) -> set[Player] | None:
+    """Domain-level set of players who sat out the entire previous tournament match.
+
+    Returns None (not an empty set) when there are none, matching the rotation
+    engine's optional-parameter convention.
+    """
+    names = get_previous_match_zero_slot_players(
+        session, tournament_id, current_match_number, players_db,
+    )
+    by_name = {p.name: p for p in domain_players}
+    result = {by_name[n] for n in names if n in by_name}
+    return result or None
 
 
 def rotation_plan_to_json(plan: RotationPlan, player_name_to_id: dict[str, int]) -> str:
