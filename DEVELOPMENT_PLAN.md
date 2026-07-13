@@ -174,12 +174,17 @@ onto the shared instance instead of yet more Render clones.
    app-state context (screen, match id). Keep the existing link as a fallback.
 
 ### Phase C — Refactor for leverage
-1. Split `frontend/app.js` into ES modules: `state.js`, `screens.js`, `pitch.js`,
-   `setup-form.js` (shared season+tournament config form — kills the ~200 duplicated
-   lines), `season.js`, `tournament.js`. No framework.
-2. Add a **Playwright smoke suite** exercising both modes through the same flows
-   (create → generate → tinker → start → advance → full time). Lands first so subsequent
-   changes are regression-safe.
+> **Status (2026-07-13):** C.1, C.2, C.6 done & on `main`. C.3/C.4/C.5/C.7 remain.
+> Live tracker: `docs/refactor/NEXT_STEPS.md`.
+
+1. ✅ **DONE** (`f35492a`) Split `frontend/app.js` into ES modules: `state.js`, `screens.js`,
+   `pitch.js`, `setup-form.js` (shared season+tournament config form — killed the
+   duplicated picker lines), `season.js`, `tournament.js`. No framework. Globals
+   consolidated into a shared `state` object. Also fixed the pitch back-context bug
+   and dedup'd the size/formation pickers.
+2. ✅ **DONE** (`b5cc20f`) Added a **Playwright smoke suite** (`tests/e2e/`) exercising both
+   modes through the same flow (create → generate → tinker → start → advance → full time).
+   (Landed after C.1, not before, since the split was already complete working-tree WIP.)
 3. Add CSS/HTML unit tests to prevent recurrence of the `display:flex` / `[hidden]`
    class of bug (e.g. Playwright assertions that key elements are not visible when they
    should be hidden, across both season and tournament flows).
@@ -194,8 +199,8 @@ onto the shared instance instead of yet more Render clones.
    `tournament_service.py`. Routers become thin HTTP adapters; services own
    orchestration; repositories own queries. Makes unit testing endpoints practical
    without spinning up a full DB.
-6. **Schema normalisation** (do before multi-user to avoid concurrent-write races):
-   replace JSON blob columns (`slots_json`, `goals_json`, `removed_players_json`,
+6. ✅ **DONE** (`c9340a5`, `5d67a08`) **Schema normalisation** (done before multi-user to avoid concurrent-write races):
+   replaced JSON blob columns (`slots_json`, `goals_json`, `removed_players_json`,
    `available_player_ids_json`) with proper relational tables — `SlotDB`,
    `SlotAssignmentDB`, `GoalRecordDB`, `MatchAvailabilityDB`. Use Alembic for this
    migration (decide on Alembic here — it's the right tool once the schema evolves

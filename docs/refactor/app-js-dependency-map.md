@@ -1,5 +1,13 @@
 # app.js dependency map (pre-refactor)
 
+> ✅ **The split this document planned is DONE** (`f35492a`, on `main`). app.js is
+> now a 16-line entry point; the six modules below exist. Implementation used a
+> single shared `state` object instead of the per-variable setters proposed here
+> (cleaner — see `state.js`), and the §1d back-context bug was fixed via an
+> explicit `openMatch(id, backContext)` param rather than a reset in openMatch.
+> This file is kept as the historical rationale / module-boundary reference.
+> Current refactor status: `NEXT_STEPS.md`.
+
 Built by reading `frontend/app.js` in full (3,086 lines) and grepping every
 mutable global's read/write sites, before any code was moved. Target module
 split is the one named in `DEVELOPMENT_PLAN.md` Phase C.1: `state.js`,
