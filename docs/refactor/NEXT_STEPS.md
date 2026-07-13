@@ -1,4 +1,22 @@
-# Next steps — relational storage migration (resume here)
+# Relational storage migration — ✅ DONE & DEPLOYED (2026-07-13)
+
+> **This work is complete.** Committed as `c9340a5`, pushed to `main`, and live on
+> the `titansgaffer` Render instance. Startup migration ran on the live Neon DB,
+> backfilled cleanly, and production serves rotation plans off the relational tables
+> (verified: 10 players, 2 tournaments, match 29 → 2 slots / 7-player lineup, no errors).
+> The original `*_json` columns remain intact as a same-day rollback net.
+>
+> **Remaining follow-ups (not blocking):**
+> - Delete any leftover Neon rehearsal branch (had live creds).
+> - Later cleanup migration to drop the dormant `*_json` columns once fully confident.
+>
+> **Next actual work** (fresh thread): continue the refactor phase — app.js
+> modularisation (see `app-js-dependency-map.md`), Playwright smoke suite, CSS/HTML
+> unit tests — then v1.0 Plan Review UX. See `DEVELOPMENT_PLAN.md`.
+>
+> _Everything below is the historical playbook for the migration, kept for reference._
+
+---
 
 _Last updated 2026-07-13 (post-restart prep pass). Local rehearsal is done; the only
 remaining gate is the Neon branch run, which needs a connection string from you._
