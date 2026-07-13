@@ -66,10 +66,30 @@ what's done and what's next. Last updated 2026-07-13._
      every real `total_slots∈{2,4,8}`; the unused `players` param; and the
      position-variety check, which is unreachable because only 4 normalised
      position categories exist so `len(types) > max_types(=4)` can never hold).
-   - **Remaining (next):** ~610 survivors across `rotation_engine` (~250),
-     `time_balancer` (~140), `skill_balancer` (~130), `gk_selector` (~65). Same
-     approach — call the units directly with crafted inputs; watch for more
-     equivalent mutants in defensive branches.
+   - **`rotation_engine` (partial).** 842 mutants → **376 killed / 255 survived
+     / 211 uncovered** (was 344/287 before). New `test_rotation_engine_behaviors.py`
+     (8 tests) pins the stable coach-facing guarantees: squad-size threshold
+     (`n < players_per_slot`), equal-vs-competitive fairness incl. the 0→60
+     `fairness_value` derivation, and rotation-intensity→positional-spread
+     (`spread(100) > spread(0)`, seed-independent). Deliberately stopped there:
+     the remaining 255 are dominated by equivalent mutants (unused param
+     defaults, dead `outfield_count` assignment, randomised tie-breaks like
+     `min(..., key=len(position_sets[p]))`) and the multi-tier last-resort
+     fallback ladders in `_select_outfield_mid_period` (78 alone) — low ROI, no
+     robust assertion exists for a randomised best-effort heuristic.
+     - **Skipped by design:** `adjust_rotation` (0 survivors — entirely
+       uncovered/"no tests"). Its auto-recalc-of-following-slots is slated to be
+       reworked to coach-triggered-only, so pinning it now would just create
+       churn. See the adjust-plan-rework memory.
+     - **Finding (not fixed — product code):** `preferred_positions` is
+       documented in CLAUDE.md as a hard constraint ("never assigns a player
+       outside their preferred_positions") but the assigner's `pool_for` fallback
+       (`return p if p else unassigned`) ignores it once the preferred pool
+       empties — a MID-only player lands in DEF/FWD in ~60% of seeds. Worth a
+       decision: tighten the code, or soften the doc.
+   - **Remaining modules (next):** `time_balancer` (~140), `skill_balancer`
+     (~130), `gk_selector` (~65), plus the rotation_engine tail if worthwhile.
+     Same approach — call units directly with crafted inputs; expect equivalents.
 2. **C.5 — Service layer extraction.** Pull orchestration out of
    `backend/api/routers/matches.py` and `tournaments.py` into
    `backend/services/match_service.py` / `tournament_service.py`; routers become
