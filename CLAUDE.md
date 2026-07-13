@@ -16,9 +16,11 @@ A mobile-first Progressive Web App for grassroots youth football coaches to mana
 ## Current Phase
 
 **Refactor Phase (pre-v1.0)** — in progress. C.1 (app.js → ES modules), C.2
-(Playwright e2e smoke suite) and C.6 (relational schema) are done & on `main`.
-Remaining: C.3 (CSS/HTML visibility tests), C.4 (mutation testing), C.5 (service
-layer), C.7 (backend tidy-ups). **Live tracker: `docs/refactor/NEXT_STEPS.md`.**
+(Playwright e2e smoke suite), C.3 (CSS/HTML visibility tests) and C.6 (relational
+schema) are done & on `main`. C.4 (mutation testing) is in progress: mutmut wired
+up, `validator` fully hardened, `rotation_engine` + `time_balancer` partially done
+(`skill_balancer` / `gk_selector` remain). C.5 (service layer) and C.7 (backend
+tidy-ups) not started. **Live tracker: `docs/refactor/NEXT_STEPS.md`.**
 See DEVELOPMENT_PLAN.md for the full roadmap.
 
 Completed phases:
@@ -32,7 +34,7 @@ Completed phases:
 - v0.8: Tournament mode — tournament entity, cross-match cumulative fairness (`prior_slots`), guest players, manual rotation mode, tournament stats (shipped 2026-05-24 onwards). Not built: 8-a-side preset, knockout bracket structure.
 - v0.9: Consecutive sit-out constraint, match timer (count-up, persistent), fairness impact on removal/reinstatement, in-app bug reporting, All-rounder default rotation, inspection-based DB migrations (shipped 2026-07-10)
 
-Next significant work: finish the Refactor phase (C.3 CSS/HTML visibility tests, C.4 mutation testing, C.5 service layer, C.7 backend tidy-ups — see `docs/refactor/NEXT_STEPS.md`), then v1.0 Plan Review UX (first feature on the new structure), then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
+Next significant work: finish the Refactor phase (C.4 mutation testing — continue with `skill_balancer`/`gk_selector`; then C.5 service layer, C.7 backend tidy-ups — see `docs/refactor/NEXT_STEPS.md`), then v1.0 Plan Review UX (first feature on the new structure), then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
 
 ---
 
@@ -81,7 +83,11 @@ football-app-project/
 ├── CLAUDE.md
 ├── BRAND.md              ← Brand guidelines (v1.4) — Gaffer identity, Tinkering mode spec
 ├── requirements.md
-├── PHASES.md
+├── DEVELOPMENT_PLAN.md   ← Forward roadmap (refactor → v1.0 → v1.1)
+├── docs/
+│   ├── refactor/NEXT_STEPS.md ← Live refactor-phase (C.4) tracker
+│   ├── adr/              ← Architecture decision records
+│   └── archive/PHASES.md ← Historical phase log (deprecated; not authoritative)
 ├── pyproject.toml
 ├── main.py               ← FastAPI app entry point
 │

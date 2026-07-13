@@ -4,6 +4,15 @@ _Live tracker for the pre-v1.0 refactor phase (DEVELOPMENT_PLAN.md "Phase C").
 Read this first at the start of a session; it's the current source of truth for
 what's done and what's next. Last updated 2026-07-13._
 
+> **▶ Resume here (next session):** C.4 mutation testing — continue with
+> `skill_balancer` (~130 survivors) then `gk_selector` (~65). Workflow: set
+> `only_mutate = ["backend/algorithm/skill_balancer.py"]` in `[tool.mutmut]`
+> (keep `source_paths` on the whole package), `.venv/bin/mutmut run`, then
+> `mutmut results` / `mutmut show <mutant>`. Write direct behavioural tests that
+> strengthen assertions; expect a large equivalent-mutant tail (skip those).
+> Remember to remove `only_mutate` again before committing. Full detail in the
+> C.4 section below.
+
 ## Done & on `main`
 
 - **C.1 — app.js modularisation** (`f35492a`). 3,085 → 16-line entry point;

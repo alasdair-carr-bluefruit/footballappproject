@@ -174,7 +174,9 @@ onto the shared instance instead of yet more Render clones.
    app-state context (screen, match id). Keep the existing link as a fallback.
 
 ### Phase C — Refactor for leverage
-> **Status (2026-07-13):** C.1, C.2, C.6 done & on `main`. C.3/C.4/C.5/C.7 remain.
+> **Status (2026-07-13):** C.1, C.2, C.3, C.6 done & on `main`. C.4 (mutation
+> testing) in progress — validator hardened; rotation_engine + time_balancer
+> partial; skill_balancer/gk_selector remain. C.5, C.7 not started.
 > Live tracker: `docs/refactor/NEXT_STEPS.md`.
 
 1. ✅ **DONE** (`f35492a`) Split `frontend/app.js` into ES modules: `state.js`, `screens.js`,
@@ -185,15 +187,15 @@ onto the shared instance instead of yet more Render clones.
 2. ✅ **DONE** (`b5cc20f`) Added a **Playwright smoke suite** (`tests/e2e/`) exercising both
    modes through the same flow (create → generate → tinker → start → advance → full time).
    (Landed after C.1, not before, since the split was already complete working-tree WIP.)
-3. Add CSS/HTML unit tests to prevent recurrence of the `display:flex` / `[hidden]`
-   class of bug (e.g. Playwright assertions that key elements are not visible when they
-   should be hidden, across both season and tournament flows).
-4. Add **mutation testing** (`mutmut`) against the pure algorithm modules
-   (`rotation_engine`, `time_balancer`, `gk_selector`, `skill_balancer`, `validator`).
-   Run after the module split so coverage is cleanly scoped. Surviving mutants reveal
-   hollow tests — fix by strengthening assertions, not by adding more tests. Note: seed
-   `random.shuffle` in algorithm unit tests first (see known flaky tests in CLAUDE.md)
-   so mutation runs are deterministic.
+3. ✅ **DONE** (`920f4dd`) CSS/HTML visibility tests (`tests/e2e/test_visibility.py`)
+   guarding the `display:flex` / `[hidden]` invariant and the pitch state machine
+   across both flows.
+4. 🔄 **IN PROGRESS** **Mutation testing** (`mutmut`) against the pure algorithm
+   modules. Done: RNG seeded for determinism (`tests/unit/conftest.py`); `validator`
+   fully hardened (all remaining survivors equivalent); `rotation_engine` and
+   `time_balancer` partially hardened. Remaining: `skill_balancer`, `gk_selector`,
+   and the rotation_engine/time_balancer tails. Surviving mutants reveal hollow
+   tests — fix by strengthening assertions, not by adding more. See NEXT_STEPS.md.
 5. **Service layer extraction**: pull business logic out of `matches.py` (~600 lines)
    and `tournaments.py` into `backend/services/match_service.py` and
    `tournament_service.py`. Routers become thin HTTP adapters; services own

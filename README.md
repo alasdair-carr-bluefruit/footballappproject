@@ -24,13 +24,14 @@ ruff check .
 
 | Doc | Purpose |
 |---|---|
-| `CLAUDE.md` | Primary development context — conventions, data model, constraints |
+| `CLAUDE.md` | Primary development context — conventions, data model, constraints, current phase |
 | `requirements.md` | Functional requirements (FR-01…) |
-| `PHASES.md` | Phase history and acceptance gates |
-| `DEVELOPMENT_PLAN.md` | Current audit findings + forward roadmap (v0.9 → v1.x) |
+| `DEVELOPMENT_PLAN.md` | Audit findings + forward roadmap (refactor → v1.0 → v1.x) |
+| `docs/refactor/NEXT_STEPS.md` | Live refactor-phase (C.4) tracker |
 | `V1_MULTIUSER_PLAN.md` | Multi-user/auth implementation plan (magic-link-first) |
 | `docs/adr/` | Architecture decision records |
 | `docs/feedback/` | Captured user feedback |
+| `docs/archive/` | Deprecated docs kept for history (e.g. `PHASES.md`) — not authoritative |
 | `BRAND.md` | Gaffer brand guidelines |
 | `Deploy Guide.md` | Legacy per-coach single-user deployment (Render + Neon) |
 
