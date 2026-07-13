@@ -1,7 +1,8 @@
 # User Feedback — captured July 2026
 
-> Markdown copy of `Latest feedback from users.rtf` (verbatim content, reformatted)
-> so it is greppable and diffable. Each item is mapped to the roadmap in
+> Canonical record of the July 2026 user feedback (verbatim content, reformatted
+> so it is greppable and diffable). The original `.rtf` has been removed — this is
+> now the single source. Each item is mapped to the roadmap in
 > DEVELOPMENT_PLAN.md Part 1.4 / Part 3.
 
 ## Tinkering confusion → v0.9 + v1.1

@@ -29,8 +29,8 @@ Thumbs.db
 # Env
 .env
 
-# AI Blueprints & V2 Specifications
-V2_Requirements.md
-V2_UI_Requirements.md
+# AI Blueprints & V2 Specifications (local reference only — not committed)
+# V2 rebuild drafts now live together in docs/future/ (see its README).
+docs/future/
 V1_Improvements.md
 

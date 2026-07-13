@@ -36,8 +36,8 @@ Git history shows the project is **two full phases ahead of its own documentatio
    explicitly asking for a match timer. Needs moving into scope.
 6. **requirements.md has no tournament FRs at all** despite tournament mode being live.
 7. **Two competing futures on disk**: `V1_MULTIUSER_PLAN.md` (evolve in place, PIN-first,
-   invite-only, Railway, magic-link *deferred*) vs `V2_Requirements.md` +
-   `V2_UI_Requirements.md` (full rebuild: React, UUID/RLS Postgres schema, local-first
+   invite-only, Railway, magic-link *deferred*) vs `docs/future/V2_Requirements.md` +
+   `docs/future/V2_UI_Requirements.md` (full rebuild: React, UUID/RLS Postgres schema, local-first
    sync engine, ads & subscription tiers). They contradict each other on auth method,
    schema, frontend technology, and business model. §3 below reconciles them.
 8. **V1_Improvements.md refactor tasks: none done yet** — app.js is still one file

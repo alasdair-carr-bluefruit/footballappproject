@@ -1,5 +1,11 @@
 # Development Phases
 
+> [!NOTE]
+> **Historical phase log — not the authoritative status.** This file records the
+> original phase-by-phase plan and may lag behind what's shipped. For current
+> status and what's next, use `CLAUDE.md` ("Current Phase") and
+> `docs/refactor/NEXT_STEPS.md`; for the forward roadmap, `DEVELOPMENT_PLAN.md`.
+
 ## v0.1 — Core Rotation Algorithm ✓ DONE
 **Goal:** Algorithm works correctly for a 10-player squad with full quarters only.
 

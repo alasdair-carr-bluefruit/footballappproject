@@ -1,4 +1,11 @@
 # Gaffer — Squad Rotation Manager
+
+> [!NOTE]
+> **Original product spec ("what it should do") — not a status tracker.** Predates
+> v0.7–v0.9, so feature lists here may not reflect everything shipped. For current
+> status use `CLAUDE.md` / `docs/refactor/NEXT_STEPS.md`; for the roadmap,
+> `DEVELOPMENT_PLAN.md`.
+
 **Project:** Football (Soccer) Squad Rotation Manager
 **Owner:** Personal project — grassroots youth football coaches
 **Tech Stack:** Python/FastAPI backend, Vanilla JS PWA frontend

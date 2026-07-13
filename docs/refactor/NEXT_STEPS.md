@@ -23,6 +23,14 @@ what's done and what's next. Last updated 2026-07-13._
   throwaway SQLite DB. Service workers blocked so a stale cache can't mask a
   change. Run with `.venv/bin/python -m pytest -m e2e` (`playwright install
   chromium` once first). See CLAUDE.md "Key Commands".
+- **C.3 — CSS/HTML visibility tests.** `tests/e2e/test_visibility.py` (9 tests).
+  Directly asserts the `[hidden] { display:none !important }` invariant beats
+  `.screen`'s `display:flex` (computed-style check), then walks the pitch state
+  machine across **both** flows: plan-review vs live controls (Start CTA, live
+  badge, End-Match bar, timer), the edit-mode badge toggle (`.visible` class,
+  not `hidden`) with nav locked, and default-hidden overlays. Uses Playwright's
+  rendered-visibility asserts, so a class toggle that never fires or a lost
+  `!important` fails the test.
 - **C.6 — Schema normalisation** (`c9340a5`, `5d67a08`). Relational rotation
   storage (SlotDB / SlotAssignmentDB / GoalRecordDB / MatchAvailabilityDB /
   removed_players) via Alembic; done & deployed to the live Neon DB. The
@@ -33,26 +41,23 @@ what's done and what's next. Last updated 2026-07-13._
 
 ## Remaining Phase C work (suggested order)
 
-1. **C.3 — CSS/HTML visibility tests.** Prevent recurrence of the
-   `display:flex` / `[hidden]` class of bug. Seeded by
-   `test_screens_are_mutually_exclusive` in `tests/e2e/test_smoke.py`; expand to
-   assert the right elements are hidden/visible across more states in both flows
-   (e.g. pitch controls before vs after Start, edit-mode badge, overlays).
-2. **C.4 — Mutation testing (mutmut)** against the pure algorithm modules
+1. **C.4 — Mutation testing (mutmut)** against the pure algorithm modules
    (`rotation_engine`, `time_balancer`, `gk_selector`, `skill_balancer`,
    `validator`). **First** seed `random.shuffle` in the algorithm unit tests so
    runs are deterministic (see "Known flaky tests" in CLAUDE.md). Surviving
    mutants mean hollow assertions — strengthen them, don't just add tests.
-3. **C.5 — Service layer extraction.** Pull orchestration out of
+2. **C.5 — Service layer extraction.** Pull orchestration out of
    `backend/api/routers/matches.py` and `tournaments.py` into
    `backend/services/match_service.py` / `tournament_service.py`; routers become
    thin HTTP adapters, repositories keep the queries. Makes endpoint logic
    unit-testable without a full DB.
-4. **C.7 — Backend tidy-ups.** Extract stats/history aggregation into
-   `analytics.py`; replace silent frontend `.catch()`s with a toast/retry
-   helper; fix the SW cache file list (now that frontend is multiple modules,
-   `sw.js` must cache all of them — check it lists state/pitch/setup-form/
-   season/tournament/screens, not just app.js).
+3. **C.7 — Backend tidy-ups.** Extract stats/history aggregation into
+   `analytics.py` (V1_Improvements Task 1); replace silent frontend `.catch()`s
+   with a toast/retry helper; fix the SW cache file list (now that frontend is
+   multiple modules, `sw.js` must cache all of them — check it lists
+   state/pitch/setup-form/season/tournament/screens, not just app.js).
+   *Optional:* encapsulate DB→domain mapping as `.to_domain()` methods
+   (V1_Improvements Task 5) instead of free functions in `repositories.py`.
 
 ## After Phase C
 
