@@ -22,6 +22,7 @@ dev = [
     "uvicorn[standard]>=0.30",
     "sqlmodel>=0.0.19",
     "pydantic-settings>=2.0",
+    "alembic>=1.13",
 ]
 api = [
     "fastapi>=0.111",
@@ -29,6 +30,7 @@ api = [
     "sqlmodel>=0.0.19",
     "pydantic-settings>=2.0",
     "psycopg2-binary>=2.9",
+    "alembic>=1.13",
 ]
 
 [tool.setuptools.packages.find]
@@ -47,6 +49,7 @@ bdd_features_base_dir = "tests/bdd/features"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = ["backend/db/migrations"]  # Alembic-generated scaffolding
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -58,4 +61,4 @@ ignore = ["B008"]  # FastAPI Depends() in function defaults is intentional
 [tool.mypy]
 python_version = "3.12"
 strict = true
-exclude = ["tests/", "frontend/"]
+exclude = ["tests/", "frontend/", "backend/db/migrations/"]

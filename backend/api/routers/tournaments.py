@@ -21,13 +21,24 @@ from backend.algorithm.rotation_engine import generate_rotation
 from backend.db.database import get_session
 from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, TournamentDB
 from backend.db.repositories import (
+    build_plan_response,
+    delete_rotation,
+    get_available_ids,
+    get_goals,
+    get_goals_total,
     get_must_play_players,
     get_or_create_squad,
+    get_plan_slots,
     get_players,
+    get_position_overrides,
     get_prior_tournament_slots,
+    get_rotation,
     match_db_to_domain,
-    rotation_plan_from_json,
     save_rotation,
+    set_available_ids,
+)
+from backend.db.repositories import (
+    set_position_overrides as save_position_overrides,
 )
 from backend.models.game_config import build_tournament_config
 
@@ -230,10 +241,8 @@ def get_tournament(
     match_list = []
     for m in matches:
         r = rotations.get(m.id)
-        our_goals = 0
-        if r and r.goals_json and r.goals_json != "{}":
-            our_goals = sum(json.loads(r.goals_json).values())
-        available_ids = json.loads(r.available_player_ids_json or "[]") if r else []
+        our_goals = get_goals_total(session, m.id) if r else 0
+        available_ids = get_available_ids(session, m.id)
         match_list.append({
             "id": m.id,
             "match_number": m.match_number,
@@ -270,7 +279,7 @@ def get_tournament(
             "is_guest": p.source_tournament_id is not None,
         }
 
-    position_overrides = json.loads(getattr(t, "player_position_overrides_json", None) or "{}")
+    position_overrides = get_position_overrides(t)
 
     return {
         "tournament": _tournament_read(t, len(matches)),
@@ -296,16 +305,13 @@ def get_tournament_stats(
     goal_totals: dict[int, int] = defaultdict(int)
 
     for m in matches:
-        rotation = session.exec(
-            select(RotationPlanDB).where(RotationPlanDB.match_id == m.id)
-        ).first()
-        if not rotation:
+        if not get_rotation(session, m.id):
             continue
-        for slot_data in json.loads(rotation.slots_json):
+        for slot_data in get_plan_slots(session, m.id):
             for pid in slot_data.get("lineup", {}).values():
                 if pid:
                     slot_counts[int(pid)] += 1
-        for pid_str, count in json.loads(rotation.goals_json or "{}").items():
+        for pid_str, count in get_goals(session, m.id).items():
             goal_totals[int(pid_str)] += count
 
     # Resolve player names
@@ -382,7 +388,7 @@ def set_available_players(
     all_players = get_players(session, squad.id)
     available_ids = set(body.available_player_ids)
     players_db = [p for p in all_players if p.id in available_ids]
-    position_overrides = json.loads(getattr(t, "player_position_overrides_json", None) or "{}")
+    position_overrides = get_position_overrides(t)
     if position_overrides:
         players_db = _apply_position_overrides(players_db, position_overrides)
 
@@ -416,7 +422,7 @@ def set_available_players(
     updated = 0
     for db_match in planned_matches:
         # Delete existing rotation plan before regenerating
-        session.execute(sql_delete(RotationPlanDB).where(RotationPlanDB.match_id == db_match.id))
+        delete_rotation(session, db_match.id)
         session.commit()
 
         match_domain, squad_domain = match_db_to_domain(db_match, players_db)
@@ -441,14 +447,7 @@ def set_available_players(
             previous_match_zero_slot_players=must_play_players,
         )
         save_rotation(session, db_match.id, plan, players_db)
-
-        rotation = session.exec(
-            select(RotationPlanDB).where(RotationPlanDB.match_id == db_match.id)
-        ).first()
-        if rotation:
-            rotation.available_player_ids_json = json.dumps([p.id for p in players_db])
-            session.add(rotation)
-            session.commit()
+        set_available_ids(session, db_match.id, [p.id for p in players_db])
 
         updated += 1
 
@@ -473,9 +472,7 @@ def set_position_overrides(
     t = session.get(TournamentDB, tournament_id)
     if not t:
         raise HTTPException(status_code=404, detail="Tournament not found")
-    t.player_position_overrides_json = json.dumps(body.overrides)
-    session.add(t)
-    session.commit()
+    save_position_overrides(session, t, body.overrides)
     return {"overrides": body.overrides}
 
 
@@ -513,7 +510,8 @@ def delete_tournament(
         m.id for m in session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()
     ]
     if match_ids:
-        session.execute(sql_delete(RotationPlanDB).where(RotationPlanDB.match_id.in_(match_ids)))
+        for mid in match_ids:
+            delete_rotation(session, mid)
         session.execute(sql_delete(MatchDB).where(MatchDB.tournament_id == tournament_id))
     session.execute(sql_delete(PlayerDB).where(PlayerDB.source_tournament_id == tournament_id))
     session.execute(sql_delete(TournamentDB).where(TournamentDB.id == tournament_id))
@@ -636,7 +634,7 @@ def add_tournament_match(
     all_players = get_players(session, squad.id)
     available_ids = set(body.available_player_ids)
     players_db = [p for p in all_players if p.id in available_ids]
-    position_overrides = json.loads(getattr(t, "player_position_overrides_json", None) or "{}")
+    position_overrides = get_position_overrides(t)
     if position_overrides:
         players_db = _apply_position_overrides(players_db, position_overrides)
 
@@ -678,14 +676,8 @@ def add_tournament_match(
     save_rotation(session, db_match.id, plan, players_db)
 
     # Store available player IDs on the rotation plan
-    rotation = session.exec(
-        select(RotationPlanDB).where(RotationPlanDB.match_id == db_match.id)
-    ).first()
-    assert rotation is not None
-    rotation.available_player_ids_json = json.dumps([p.id for p in players_db])
-    session.add(rotation)
-    session.commit()
+    set_available_ids(session, db_match.id, [p.id for p in players_db])
 
     id_to_player = {p.id: p for p in players_db if p.id is not None}
-    plan_data = rotation_plan_from_json(rotation.slots_json, rotation.warnings_json, id_to_player)
+    plan_data = build_plan_response(session, db_match.id, id_to_player)
     return _match_response(db_match, plan_data["slots"], plan_data["warnings"])

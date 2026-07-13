@@ -3,9 +3,21 @@ from collections import defaultdict
 from datetime import date as date_type
 from typing import Any
 
+from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
-from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB
+from backend.db.models import (
+    GoalRecordDB,
+    MatchAvailabilityDB,
+    MatchDB,
+    PlayerDB,
+    RemovedPlayerDB,
+    RotationPlanDB,
+    SlotAssignmentDB,
+    SlotDB,
+    SquadDB,
+    TournamentDB,
+)
 from backend.models.game_config import build_tournament_config, get_config
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier, Player
@@ -66,6 +78,153 @@ def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squa
     return match, squad
 
 
+# ── Rotation-plan persistence ──────────────────────────────────────────────────
+#
+# All access to the RotationPlanDB JSON columns (slots_json, warnings_json,
+# goals_json, available_player_ids_json, removed_players_json) goes through the
+# helpers below. Routers never touch the JSON directly — this isolates the
+# storage format so it can migrate to relational tables without touching callers.
+
+
+def get_rotation(session: Session, match_id: int) -> RotationPlanDB | None:
+    return session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
+    ).first()
+
+
+def _clear_slots(session: Session, match_id: int) -> None:
+    """Delete a match's slot rows and their assignments (assignments first, FK order)."""
+    slot_ids = [s.id for s in session.exec(select(SlotDB).where(SlotDB.match_id == match_id)).all()]
+    if slot_ids:
+        session.execute(sql_delete(SlotAssignmentDB).where(SlotAssignmentDB.slot_id.in_(slot_ids)))
+        session.execute(sql_delete(SlotDB).where(SlotDB.match_id == match_id))
+
+
+def _upsert_anchor(session: Session, match_id: int, warnings: list[str]) -> None:
+    """Ensure the RotationPlanDB anchor row exists and holds the plan warnings.
+
+    The relational tables are the source of truth for slots/goals/availability/
+    removed players; RotationPlanDB now only anchors existence and stores
+    warnings (its JSON blob columns are dormant).
+    """
+    r = get_rotation(session, match_id)
+    if r:
+        r.warnings_json = json.dumps(warnings)
+        session.add(r)
+    else:
+        session.add(RotationPlanDB(match_id=match_id, slots_json="[]", warnings_json=json.dumps(warnings)))
+
+
+def get_plan_slots(session: Session, match_id: int) -> list[dict[str, Any]]:
+    """Return the stored slots as [{slot_index, lineup: {pos: player_id}}] (or [])."""
+    slots = session.exec(
+        select(SlotDB).where(SlotDB.match_id == match_id).order_by(SlotDB.slot_index)  # type: ignore[arg-type]
+    ).all()
+    if not slots:
+        return []
+    slot_ids = [s.id for s in slots]
+    assignments = session.exec(
+        select(SlotAssignmentDB).where(SlotAssignmentDB.slot_id.in_(slot_ids))
+    ).all()
+    lineups: dict[int, dict[str, int]] = defaultdict(dict)
+    for a in assignments:
+        lineups[a.slot_id][a.position] = a.player_id
+    return [{"slot_index": s.slot_index, "lineup": lineups.get(s.id, {})} for s in slots]
+
+
+def get_plan_warnings(session: Session, match_id: int) -> list[str]:
+    r = get_rotation(session, match_id)
+    if not r or not r.warnings_json:
+        return []
+    return json.loads(r.warnings_json)
+
+
+def get_available_ids(session: Session, match_id: int) -> list[int]:
+    return [
+        a.player_id
+        for a in session.exec(
+            select(MatchAvailabilityDB)
+            .where(MatchAvailabilityDB.match_id == match_id)
+            .order_by(MatchAvailabilityDB.id)  # type: ignore[arg-type]
+        ).all()
+    ]
+
+
+def get_goals(session: Session, match_id: int) -> dict[str, int]:
+    """Return {player_id_str: goal_count} (or {})."""
+    return {
+        str(g.player_id): g.goals
+        for g in session.exec(
+            select(GoalRecordDB).where(GoalRecordDB.match_id == match_id)
+        ).all()
+    }
+
+
+def get_goals_total(session: Session, match_id: int) -> int:
+    return sum(get_goals(session, match_id).values())
+
+
+def get_removed(session: Session, match_id: int) -> dict[str, int]:
+    """Return {player_id_str: from_slot_index} of removed players (or {})."""
+    return {
+        str(r.player_id): r.from_slot
+        for r in session.exec(
+            select(RemovedPlayerDB).where(RemovedPlayerDB.match_id == match_id)
+        ).all()
+    }
+
+
+def set_available_ids(session: Session, match_id: int, ids: list[int]) -> None:
+    if not get_rotation(session, match_id):
+        return
+    session.execute(sql_delete(MatchAvailabilityDB).where(MatchAvailabilityDB.match_id == match_id))
+    for pid in dict.fromkeys(ids):  # de-dup, preserve order
+        session.add(MatchAvailabilityDB(match_id=match_id, player_id=pid))
+    session.commit()
+
+
+def set_goals(session: Session, match_id: int, goals_by_id: dict[str, int]) -> None:
+    if not get_rotation(session, match_id):
+        return
+    session.execute(sql_delete(GoalRecordDB).where(GoalRecordDB.match_id == match_id))
+    for pid_str, count in goals_by_id.items():
+        session.add(GoalRecordDB(match_id=match_id, player_id=int(pid_str), goals=count))
+    session.commit()
+
+
+def set_removed(session: Session, match_id: int, removed: dict[str, int]) -> None:
+    if not get_rotation(session, match_id):
+        return
+    session.execute(sql_delete(RemovedPlayerDB).where(RemovedPlayerDB.match_id == match_id))
+    for pid_str, from_slot in removed.items():
+        session.add(RemovedPlayerDB(match_id=match_id, player_id=int(pid_str), from_slot=from_slot))
+    session.commit()
+
+
+def create_blank_plan(
+    session: Session, match_id: int, num_slots: int, available_ids: list[int],
+) -> None:
+    """Create/replace a rotation plan with empty lineups for manual assignment."""
+    _upsert_anchor(session, match_id, [])
+    _clear_slots(session, match_id)
+    session.flush()  # apply deletes before inserting fresh slot rows
+    for i in range(num_slots):
+        session.add(SlotDB(match_id=match_id, slot_index=i))
+    session.commit()
+    set_available_ids(session, match_id, available_ids)
+
+
+def delete_rotation(session: Session, match_id: int) -> None:
+    """Delete all rotation data for a match (slots, assignments, goals, availability,
+    removed players, and the anchor row). Does not commit — the caller owns the
+    surrounding transaction (matches the routers' explicit ordered-delete pattern)."""
+    _clear_slots(session, match_id)
+    session.execute(sql_delete(GoalRecordDB).where(GoalRecordDB.match_id == match_id))
+    session.execute(sql_delete(MatchAvailabilityDB).where(MatchAvailabilityDB.match_id == match_id))
+    session.execute(sql_delete(RemovedPlayerDB).where(RemovedPlayerDB.match_id == match_id))
+    session.execute(sql_delete(RotationPlanDB).where(RotationPlanDB.match_id == match_id))
+
+
 def get_prior_tournament_slots(
     session: Session, tournament_id: int, exclude_match_id: int, players_db: list[PlayerDB],
 ) -> dict[str, int]:
@@ -84,12 +243,7 @@ def get_prior_tournament_slots(
     ).all()
 
     for prev_m in prev_matches:
-        plan_db = session.exec(
-            select(RotationPlanDB).where(RotationPlanDB.match_id == prev_m.id)
-        ).first()
-        if not plan_db:
-            continue
-        for slot_data in json.loads(plan_db.slots_json):
+        for slot_data in get_plan_slots(session, prev_m.id):
             for pid in slot_data["lineup"].values():
                 if pid in id_to_name:
                     prior_counts[id_to_name[pid]] += 1
@@ -117,18 +271,10 @@ def get_previous_match_zero_slot_players(
     if not prev_m:
         return set()
 
-    plan_db = session.exec(
-        select(RotationPlanDB).where(RotationPlanDB.match_id == prev_m.id)
-    ).first()
-    if not plan_db:
-        return set()
-
     id_to_name = {p.id: p.name for p in players_db if p.id is not None}
-    available_ids = (
-        json.loads(plan_db.available_player_ids_json) if plan_db.available_player_ids_json else []
-    )
+    available_ids = get_available_ids(session, prev_m.id)
     played_ids: set = set()
-    for slot_data in json.loads(plan_db.slots_json):
+    for slot_data in get_plan_slots(session, prev_m.id):
         played_ids.update(slot_data["lineup"].values())
 
     return {
@@ -157,23 +303,13 @@ def get_must_play_players(
     return result or None
 
 
-def rotation_plan_to_json(plan: RotationPlan, player_name_to_id: dict[str, int]) -> str:
-    slots = []
-    for slot in plan.slots:
-        lineup = {pos.value: player_name_to_id[player.name] for pos, player in slot.lineup.items()}
-        slots.append({"slot_index": slot.slot_index, "lineup": lineup})
-    return json.dumps(slots)
-
-
-def rotation_plan_from_json(
-    slots_json: str,
-    warnings_json: str,
+def _plan_response_from_data(
+    slots_data: list[dict[str, Any]],
+    warnings: list[str],
     id_to_player: dict[int, PlayerDB],
 ) -> dict[str, Any]:
-    """Convert stored JSON back to the API response shape the frontend expects."""
+    """Build the API response shape the frontend expects from parsed plan data."""
     all_ids = set(id_to_player.keys())
-    slots_data: list[dict[str, Any]] = json.loads(slots_json)
-    warnings: list[str] = json.loads(warnings_json)
 
     def player_dict(p: PlayerDB) -> dict[str, Any]:
         return {
@@ -206,25 +342,49 @@ def rotation_plan_from_json(
     return {"slots": slots, "warnings": warnings}
 
 
+def build_plan_response(
+    session: Session, match_id: int, id_to_player: dict[int, PlayerDB],
+) -> dict[str, Any]:
+    """Load the stored plan and render it into the frontend response shape."""
+    return _plan_response_from_data(
+        get_plan_slots(session, match_id),
+        get_plan_warnings(session, match_id),
+        id_to_player,
+    )
+
+
 def save_rotation(
     session: Session,
     match_id: int,
     plan: RotationPlan,
     players_db: list[PlayerDB],
 ) -> None:
-    player_name_to_id = {p.name: p.id for p in players_db if p.id is not None}
-    slots_json = rotation_plan_to_json(plan, player_name_to_id)
-    warnings_json = json.dumps(plan.warnings)
+    """Persist a generated plan: anchor + warnings on RotationPlanDB, slots and
+    lineups in the relational tables (fully replacing any existing plan)."""
+    name_to_id = {p.name: p.id for p in players_db if p.id is not None}
 
-    existing = session.exec(
-        select(RotationPlanDB).where(RotationPlanDB.match_id == match_id)
-    ).first()
-    if existing:
-        existing.slots_json = slots_json
-        existing.warnings_json = warnings_json
-        session.add(existing)
-    else:
-        session.add(RotationPlanDB(
-            match_id=match_id, slots_json=slots_json, warnings_json=warnings_json
-        ))
+    _upsert_anchor(session, match_id, plan.warnings)
+    _clear_slots(session, match_id)
+    session.flush()  # apply deletes before inserting fresh rows (unique constraints)
+
+    for slot in plan.slots:
+        slot_row = SlotDB(match_id=match_id, slot_index=slot.slot_index)
+        session.add(slot_row)
+        session.flush()  # obtain slot_row.id for its assignments
+        for position, player in slot.lineup.items():
+            session.add(SlotAssignmentDB(
+                slot_id=slot_row.id, position=position.value, player_id=name_to_id[player.name],
+            ))
+    session.commit()
+
+
+# ── Tournament position overrides ───────────────────────────────────────────────
+
+def get_position_overrides(t: TournamentDB) -> dict[str, Any]:
+    return json.loads(getattr(t, "player_position_overrides_json", None) or "{}")
+
+
+def set_position_overrides(session: Session, t: TournamentDB, overrides: dict) -> None:
+    t.player_position_overrides_json = json.dumps(overrides)
+    session.add(t)
     session.commit()

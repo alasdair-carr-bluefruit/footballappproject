@@ -1,4 +1,5 @@
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -76,6 +77,62 @@ class RotationPlanDB(SQLModel, table=True):
     goals_json: str = "{}"  # JSON dict: {player_id: goal_count}
     available_player_ids_json: str = "[]"  # JSON list of player IDs selected for this match
     removed_players_json: str = "{}"  # JSON dict: {player_id: from_slot_index}
+
+
+# ── Relational rotation storage ─────────────────────────────────────────────────
+#
+# These normalise the RotationPlanDB JSON blobs (slots_json, goals_json,
+# available_player_ids_json, removed_players_json) into proper tables. Keyed by
+# match_id (matches RotationPlanDB's 1:1 relationship with a match). warnings_json
+# stays on RotationPlanDB — it's plan metadata, not relational data.
+
+
+class SlotDB(SQLModel, table=True):
+    __tablename__ = "slots"  # type: ignore[assignment]
+    __table_args__ = (UniqueConstraint("match_id", "slot_index", name="uq_slot_match_index"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    match_id: int = Field(foreign_key="matches.id", index=True)
+    slot_index: int  # 0..N; a slot row exists even when its lineup is empty
+
+
+class SlotAssignmentDB(SQLModel, table=True):
+    __tablename__ = "slot_assignments"  # type: ignore[assignment]
+    __table_args__ = (UniqueConstraint("slot_id", "position", name="uq_assignment_slot_position"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    slot_id: int = Field(foreign_key="slots.id", index=True)
+    position: str  # position code e.g. "GK", "LB", "CM", "CF"
+    player_id: int  # references players.id (not FK-enforced, matching existing convention)
+
+
+class GoalRecordDB(SQLModel, table=True):
+    __tablename__ = "goal_records"  # type: ignore[assignment]
+    __table_args__ = (UniqueConstraint("match_id", "player_id", name="uq_goal_match_player"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    match_id: int = Field(foreign_key="matches.id", index=True)
+    player_id: int
+    goals: int = 0
+
+
+class MatchAvailabilityDB(SQLModel, table=True):
+    __tablename__ = "match_availability"  # type: ignore[assignment]
+    __table_args__ = (UniqueConstraint("match_id", "player_id", name="uq_avail_match_player"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    match_id: int = Field(foreign_key="matches.id", index=True)
+    player_id: int
+
+
+class RemovedPlayerDB(SQLModel, table=True):
+    __tablename__ = "removed_players"  # type: ignore[assignment]
+    __table_args__ = (UniqueConstraint("match_id", "player_id", name="uq_removed_match_player"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    match_id: int = Field(foreign_key="matches.id", index=True)
+    player_id: int
+    from_slot: int
 
 
 class FeedbackDB(SQLModel, table=True):
