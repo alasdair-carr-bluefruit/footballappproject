@@ -43,9 +43,33 @@ what's done and what's next. Last updated 2026-07-13._
 
 1. **C.4 — Mutation testing (mutmut)** against the pure algorithm modules
    (`rotation_engine`, `time_balancer`, `gk_selector`, `skill_balancer`,
-   `validator`). **First** seed `random.shuffle` in the algorithm unit tests so
-   runs are deterministic (see "Known flaky tests" in CLAUDE.md). Surviving
-   mutants mean hollow assertions — strengthen them, don't just add tests.
+   `validator`). Surviving mutants mean hollow assertions — strengthen them,
+   don't just add tests. **In progress:**
+   - **Determinism (done).** `tests/unit/conftest.py` seeds `random` (seed 1234)
+     autouse before every unit test, so the suite is a stable mutation oracle.
+     This also kills the ~10% flakiness in `test_9_players_no_specialist_max_diff_1`
+     and `test_7v7_mid_period_max_3_subs`.
+   - **mutmut config (done).** mutmut 3.6, config in `[tool.mutmut]` (pyproject).
+     Run: `.venv/bin/mutmut run` then `.venv/bin/mutmut results` /
+     `mutmut show <mutant>`. Mutates `backend/algorithm`, oracle is `tests/unit`.
+     To iterate on one module fast, temporarily add `only_mutate = [".../foo.py"]`.
+     NB: `mutants/` is the working copy (gitignored); `mutmut results` lists only
+     the non-killed mutants.
+   - **Baseline (full algorithm, first run):** 1707 mutants → **826 killed,
+     670 survived, 211 no-tests (uncovered)** ≈ 55% score on covered code.
+   - **`validator` (done).** Root cause: the old `test_validator.py` re-checked
+     constraints inline against engine output and never called `validate()`, so
+     the validator itself was untested. New `test_validator_direct.py` (17 tests)
+     drives `validate()` on hand-built valid/invalid plans + boundary cases:
+     **60 → 20 survivors, and all 20 remaining are equivalent mutants**
+     (redundant `break` guards behind `range(0, n-1, 2)`; `//3`≡`//4`≡`/3` for
+     every real `total_slots∈{2,4,8}`; the unused `players` param; and the
+     position-variety check, which is unreachable because only 4 normalised
+     position categories exist so `len(types) > max_types(=4)` can never hold).
+   - **Remaining (next):** ~610 survivors across `rotation_engine` (~250),
+     `time_balancer` (~140), `skill_balancer` (~130), `gk_selector` (~65). Same
+     approach — call the units directly with crafted inputs; watch for more
+     equivalent mutants in defensive branches.
 2. **C.5 — Service layer extraction.** Pull orchestration out of
    `backend/api/routers/matches.py` and `tournaments.py` into
    `backend/services/match_service.py` / `tournament_service.py`; routers become

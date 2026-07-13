@@ -11,6 +11,10 @@ build/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+# mutmut mutation-testing working copy & cache
+mutants/
+.mutmut-cache
+mutmut-stats.json
 
 # Database
 *.db

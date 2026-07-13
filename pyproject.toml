@@ -60,6 +60,18 @@ ignore = ["B008"]  # FastAPI Depends() in function defaults is intentional
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["E501", "B905"]  # long assertion messages and zip() without strict= are fine in tests
 
+[tool.mutmut]
+# C.4 — mutation-test the pure algorithm only. The seeded unit suite
+# (tests/unit/conftest.py) is a deterministic oracle, so a surviving mutant
+# means a genuinely hollow assertion rather than RNG noise.
+source_paths = ["backend/algorithm"]
+do_not_mutate = ["backend/algorithm/__init__.py"]
+# To iterate on one module quickly, add e.g.
+#   only_mutate = ["backend/algorithm/validator.py"]
+# (keep source_paths on the whole package so sibling modules still import).
+# Run only the fast, seeded unit tests against each mutant.
+pytest_add_cli_args_test_selection = ["tests/unit", "-x", "-q"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
