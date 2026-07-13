@@ -54,8 +54,19 @@ pytest                    # all tests (~115)
 pytest -m unit            # fast, no DB/server
 pytest -m bdd             # Gherkin BDD scenarios
 pytest -m integration     # DB + HTTP tests
+pytest -m e2e             # Playwright browser smoke suite (season + tournament golden paths)
+pytest -m "not e2e"       # everything except the browser suite
 ruff check .
+
+# First-time e2e setup (Playwright browser binary):
+playwright install chromium
 ```
+
+The e2e suite (`tests/e2e/`) launches the real app in a uvicorn subprocess
+against a throwaway SQLite DB, seeds a squad via the API, then drives a real
+Chromium through create → generate → tinker → start → advance → full time for
+both season and tournament. Service workers are blocked so a stale SW cache
+never masks a real change.
 
 ---
 
@@ -93,9 +104,15 @@ football-app-project/
 │   ├── api/              ← FastAPI routers (matches, squad, tournaments)
 │   └── db/               ← SQLite repositories, additive migration pattern
 │
-├── frontend/
+├── frontend/            ← ES modules (no framework); app.js is a thin entry point
 │   ├── index.html
-│   ├── app.js            ← All UI logic (ES modules)
+│   ├── app.js            ← Entry point — side-effect imports of the modules below
+│   ├── state.js          ← Shared mutable `state` object + ensureGameConfigs/refreshShirtNumbers
+│   ├── pitch.js          ← Pitch render, tinkering, match-day controls, timer, full-time
+│   ├── setup-form.js     ← Size/formation/fairness config form (shared season+tournament)
+│   ├── season.js         ← Season flow (home, new match, stats, history, export)
+│   ├── tournament.js     ← Tournament flow (create, squad, lobby, guests)
+│   ├── screens.js        ← Onboarding, landing, squad management, bug report
 │   ├── api.js            ← Fetch wrappers
 │   ├── style.css
 │   └── sw.js             ← Service Worker
@@ -104,6 +121,7 @@ football-app-project/
     ├── unit/
     │   ├── algorithm/    ← test_multi_size.py, test_fairness.py
     │   └── models/       ← test_game_config.py
+    ├── e2e/              ← Playwright browser smoke suite (season + tournament)
     ├── integration/      ← test_squad.py, test_matches.py
     └── bdd/
         ├── features/     ← multi_size.feature, rotation_generation.feature, etc.

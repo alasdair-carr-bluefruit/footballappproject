@@ -1,0 +1,113 @@
+"""Playwright smoke suite — drives both flows through the same golden path.
+
+Season and tournament share the setup form, pitch renderer and full-time screen,
+so exercising both here is the regression net for the Phase C module split: if a
+cross-module wiring breaks, one of these fails.
+"""
+
+import pytest
+from playwright.sync_api import Page, expect
+
+pytestmark = pytest.mark.e2e
+
+
+def advance_to_report(page: Page) -> None:
+    """Click Next until the last-slot report — the Next button then reads 'End Match'.
+
+    (#report-section is reused by the intermediate sub-changes view, so button
+    text is the unambiguous signal that we're actually on the final report.)
+    """
+    btn = page.locator("#btn-next")
+    for _ in range(20):
+        if "End Match" in (btn.text_content() or ""):
+            return
+        btn.click()
+    raise AssertionError("never reached the match report after 20 Next clicks")
+
+
+def test_season_golden_path(seeded_squad, page: Page):
+    """create match → generate → start → advance to report → full time."""
+    page.goto(seeded_squad + "/")
+    expect(page.locator("#screen-landing")).to_be_visible()
+
+    # Enter season mode and start a new match.
+    page.click("#btn-season-mode")
+    expect(page.locator("#screen-home")).to_be_visible()
+    page.click("#btn-go-new-match")
+    expect(page.locator("#screen-new-match")).to_be_visible()
+
+    # Config form: default 5v5, just name the opponent, then pick players.
+    page.fill("#opponent-input", "Rovers")
+    page.click("#btn-select-players")
+    expect(page.locator("#screen-match-squad")).to_be_visible()
+
+    # All available players are pre-checked — generate the rotation.
+    page.click("#btn-generate")
+    expect(page.locator("#screen-pitch")).to_be_visible()
+    expect(page.locator("#pitch")).to_be_visible()
+
+    # Tinker: toggle edit mode on and back off before kickoff.
+    page.click("#btn-adjust")
+    expect(page.locator("#edit-mode-badge")).to_be_visible()
+    page.click("#btn-adjust")
+    expect(page.locator("#edit-mode-badge")).to_be_hidden()
+
+    # Start the match, then walk the whole rotation to the report.
+    page.click("#btn-start-match-cta")
+    expect(page.locator("#live-badge")).to_be_visible()
+    advance_to_report(page)
+
+    # End the match → full-time screen with our team named.
+    page.click("#btn-end-match")
+    expect(page.locator("#screen-fulltime")).to_be_visible()
+    expect(page.locator("#ft-home-name")).to_have_text("Testers FC")
+
+    # Done returns to the season home.
+    page.click("#btn-ft-done")
+    expect(page.locator("#screen-home")).to_be_visible()
+
+
+def test_tournament_golden_path(seeded_squad, page: Page):
+    """create tournament → squad → generate matches → open match → play → full time.
+
+    Also covers the §1d fix: full-time 'Done' on a tournament match returns to the
+    tournament lobby (not the season home), via openMatch(id, "tournament").
+    """
+    page.goto(seeded_squad + "/")
+    expect(page.locator("#screen-landing")).to_be_visible()
+
+    page.click("#btn-tournament-mode")
+    expect(page.locator("#screen-tournament-home")).to_be_visible()
+    page.click("#btn-new-tournament")
+    expect(page.locator("#screen-new-tournament")).to_be_visible()
+
+    # Name it and create (default 5v5, default match count) → squad screen.
+    page.fill("#tournament-name-input", "Summer Cup")
+    page.click("#btn-create-tournament")
+    expect(page.locator("#screen-tournament-squad")).to_be_visible()
+
+    # All players pre-checked → generate all planned matches → lobby.
+    page.click("#btn-generate-all-matches")
+    expect(page.locator("#screen-tournament-lobby")).to_be_visible()
+
+    # Open the first match (planned → generates a rotation), then play it out.
+    page.locator("#lobby-match-list .match-item-main").first.click()
+    expect(page.locator("#screen-pitch")).to_be_visible()
+    page.click("#btn-start-match-cta")
+    expect(page.locator("#live-badge")).to_be_visible()
+    advance_to_report(page)
+    page.click("#btn-end-match")
+    expect(page.locator("#screen-fulltime")).to_be_visible()
+
+    # §1d: Done routes back to the tournament lobby, not the season home.
+    page.click("#btn-ft-done")
+    expect(page.locator("#screen-tournament-lobby")).to_be_visible()
+
+
+def test_screens_are_mutually_exclusive(seeded_squad, page: Page):
+    """Guards the [hidden]/display-flex class of bug: only one screen visible."""
+    page.goto(seeded_squad + "/")
+    expect(page.locator("#screen-landing")).to_be_visible()
+    for hidden in ("#screen-home", "#screen-pitch", "#screen-new-match",
+                   "#screen-fulltime", "#screen-tutorial"):
+        expect(page.locator(hidden)).to_be_hidden()
