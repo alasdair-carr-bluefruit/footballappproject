@@ -87,9 +87,23 @@ what's done and what's next. Last updated 2026-07-13._
        (`return p if p else unassigned`) ignores it once the preferred pool
        empties — a MID-only player lands in DEF/FWD in ~60% of seeds. Worth a
        decision: tighten the code, or soften the doc.
-   - **Remaining modules (next):** `time_balancer` (~140), `skill_balancer`
-     (~130), `gk_selector` (~65), plus the rotation_engine tail if worthwhile.
-     Same approach — call units directly with crafted inputs; expect equivalents.
+   - **`time_balancer` (partial).** 265 mutants → **178 killed / 87 survived**
+     (was 128/137). New `test_time_balancer_crossmatch.py` (7 tests) covers the
+     previously-untested cross-match (tournament) fairness — no existing test
+     passed `prior_slots`: equal-mode deficit ordering (players behind on minutes
+     get the extra slots), must_play outranking deficit (both the prior and
+     non-prior priority branches), competitive cross-match surplus reduction,
+     equal-mode dispatch ignoring `fairness_value`, competitive skill
+     monotonicity, and the single-player edge. Module is pure/deterministic so
+     exact-value asserts are stable. Remaining 87 are equivalents (get-defaults
+     with all keys present, GK tiebreaks with no GK in scope, `>0`/`>1` guards at
+     fixed n) and low-ROI: the `_enforce_must_play_floor` steal branch (31) is
+     only reachable in degenerate over-subscribed squads (can't be satisfied
+     anyway), and a few competitive-weight formula mutants survive via
+     normalisation sign-flips that make them fragile to pin.
+   - **Remaining modules (next):** `skill_balancer` (~130), `gk_selector` (~65),
+     plus the rotation_engine tail if worthwhile. Same approach — call units
+     directly with crafted inputs; expect equivalents.
 2. **C.5 — Service layer extraction.** Pull orchestration out of
    `backend/api/routers/matches.py` and `tournaments.py` into
    `backend/services/match_service.py` / `tournament_service.py`; routers become

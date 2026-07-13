@@ -152,10 +152,14 @@ football-app-project/
 - Internal codes: DEF, DEF2, DEF3, DEF4 / MID1, MID2, MID3, MID4, MID5 / FWD, FWD2, FWD3
 - All normalize via `normalize_position()` to "DEF"/"MID"/"FWD"/"GK" for variety checking
 
-### Player position preferences (hard constraints)
+### Player position preferences (soft / best-effort)
 - `preferred_positions: list[str]` — positions the player CAN play (empty = any)
 - `best_position: str` — their strongest position
-- Algorithm never assigns a player outside their preferred_positions (when set)
+- Algorithm strongly prefers to keep a player within their preferred_positions,
+  but this is best-effort, not a hard guarantee: when the preferred pool for a
+  slot empties, the position assigner falls back to any eligible player rather
+  than leave a position unfilled (`_assign_outfield_positions` → `pool_for`).
+  DEF restriction (`def_restricted`) and GK specialist status ARE hard.
 - `def_restricted` and `gk_status` are derived from position selections in the UI
 
 ### Shirt numbers
