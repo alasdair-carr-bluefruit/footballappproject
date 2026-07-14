@@ -12,6 +12,7 @@
   --matchday:      #2EBE6B;
   --chalk:         #F2F4EE;
   --trophy-amber:  #F5B544;
+  --coach-blue:    #35719E;  /* in-match prompts/advisories — distinct from amber (GK/incoming) */
   --slate:         #1A1F1C;
 
   /* ── Derived / functional ───────────────────────────────── */
@@ -117,6 +118,8 @@ html, body {
 }
 .progress-dot.done    { background: rgba(255,255,255,0.45); }
 .progress-dot.active  { background: #fff; width: 20px; border-radius: 4px; }
+/* The period actually in play — green ring, shows regardless of active/done state */
+.progress-dot.live    { box-shadow: 0 0 0 2px var(--matchday); }
 /* Final summary dot: small diamond shape */
 .progress-dot-final { border-radius: 2px; transform: rotate(45deg); margin-left: 4px; }
 .progress-dot-final.active { background: #fff; width: 10px; height: 10px; border-radius: 2px; }
@@ -894,6 +897,31 @@ html, body {
   border-radius: 4px;
   font-weight: 700;
   margin-left: 6px;
+}
+
+/* "This is the slot in play" — green (matches the live/matchday semantics). */
+.slot-live-badge {
+  display: inline-block;
+  font-size: 10px;
+  background: var(--matchday);
+  color: var(--pitch-deep);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+/* "Back to live" — shown when browsing away from the live period. Green = live. */
+.jump-live-btn {
+  background: rgba(46,190,107,0.16);
+  border: 1px solid var(--matchday);
+  color: var(--matchday);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-left: 8px;
+  cursor: pointer;
 }
 
 /* ── Landing screen ──────────────────────────────────────────────── */
@@ -2679,12 +2707,8 @@ html, body {
 .match-timer {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
-
-.match-timer { gap: 8px; }
-
-/* An explicit display rule otherwise overrides the [hidden] attribute (equal
 
 .timer-display {
   display: inline-flex;
@@ -2726,8 +2750,8 @@ html, body {
   gap: 8px;
   margin: 8px 16px 0;
   padding: 10px 12px;
-  background: rgba(245,181,68,0.12);
-  border: 1px solid rgba(245,181,68,0.4);
+  background: rgba(53,113,158,0.14);
+  border: 1px solid rgba(53,113,158,0.5);
   border-radius: 8px;
   font-size: 14px;
   color: var(--text-light);
@@ -2736,21 +2760,25 @@ html, body {
 .new-period-hint-text { flex: 1; min-width: 140px; }
 
 .new-period-hint-btn {
-  background: #F5B544;
+  background: var(--coach-blue);
   border: none;
   border-radius: 6px;
   padding: 8px 14px;
   font-weight: 700;
-  color: var(--pitch-deep, #0E3A29);
+  color: var(--text-light);
   cursor: pointer;
   min-height: 40px;
 }
 
+/* "Browse only" — deliberately a neutral chalk/grey, NOT amber: amber already
+   means GK / incoming sub / start-quarter, so the passive option must read
+   differently from those. */
 .new-period-hint-ghost {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(242,244,238,0.14);
+  border: 1px solid rgba(242,244,238,0.4);
   border-radius: 6px;
   padding: 8px 12px;
+  font-weight: 600;
   color: var(--text-light);
   cursor: pointer;
   min-height: 40px;

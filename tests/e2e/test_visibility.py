@@ -135,3 +135,19 @@ def test_overlays_hidden_on_pitch(seeded_squad, page: Page, flow):
     expect(page.locator("#swap-overlay")).to_be_hidden()
     expect(page.locator("#end-match-overlay")).to_be_hidden()
     expect(page.locator("#new-period-hint")).to_be_hidden()
+
+
+# ── Timer controls render at their intended tap-target size ────────────────────
+
+def test_timer_pause_button_is_full_size(seeded_squad, page: Page):
+    """Regression guard: an unclosed CSS comment once swallowed `.timer-btn`, so the
+    pause button collapsed to the tiny browser default. Assert it renders at its
+    intended ~56px tap target (proving the rule is live, not commented out)."""
+    _season_to_plan_review(page, seeded_squad)
+    page.click("#btn-start-match-cta")
+
+    pause = page.locator("#btn-timer-pause")
+    expect(pause).to_be_visible()
+    box = pause.bounding_box()
+    assert box is not None
+    assert box["width"] >= 44 and box["height"] >= 44, f"pause button too small: {box}"

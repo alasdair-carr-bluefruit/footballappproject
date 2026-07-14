@@ -84,6 +84,34 @@ function outgoingSubs(cur, nxt) {
   return new Set(Object.values(cur.lineup).map(p => p.name).filter(n => !nxtNames.has(n)));
 }
 
+// The period (quarter/half) index a slot belongs to — slots pair up 2-per-period.
+function periodOf(slotIndex) { return Math.floor(slotIndex / 2); }
+// The period actually in play (tied to the running clock), independent of what's viewed.
+function livePeriod() { return periodOf(state.liveSlot || 0); }
+
+// Whether a goal can be recorded on the currently-viewed slot. In a live match the
+// coach can freely browse past/future slots, but goals only belong to the live
+// period; a completed match is edit-on-confirm (see confirmGoalEdit).
+function canRecordGoalHere() {
+  if (state.editMode || !state.matchStarted) return false;
+  if (state.matchData?.match?.status === "completed") return true;
+  return periodOf(state.currentSlot) === livePeriod();
+}
+
+// A finished match's report is read-only until the coach explicitly opts in.
+// Guards both goal-edit paths (long-press to add, tap badge to remove) so goals
+// can't be silently changed on a completed match — and, combined with restoring
+// goalCounts on open, so an accidental tap can't overwrite the real tally.
+function confirmGoalEdit() {
+  if (state.matchData?.match?.status !== "completed") return true;
+  if (state.reportEditUnlocked) return true;
+  if (confirm("This match is finished. Edit the match report?")) {
+    state.reportEditUnlocked = true;
+    return true;
+  }
+  return false;
+}
+
 // ── Pitch rendering ───────────────────────────────────────────────────────────
 function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapClick = null, dragData = null) {
   const div = document.createElement("div");
@@ -128,6 +156,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
     goalBadge.textContent = `⚽ ${goals}`;
     goalBadge.addEventListener("click", e => {
       e.stopPropagation();
+      if (!canRecordGoalHere() || !confirmGoalEdit()) return;
       state.goalCounts[name] = Math.max(0, (state.goalCounts[name] || 0) - 1);
       render();
     });
@@ -136,9 +165,10 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
 
   let pressTimer = null;
   div.addEventListener("pointerdown", () => {
-    if (state.editMode || !state.matchStarted) return; // no goals while adjusting plan or reviewing
+    if (!canRecordGoalHere()) return; // no goals while adjusting, reviewing, or browsing a non-live period
     pressTimer = setTimeout(() => {
       pressTimer = null;
+      if (!confirmGoalEdit()) return;
       state.goalCounts[name] = (state.goalCounts[name] || 0) + 1;
       div.classList.add("goal-scored");
       setTimeout(() => div.classList.remove("goal-scored"), 600);
@@ -231,11 +261,15 @@ function render() {
 
   const dots = document.querySelectorAll(".progress-dot");
   const totalSlotDots = state.matchData.slots.length;
+  const showLive = state.matchStarted && state.matchData.match.status !== "completed";
+  const liveP = livePeriod();
   dots.forEach((dot, i) => {
     const isFinalDot = i === totalSlotDots;
     dot.classList.toggle("active", !isFinalDot && i === state.currentSlot);
     dot.classList.toggle("done", !isFinalDot && i < state.currentSlot);
-    if (isFinalDot) { dot.classList.remove("active", "done"); }
+    // Ring the dots of the period actually in play, so "where's live" is always visible.
+    dot.classList.toggle("live", showLive && !isFinalDot && periodOf(i) === liveP);
+    if (isFinalDot) { dot.classList.remove("active", "done", "live"); }
   });
 
   // Build replacement map for bench display
@@ -375,42 +409,56 @@ function render() {
     btnNext.textContent = (isLastSlot && !state.editMode) ? "Summary ▶" : "Next ▶";
     btnAdjust.hidden = false;
     btnAdjust.textContent = state.editMode ? "Done" : "Tinker";
+    document.getElementById("btn-jump-live").hidden = true;
   } else {
     // Live mode (in_progress or completed)
     startMatchBar.hidden = true;
     endMatchBar.hidden = isCompleted;
     liveBadge.hidden = isCompleted;
-    // "Return to plan review" only available before any slot has been advanced
-    document.getElementById("btn-return-plan").hidden = state.currentSlot !== 0 || isCompleted;
+    // "Return to plan review" only while the match hasn't progressed past period 1
+    document.getElementById("btn-return-plan").hidden = state.liveSlot !== 0 || isCompleted;
     btnPrev.disabled = state.currentSlot === 0 || state.editMode;
     btnNext.disabled = state.editMode || (isCompleted && isLastSlot);
     btnNext.textContent = isLastSlot ? "Match Report ▶" : "Next ▶";
 
-    // Past slots (already played) — hide Tinker to prevent editing history
-    const isPastSlot = state.currentSlot < (state.matchData.match.current_slot || 0);
-    if (isPastSlot || isCompleted) {
+    // Already-played periods are frozen (can't rewrite history); the live period and
+    // any future period the coach is previewing stay tinkerable.
+    const isPlayedPeriod = periodOf(state.currentSlot) < livePeriod();
+    if (isPlayedPeriod || isCompleted) {
       btnAdjust.hidden = true;
     } else {
       btnAdjust.hidden = false;
       btnAdjust.textContent = state.editMode ? "Done" : "Tinker";
     }
+    // Offer a jump back to the live period whenever the coach has browsed away.
+    const viewingLive = periodOf(state.currentSlot) === livePeriod();
+    document.getElementById("btn-jump-live").hidden = isCompleted || viewingLive;
   }
 
-  // Show locked badge in slot label
+  // Slot-label badges: LIVE (this is the period in play) and LOCKED (coach-edited).
   const slotLabelEl = document.getElementById("slot-label");
+  if (state.matchStarted && !isCompleted && periodOf(state.currentSlot) === livePeriod()) {
+    slotLabelEl.innerHTML += ' <span class="slot-live-badge">● LIVE</span>';
+  }
   if (state.lockedSlots.has(state.currentSlot)) {
     slotLabelEl.innerHTML += ' <span class="slot-locked-badge">LOCKED</span>';
   }
 
-  // New-period clock prompt: at the start of a new quarter/half in a live match,
-  // offer to reset the clock (unless already handled for this slot)
+  // "Start next period?" prompt: shown when the coach has browsed to the first slot
+  // of the period right after the live one. Starting it advances the live period and
+  // resets the clock; "Just browsing" leaves the match where it is. This is the only
+  // way the match progresses — plain Next/Prev just move the view.
   const hint = document.getElementById("new-period-hint");
-  const atNewPeriod = state.matchStarted && !isCompleted && !state.showingReport
-    && state.currentSlot > 0 && state.currentSlot % 2 === 0;
-  if (atNewPeriod && state.newPeriodHintSlot !== state.currentSlot) {
-    const label = (state.matchData.match.period_label || "Quarter").toLowerCase();
+  const viewedPeriod = periodOf(state.currentSlot);
+  const atNextLivePeriodStart = state.matchStarted && !isCompleted && !state.showingReport
+    && !state.manualRotationMode
+    && state.currentSlot % 2 === 0
+    && viewedPeriod === livePeriod() + 1;
+  if (atNextLivePeriodStart && state.newPeriodHintSlot !== state.currentSlot) {
+    const label = state.matchData.match.period_label || "Quarter";
     document.getElementById("new-period-hint-text").textContent =
-      `New ${label} — reset the match clock?`;
+      `Start ${label} ${viewedPeriod + 1}, or just browsing ahead?`;
+    document.getElementById("btn-new-period-reset").textContent = `Start ${label.toLowerCase()}`;
     hint.hidden = false;
   } else {
     hint.hidden = true;
@@ -419,6 +467,7 @@ function render() {
 
 // ── Quarter-break changes interstitial ────────────────────────────────────────
 function renderChanges() {
+  document.getElementById("btn-jump-live").hidden = true;
   const prevSlot = slotObj(state.currentSlot - 1);
   const nextSlot = slotObj(state.currentSlot);
   const prevP = Math.floor((state.currentSlot - 1) / 2) + 1;
@@ -500,6 +549,7 @@ function renderChanges() {
 
 // ── Report ────────────────────────────────────────────────────────────────────
 function renderReport() {
+  document.getElementById("btn-jump-live").hidden = true;
   const allPlayers = [
     ...Object.values(state.matchData.slots[0].lineup),
     ...state.matchData.slots[0].bench,
@@ -629,12 +679,19 @@ function enterPitchView(data) {
   state.manualRotationMode = data.manual_mode || false;
   state.lockedSlots = new Set(data.locked_slots || []);
   state.removedPlayers = data.removed_players || {};
+  // Restore stored goals (empty for a planned match). Without this a reopened
+  // match shows no scorers and a later save would wipe the real tally.
   Object.keys(state.goalCounts).forEach(k => delete state.goalCounts[k]);
+  Object.assign(state.goalCounts, data.goals || {});
+  state.reportEditUnlocked = false;
 
   // Determine match state
   const status = data.match?.status || "planned";
   state.matchStarted = status !== "planned";
-  state.currentSlot = state.matchStarted ? (data.match?.current_slot || 0) : 0;
+  // liveSlot = the period in play (persisted as current_slot); currentSlot is the
+  // viewed slot, which starts on the live one but is then free to browse.
+  state.liveSlot = data.match?.current_slot || 0;
+  state.currentSlot = state.matchStarted ? state.liveSlot : 0;
 
   // Timer: a persistent count-up clock, running only while the match is live
   if (status === "in_progress") {
@@ -730,11 +787,10 @@ document.getElementById("btn-next").addEventListener("click", async () => {
   if (state.currentSlot < state.matchData.slots.length - 1) {
     const prevSlotObj = state.matchData.slots[state.currentSlot];
     state.currentSlot++;
-    // Persist progress when advancing beyond the furthest reached slot
-    if (state.matchStarted && state.currentSlot > (state.matchData.match.current_slot || 0)) {
-      state.matchData.match.current_slot = state.currentSlot;
-      withSaveToast(() => api.updateProgress(state.matchData.match.id, state.currentSlot));
-    }
+    // Next only MOVES THE VIEW in a live match — the match progresses via the
+    // "Start period" prompt, so browsing ahead never commits or locks anything.
+    // Let the prompt re-appear when landing on the next-period boundary again.
+    state.newPeriodHintSlot = null;
 
     // Manual mode: carry prev slot's lineup into the next empty slot, then auto-tinker
     if (state.manualRotationMode) {
@@ -784,18 +840,28 @@ document.getElementById("btn-prev").addEventListener("click", () => {
   }
   if (state.currentSlot > 0) {
     state.currentSlot--;
+    state.newPeriodHintSlot = null;
     render();
   }
 });
 
+// Jump the view straight back to the live slot after browsing away.
+document.getElementById("btn-jump-live").addEventListener("click", () => {
+  state.currentSlot = state.liveSlot;
+  state.newPeriodHintSlot = null;
+  state.showingReport = false;
+  state.showingChanges = false;
+  showMatch();
+});
+
 // ── End match ─────────────────────────────────────────────────────────────────
 document.getElementById("btn-end-match").addEventListener("click", () => {
-  const isLastSlot = state.currentSlot === state.matchData.slots.length - 1;
-  if (state.showingReport || isLastSlot) {
-    // At the end of the match — no confirmation needed
+  const lastPeriod = periodOf(state.matchData.slots.length - 1);
+  // No confirmation only when the match has genuinely reached its final period;
+  // browsing to the report early (live period still behind) still needs confirming.
+  if (livePeriod() >= lastPeriod) {
     doEndMatch();
   } else {
-    // Mid-match early end — ask for confirmation
     document.getElementById("end-match-overlay").hidden = false;
   }
 });
@@ -928,12 +994,19 @@ document.getElementById("btn-timer-reset").addEventListener("click", () => {
 });
 
 document.getElementById("btn-new-period-reset").addEventListener("click", () => {
+  // Commit: the viewed period becomes the live one. Advance liveSlot, persist it
+  // (this is the only progress write now), and reset the clock for the new period.
+  state.liveSlot = state.currentSlot;
+  state.matchData.match.current_slot = state.currentSlot;
+  withSaveToast(() => api.updateProgress(state.matchData.match.id, state.currentSlot));
   resetMatchTimer();
   state.newPeriodHintSlot = state.currentSlot;
   document.getElementById("new-period-hint").hidden = true;
+  render();
 });
 
 document.getElementById("btn-new-period-dismiss").addEventListener("click", () => {
+  // Just browsing — leave the live period where it is, only suppress the prompt here.
   state.newPeriodHintSlot = state.currentSlot;
   document.getElementById("new-period-hint").hidden = true;
 });
@@ -945,6 +1018,7 @@ async function doStartMatch() {
     state.matchStarted = true;
     state.matchData.match.status = "in_progress";
     state.matchData.match.current_slot = 0;
+    state.liveSlot = 0;             // first period is live
     state.currentSlot = 0;          // kick off at the first slot regardless of plan-review position
     state.newPeriodHintSlot = null; // clear any dismissed-hint state from a previous match
     beginMatchTimer();
@@ -972,6 +1046,7 @@ document.getElementById("btn-return-plan").addEventListener("click", async () =>
     await api.unstartMatch(state.matchData.match.id);
     state.matchStarted = false;
     state.matchData.match.status = "planned";
+    state.liveSlot = 0;
     clearMatchTimer();
     render();
   } catch (err) {

@@ -75,9 +75,10 @@ The green dot after the wordmark is the **centre spot of a football pitch**. It 
 | **Chalk** | `#F2F4EE` | Light surface, primary text on dark. |
 | Pitch Deep | `#0E3A29` | Dark mode backgrounds, app icon background. |
 | Trophy Amber | `#F5B544` | Accent only. Highlights, rewards, "coming soon" states. |
+| Coach Blue | `#35719E` | In-match prompts / advisories (e.g. the "Start next period?" banner). Cool, so it never reads as amber (GK / incoming / ink) or green (live / action). Fill + Chalk label. |
 | Slate | `#1A1F1C` | Body text on light backgrounds. |
 
-**Proportions:** roughly `60 / 25 / 10 / 5` — Pitch dominates, Chalk balances, Match-day signals action, Amber sparkles occasionally.
+**Proportions:** roughly `60 / 25 / 10 / 5` — Pitch dominates, Chalk balances, Match-day signals action, Amber sparkles occasionally. Coach Blue is rarer still — reserved for transient in-match decision prompts.
 
 Programmatic values live in [`tokens.json`](./assets/brand/tokens.json) — that file is the source of truth for Tailwind config, theme files, etc. Don't hardcode hex values in component code; import from tokens.
 
@@ -93,6 +94,7 @@ WCAG contrast ratios for the most common combinations:
 | Match-day `#2EBE6B` | Pitch `#1A5C42` | 3.28 | AA large only |
 | Match-day `#2EBE6B` | Chalk `#F2F4EE` | 2.18 | **Fails AA — do not use for text** |
 | Trophy Amber `#F5B544` | Pitch `#1A5C42` | 4.36 | AA normal, AAA large |
+| Chalk `#F2F4EE` | Coach Blue `#35719E` | 4.73 | AA normal (button label on blue fill) |
 
 **Match-day green is a UI accent, not a text colour on light backgrounds.** For green text on Chalk, use Pitch. For green CTAs on Chalk, use Match-day as the *fill* with Pitch-Deep or Chalk as the *label* — the button label needs its own contrast against the green, not against the surrounding Chalk.
 

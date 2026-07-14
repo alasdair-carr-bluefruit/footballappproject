@@ -12,6 +12,7 @@ from backend.db.repositories import (
     create_blank_plan,
     delete_rotation,
     get_available_ids,
+    get_goals,
     get_goals_total,
     get_or_create_squad,
     get_players,
@@ -171,6 +172,14 @@ def get_match(match_id: int, session: Session = Depends(get_session)) -> dict[st
     plan_data = build_plan_response(session, match_id, id_to_player)
     response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
     response["removed_players"] = get_removed(session, match_id)
+    # Stored goals keyed by player name so the frontend can restore its goalCounts
+    # (without this, reopening a match shows no scorers and a subsequent save
+    # would overwrite the real goals with an empty tally).
+    response["goals"] = {
+        id_to_player[int(pid)].name: count
+        for pid, count in get_goals(session, match_id).items()
+        if int(pid) in id_to_player and count > 0
+    }
     return response
 
 

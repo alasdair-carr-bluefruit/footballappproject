@@ -4,9 +4,11 @@ _Live tracker for the pre-v1.0 refactor phase (DEVELOPMENT_PLAN.md "Phase C").
 Read this first at the start of a session; it's the current source of truth for
 what's done and what's next. Last updated 2026-07-14._
 
-> **▶ Resume here (next session): Phase C is COMPLETE.** C.1–C.7 all done & on
-> `main`. Next is **Phase D — v1.0 "Plan Review" UX** (first feature built on
-> the new module + service structure; see DEVELOPMENT_PLAN.md Part 3 / Phase D).
+> **▶ Resume here (next session): Phase C COMPLETE + a post-refactor bug-squash
+> session done (2026-07-14, see below).** Next is **Phase D — v1.0 "Plan Review"
+> UX** ("Review the match plan" table + per-player slot counts + tinker/save/start;
+> season *and* tournament share the component). See DEVELOPMENT_PLAN.md Part 3 /
+> Phase D. Bug #3 (under-slotted-player warning) is deliberately folded into this.
 >
 > One small, optional loose end from C.7: the batch match add/delete loops in
 > `tournament.js` (`addTournamentMatch`/`deleteMatch` inside the tournament-edit
@@ -192,6 +194,39 @@ what's done and what's next. Last updated 2026-07-14._
    - *Optional (not started):* encapsulate DB→domain mapping as `.to_domain()`
      methods (V1_Improvements Task 5) instead of free functions in
      `repositories.py`.
+
+## Post-refactor bug-squash (2026-07-14) — done, on working tree (uncommitted)
+
+Worked the coach's logged bugs (local `football.db` FeedbackDB #1–4) + fresh
+feedback. All verified with new Playwright e2e tests; 19 e2e + 254 non-e2e green
+(one known-flaky BDD test passes on rerun). See the [[bug-kanban-and-issue-tracker]]
+memory for full detail.
+
+- **#1 goals on a finished match** — edits now require a "match is finished — edit
+  the report?" confirm; also fixed a latent data-loss (goals were never reloaded, so
+  a reopened match showed no scorers and a save wiped the real tally). `GET
+  /matches/{id}` now returns `goals`; frontend restores `goalCounts`.
+- **#4 "can't tinker once live"** — real cause: live `Next` *advanced* the match, so
+  previewing ahead locked earlier slots. Decoupled **viewing** (`currentSlot`) from
+  **progress** (`liveSlot`): Next/Prev now browse freely; the match advances only via
+  a "Start [Quarter N]?" prompt (reused the new-period banner) that commits the period
+  + resets the clock. Tinker on live+future periods; goals only on the live period;
+  End-Match confirms unless the final period is genuinely live.
+- **Pause button too small** — an unclosed CSS comment had silently commented out
+  `.timer-display` + `.timer-btn`. Fixed; guard test asserts ≥44px tap target.
+- **Connection-lost banner** — `loadHome` swallowed fetch failures (`.catch(() => [])`)
+  so an unreachable server looked like "no matches". Now shows an explanatory state +
+  retryable toast. **Mirrored into tournament mode** (`loadTournamentHome` +
+  `loadTournamentLobby`) — see the new **season⇄tournament parity** convention
+  (CLAUDE.md + [[feedback_season_tournament_parity]]).
+- **Deferred:** #2 (tinker recalc ignores locked slots) → the planned adjust-plan
+  rework (it shares the locking code touched by #4). #3 (under-slotted warning) →
+  Phase D Plan Review (it *is* the per-player slot-count summary).
+
+Also found: `titansgaffer.onrender.com` had been serving a ~6-week-old (30 May)
+build — monolithic app.js, no ES modules, SW cache v2 — missing v0.8/v0.9 + the whole
+refactor. Owner redeployed it 2026-07-14. (Legacy per-coach Render instance; doesn't
+auto-track main.)
 
 ## After Phase C
 

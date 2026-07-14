@@ -12,17 +12,22 @@ pytestmark = pytest.mark.e2e
 
 
 def advance_to_report(page: Page) -> None:
-    """Click Next until the last-slot report — the Next button then reads 'End Match'.
+    """Play the match through to the last-slot report — Next then reads 'End Match'.
 
-    (#report-section is reused by the intermediate sub-changes view, so button
-    text is the unambiguous signal that we're actually on the final report.)
+    Next only BROWSES now; the match progresses via the "Start period" prompt, so
+    at each period boundary we commit the period before moving on. (#report-section
+    is reused by the intermediate sub-changes view, so button text is the
+    unambiguous signal that we're actually on the final report.)
     """
     btn = page.locator("#btn-next")
-    for _ in range(20):
+    for _ in range(40):
         if "End Match" in (btn.text_content() or ""):
             return
+        # At the start of the next period? Commit it so the match actually advances.
+        if page.locator("#new-period-hint").is_visible():
+            page.click("#btn-new-period-reset")
         btn.click()
-    raise AssertionError("never reached the match report after 20 Next clicks")
+    raise AssertionError("never reached the match report after 40 Next clicks")
 
 
 def test_season_golden_path(seeded_squad, page: Page):

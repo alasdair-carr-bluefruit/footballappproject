@@ -21,8 +21,14 @@ tests; C.4 mutation testing (all five algorithm modules hardened to a documented
 equivalent-mutant tail); C.5 service layer (`backend/services/match_service`,
 `tournament_service`); C.6 relational schema; C.7 backend tidy-ups
 (`services/analytics.py`, `sw.js` cache-list fix, `frontend/toast.js`
-toast/retry helper). **Next: Phase D — v1.0 "Plan Review" UX.** **Live tracker:
-`docs/refactor/NEXT_STEPS.md`.** See DEVELOPMENT_PLAN.md for the full roadmap.
+toast/retry helper). A **post-refactor bug-squash** (2026-07-14) then fixed the
+coach's logged bugs — finished-match goal guard + reload, live browse/"Start
+period" model (Next no longer auto-advances), pause-button CSS, and a
+connection-lost banner in **both** season & tournament (new season⇄tournament
+parity rule below). **Next: Phase D — v1.0 "Plan Review" UX** ("Review the match
+plan" table + per-player slot counts; folds in the under-slotted-player warning).
+**Live tracker: `docs/refactor/NEXT_STEPS.md`.** See DEVELOPMENT_PLAN.md for the
+full roadmap.
 
 Completed phases:
 - v0.1: Core rotation algorithm (Python only)
@@ -258,6 +264,13 @@ GameConfig
 - `normalize_position()` converts DEF2→"DEF", MID3→"MID", etc.
 - Goal counts stored keyed by `str(player_id)` in `goals_json`; the frontend sends names which the API converts to ids (duplicate names rejected at creation)
 - DB migrations: additive only via `ALTER TABLE ... ADD COLUMN` in `create_db_and_tables()`; wrap in try/except for idempotency
+- **Season ⇄ tournament parity (important):** the two flows must not drift. They
+  share the setup form, pitch renderer, tinkering, goals and full-time by design;
+  but `season.js` and `tournament.js` still hold separate list/load entry points and
+  some flow-specific handlers. When you fix a bug or add UX in one flow, mirror it in
+  the other **in the same change** (e.g. `loadHome` ⇄ `loadTournamentHome`, `openMatch`
+  ⇄ `loadTournamentLobby`), and prefer a parity e2e test that parametrizes
+  `["season","tournament"]` (see `tests/e2e/`). Do not ship a one-sided fix.
 - Keep commit messages to terse one-line comments
 - Push directly to main — no PRs unless explicitly requested
 

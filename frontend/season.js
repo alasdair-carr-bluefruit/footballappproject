@@ -10,11 +10,24 @@ async function loadHome() {
   const list = document.getElementById("match-list");
   list.innerHTML = "<li class='loading'>Loading…</li>";
 
-  const matches = await api.getMatches().catch(() => []);
-  list.innerHTML = "";
-
   const exportBar = document.getElementById("export-bar");
   document.getElementById("export-dropdown").hidden = true;
+
+  let matches;
+  try {
+    matches = await api.getMatches();
+  } catch {
+    // A connection failure (offline, or the server still spinning up) is NOT the
+    // same as "no matches" — say so and offer a retry instead of a misleading
+    // empty list.
+    list.innerHTML = "<li class='empty-state'>Couldn't reach the server — check your connection.</li>";
+    exportBar.hidden = true;
+    showToast("Connection lost — couldn't load your matches.", {
+      actionLabel: "Retry", action: () => loadHome(),
+    });
+    return;
+  }
+  list.innerHTML = "";
 
   if (matches.length === 0) {
     list.innerHTML = "<li class='empty-state'>No matches yet — tap New Match to start</li>";

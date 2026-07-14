@@ -7,7 +7,8 @@ import { api } from "./api.js";
 // setter function per variable. Property mutation on an imported object is
 // always safe from any module, so every consumer just does `state.x = y`.
 export const state = {
-  currentSlot: 0,
+  currentSlot: 0, // slot currently being VIEWED (free to browse in a live match)
+  liveSlot: 0, // first slot of the period actually in play; only advances on explicit "start period"
   showingReport: false,
   showingChanges: false,
   editMode: false,
@@ -17,6 +18,7 @@ export const state = {
   dragState: null, // {slotIndex, posKey, playerName} for drag-and-drop
   matchData: null, // { match, slots, warnings }
   goalCounts: {}, // { playerName: count }
+  reportEditUnlocked: false, // coach opted in to editing a finished match's goals
   gameConfigs: null, // cached from /api/matches/config/game-configs
   selectedSize: 5,
   selectedHomeAway: "home",

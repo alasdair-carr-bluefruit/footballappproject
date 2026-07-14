@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { state, ensureGameConfigs, refreshShirtNumbers } from "./state.js";
 import { showScreen, enterPitchView, openMatch } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
-import { withSaveToast } from "./toast.js";
+import { showToast, withSaveToast } from "./toast.js";
 
 // ── Tournament Home ───────────────────────────────────────────────────────────
 async function loadTournamentHome() {
@@ -10,7 +10,18 @@ async function loadTournamentHome() {
   const list = document.getElementById("tournament-list");
   list.innerHTML = "<li class='loading'>Loading…</li>";
 
-  const tournaments = await api.getTournaments().catch(() => []);
+  let tournaments;
+  try {
+    tournaments = await api.getTournaments();
+  } catch {
+    // A connection failure is NOT the same as "no tournaments" — mirror the season
+    // match-list behaviour (say so + offer a retry) so the two modes don't drift.
+    list.innerHTML = "<li class='empty-state'>Couldn't reach the server — check your connection.</li>";
+    showToast("Connection lost — couldn't load your tournaments.", {
+      actionLabel: "Retry", action: () => loadTournamentHome(),
+    });
+    return;
+  }
   list.innerHTML = "";
 
   if (tournaments.length === 0) {
@@ -361,12 +372,19 @@ async function loadTournamentLobby(id) {
   document.getElementById("lobby-match-list").innerHTML = "<li class='loading'>Loading…</li>";
   document.getElementById("add-match-panel").hidden = true;
 
-  const data = await api.getTournament(id).catch(err => {
-    alert(err.message);
-    loadTournamentHome();
-    return null;
-  });
-  if (!data) return;
+  let data;
+  try {
+    data = await api.getTournament(id);
+  } catch {
+    // Don't bounce to home on a connection blip — explain it and let the coach
+    // retry into the same lobby (parity with the season connection-lost handling).
+    document.getElementById("lobby-match-list").innerHTML =
+      "<li class='empty-state'>Couldn't reach the server — check your connection.</li>";
+    showToast("Connection lost — couldn't load this tournament.", {
+      actionLabel: "Retry", action: () => loadTournamentLobby(id),
+    });
+    return;
+  }
 
   state.activeTournamentData = data;
   const t = data.tournament;
