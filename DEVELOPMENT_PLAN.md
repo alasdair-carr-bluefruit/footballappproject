@@ -174,10 +174,13 @@ onto the shared instance instead of yet more Render clones.
    app-state context (screen, match id). Keep the existing link as a fallback.
 
 ### Phase C — Refactor for leverage
-> **Status (2026-07-13):** C.1, C.2, C.3, C.6 done & on `main`. C.4 (mutation
-> testing) in progress — validator hardened; rotation_engine + time_balancer
-> partial; skill_balancer/gk_selector remain. C.5, C.7 not started.
-> Live tracker: `docs/refactor/NEXT_STEPS.md`.
+> **Status (2026-07-14): Phase C COMPLETE — C.1–C.7 all done & committed.** All
+> five algorithm modules mutation-hardened; service layer extracted; backend
+> tidy-ups landed. A post-refactor bug-squash also shipped (finished-match goals,
+> live-browse model, pause button, connection-lost banner). **Now in Phase D:
+> D.1 "Review the plan" screen is DONE** (`37a2cec`). Committed locally, not yet
+> pushed (see NEXT_STEPS.md "Env"/push policy). Live tracker:
+> `docs/refactor/NEXT_STEPS.md`.
 
 1. ✅ **DONE** (`f35492a`) Split `frontend/app.js` into ES modules: `state.js`, `screens.js`,
    `pitch.js`, `setup-form.js` (shared season+tournament config form — killed the
@@ -190,17 +193,18 @@ onto the shared instance instead of yet more Render clones.
 3. ✅ **DONE** (`920f4dd`) CSS/HTML visibility tests (`tests/e2e/test_visibility.py`)
    guarding the `display:flex` / `[hidden]` invariant and the pitch state machine
    across both flows.
-4. 🔄 **IN PROGRESS** **Mutation testing** (`mutmut`) against the pure algorithm
-   modules. Done: RNG seeded for determinism (`tests/unit/conftest.py`); `validator`
-   fully hardened (all remaining survivors equivalent); `rotation_engine` and
-   `time_balancer` partially hardened. Remaining: `skill_balancer`, `gk_selector`,
-   and the rotation_engine/time_balancer tails. Surviving mutants reveal hollow
-   tests — fix by strengthening assertions, not by adding more. See NEXT_STEPS.md.
-5. **Service layer extraction**: pull business logic out of `matches.py` (~600 lines)
-   and `tournaments.py` into `backend/services/match_service.py` and
-   `tournament_service.py`. Routers become thin HTTP adapters; services own
-   orchestration; repositories own queries. Makes unit testing endpoints practical
-   without spinning up a full DB.
+4. ✅ **DONE** (`345872c`, `0ac6662`, `bd9530a`, `030a75c`) **Mutation testing**
+   (`mutmut`) against the pure algorithm modules. RNG seeded for determinism
+   (`tests/unit/conftest.py`); all five modules hardened, each to a documented
+   equivalent-mutant tail (validator 60→20, rotation_engine 287→255,
+   time_balancer 137→87, skill_balancer 134→54, gk_selector 47→27). Surviving
+   mutants reveal hollow tests — fixed by strengthening assertions, not adding
+   tests. Full detail in NEXT_STEPS.md.
+5. ✅ **DONE** (`7e02eb4`) **Service layer extraction**: business logic pulled out
+   of `matches.py`/`tournaments.py` into `backend/services/match_service.py` and
+   `tournament_service.py`. Routers are thin HTTP adapters; services own
+   orchestration; repositories own queries. Pure helpers unit-tested with no DB
+   (`tests/unit/services/`).
 6. ✅ **DONE** (`c9340a5`, `5d67a08`) **Schema normalisation** (done before multi-user to avoid concurrent-write races):
    replaced JSON blob columns (`slots_json`, `goals_json`, `removed_players_json`,
    `available_player_ids_json`) with proper relational tables — `SlotDB`,
@@ -208,14 +212,21 @@ onto the shared instance instead of yet more Render clones.
    migration (decide on Alembic here — it's the right tool once the schema evolves
    beyond simple additive columns). Deleting a player then correctly cascades;
    stats queries become SQL not in-memory JSON parsing.
-7. Backend tidy-ups: extract stats/history aggregation into `analytics.py`; replace
-   silent frontend `.catch()`s with a toast/retry helper; fix SW cache list.
+7. ✅ **DONE** (`db7109d`, `6d50c5b`) Backend tidy-ups: stats/history aggregation
+   extracted into `services/analytics.py`; silent frontend `.catch()`s replaced
+   with a `toast.js` toast/retry helper; `sw.js` SHELL cache-list fixed (now
+   caches all frontend modules, guarded by a unit test).
 
 ### Phase D — v1.0 "Plan Review" UX (first feature on the new structure)
-1. **Review the match plan** screen after generation (season *and* tournament — same
-   component): simplified table of slots (GK/DEF/MID/ATT rows, changes highlighted),
-   per-player slot-count summary underneath, actions: Tinker / Save changes /
-   Start match / Back. All edits already persist server-side via `/adjust`.
+1. ✅ **DONE** (`37a2cec`) **Review the match plan** screen after generation
+   (season *and* tournament — same `#screen-review`). Player-row grid (one row per
+   player, position chip per slot, per-player slot total + skill-total row, changed
+   cells highlighted), an under-slotted-player warning vs fair share (folds in bug
+   #3), actions: Tinker / Start match / Back. Grid is read-only — "Tinker" opens the
+   pitch editor (edits persist via `/adjust`) and a "◀ Plan" pill returns.
+   Tournament also gets a combined "Review all plans" page (one card per match,
+   rotations generated in order for cross-match fairness). ("Save changes" was
+   dropped — edits already auto-persist.)
 2. Tinkering undo/redo command stack (adopt the V2 §6 spec).
 3. Revisit export (CSV/Sheets) once the review screen exposes the same data.
 4. This is the proving ground for the new module structure — if the component can be

@@ -4,11 +4,13 @@ _Live tracker for the pre-v1.0 refactor phase (DEVELOPMENT_PLAN.md "Phase C").
 Read this first at the start of a session; it's the current source of truth for
 what's done and what's next. Last updated 2026-07-14._
 
-> **▶ Resume here (next session): Phase C COMPLETE + a post-refactor bug-squash
-> session done (2026-07-14, see below).** Next is **Phase D — v1.0 "Plan Review"
-> UX** ("Review the match plan" table + per-player slot counts + tinker/save/start;
-> season *and* tournament share the component). See DEVELOPMENT_PLAN.md Part 3 /
-> Phase D. Bug #3 (under-slotted-player warning) is deliberately folded into this.
+> **▶ Resume here (next session): Phase C COMPLETE + post-refactor bug-squash +
+> Phase D.1 all done (2026-07-14).** Everything below C.7 is history; the current
+> work is in the **"Phase D" section near the bottom of this file**. D.1 "Review
+> the plan" screen is shipped (grid + under-slotted warning, season + tournament,
+> commit `37a2cec`, committed locally not pushed). Bug #3 folded into it. **Next:
+> D.2 (tinker undo/redo) or D.3 (export revisit).** All commits since the last
+> push are LOCAL — awaiting the coach's local test (see Env note at the bottom).
 >
 > One small, optional loose end from C.7: the batch match add/delete loops in
 > `tournament.js` (`addTournamentMatch`/`deleteMatch` inside the tournament-edit
@@ -73,7 +75,7 @@ what's done and what's next. Last updated 2026-07-14._
   (`tests/unit/services/`, 20 tests); the DB-coupled flows stay covered by the
   integration + e2e suites. All 244 tests green (232 non-e2e + 12 e2e).
 
-## Remaining Phase C work (suggested order)
+## Phase C detail (all DONE — kept as the mutation-testing record)
 
 1. **C.4 — Mutation testing (mutmut)** against the pure algorithm modules
    (`rotation_engine`, `time_balancer`, `gk_selector`, `skill_balancer`,

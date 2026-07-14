@@ -25,10 +25,13 @@ toast/retry helper). A **post-refactor bug-squash** (2026-07-14) then fixed the
 coach's logged bugs — finished-match goal guard + reload, live browse/"Start
 period" model (Next no longer auto-advances), pause-button CSS, and a
 connection-lost banner in **both** season & tournament (new season⇄tournament
-parity rule below). **Next: Phase D — v1.0 "Plan Review" UX** ("Review the match
-plan" table + per-player slot counts; folds in the under-slotted-player warning).
-**Live tracker: `docs/refactor/NEXT_STEPS.md`.** See DEVELOPMENT_PLAN.md for the
-full roadmap.
+parity rule below). **Now in Phase D — v1.0 "Plan Review" UX. D.1 done
+(committed locally, not yet pushed):** a "Review the plan" screen is the landing
+after generating a plan (season *and* tournament) — a per-player rotation grid,
+an under-slotted-player warning (folds in bug #3), and Tinker / Start / Back;
+tournament also gets a combined "Review all plans" page. D.2 (tinker undo/redo)
+and D.3 (export revisit) remain. **Live tracker:
+`docs/refactor/NEXT_STEPS.md`.** See DEVELOPMENT_PLAN.md for the full roadmap.
 
 Completed phases:
 - v0.1: Core rotation algorithm (Python only)
@@ -41,7 +44,7 @@ Completed phases:
 - v0.8: Tournament mode — tournament entity, cross-match cumulative fairness (`prior_slots`), guest players, manual rotation mode, tournament stats (shipped 2026-05-24 onwards). Not built: 8-a-side preset, knockout bracket structure.
 - v0.9: Consecutive sit-out constraint, match timer (count-up, persistent), fairness impact on removal/reinstatement, in-app bug reporting, All-rounder default rotation, inspection-based DB migrations (shipped 2026-07-10)
 
-Next significant work: Refactor phase complete — next is v1.0 Plan Review UX (first feature on the new module + service structure; see DEVELOPMENT_PLAN.md Part 3 / Phase D), then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
+Next significant work: Phase D in progress — D.1 Plan Review screen shipped (the first feature on the new module structure; see DEVELOPMENT_PLAN.md Part 3 / Phase D); D.2 tinker undo/redo + D.3 export revisit remain, then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
 
 ---
 
