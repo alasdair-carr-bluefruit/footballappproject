@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { state, ensureGameConfigs } from "./state.js";
 import { showScreen, enterPitchView, enterManualAssignMode, openMatch } from "./pitch.js";
 import { selectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
+import { showToast } from "./toast.js";
 
 // ── Home screen ───────────────────────────────────────────────────────────────
 async function loadHome() {
@@ -352,11 +353,7 @@ document.getElementById("btn-export-matches").addEventListener("click", async ()
     const tsv = rows.map(r => r.map(c => String(c ?? "").replace(/\t/g, " ")).join("\t")).join("\n");
     await navigator.clipboard.writeText(tsv).catch(() => {});
     window.open("https://sheets.new", "_blank");
-    const toast = document.createElement("div");
-    toast.className = "sheets-toast";
-    toast.textContent = "Data copied — paste with Ctrl+V / ⌘V into the new sheet";
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
+    showToast("Data copied — paste with Ctrl+V / ⌘V into the new sheet");
     dropdown.hidden = true;
   };
 });

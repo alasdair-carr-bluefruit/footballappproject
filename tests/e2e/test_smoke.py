@@ -104,6 +104,36 @@ def test_tournament_golden_path(seeded_squad, page: Page):
     expect(page.locator("#screen-tournament-lobby")).to_be_visible()
 
 
+def test_failed_save_surfaces_retry_toast(seeded_squad, page: Page):
+    """C.7: a failed write shows a retryable toast instead of vanishing silently.
+
+    Aborts the goals-save request on end-match and asserts the toast (with a
+    Retry action) appears — the golden paths only cover the success case where
+    the toast never fires.
+    """
+    page.goto(seeded_squad + "/")
+    expect(page.locator("#screen-landing")).to_be_visible()
+    page.click("#btn-season-mode")
+    page.click("#btn-go-new-match")
+    page.fill("#opponent-input", "Rovers")
+    page.click("#btn-select-players")
+    page.click("#btn-generate")
+    expect(page.locator("#screen-pitch")).to_be_visible()
+
+    page.click("#btn-start-match-cta")
+    expect(page.locator("#live-badge")).to_be_visible()
+    advance_to_report(page)
+
+    # Make the goals save fail, then end the match.
+    page.route("**/api/matches/*/goals", lambda route: route.abort())
+    page.click("#btn-end-match")
+
+    # A toast with a Retry action appears; the flow still completes to full time.
+    expect(page.locator(".toast")).to_be_visible()
+    expect(page.locator(".toast .toast-action")).to_have_text("Retry")
+    expect(page.locator("#screen-fulltime")).to_be_visible()
+
+
 def test_screens_are_mutually_exclusive(seeded_squad, page: Page):
     """Guards the [hidden]/display-flex class of bug: only one screen visible."""
     page.goto(seeded_squad + "/")

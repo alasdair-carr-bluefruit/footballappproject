@@ -1917,11 +1917,15 @@ html, body {
   border-radius: 2px;
 }
 
-.sheets-toast {
+.toast {
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  display: flex;
+  align-items: center;
+  gap: 16px;
   background: #1a2e20;
   color: #F2F4EE;
   font-size: 14px;
@@ -1929,8 +1933,21 @@ html, body {
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.15);
   z-index: 9999;
-  white-space: nowrap;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.toast-text { flex: 1; }
+
+.toast-action {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #F5B544;  /* trophy-amber accent */
+  font-weight: 600;
+  font-size: 14px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  cursor: pointer;
 }
 
 .btn-danger { color: #e74c3c; }

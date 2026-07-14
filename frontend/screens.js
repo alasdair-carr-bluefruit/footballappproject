@@ -3,6 +3,7 @@ import { state, refreshShirtNumbers } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
+import { withSaveToast } from "./toast.js";
 
 // ── First-launch tutorial ─────────────────────────────────────────────────────
 // Check server first — if a team name exists the DB already has data (e.g. a
@@ -51,7 +52,7 @@ document.getElementById("btn-tutorial-start").addEventListener("click", async ()
   }
   const logoImg = document.getElementById("tutorial-logo-img");
   const logo = logoImg.hidden ? "" : (logoImg.src || "");
-  await api.updateTeamInfo({ team_name: name, team_logo: logo }).catch(() => {});
+  await withSaveToast(() => api.updateTeamInfo({ team_name: name, team_logo: logo }));
   state.teamInfo = { team_name: name, team_logo: logo };
   localStorage.setItem("gaffer_onboarded", "1");
   showScreen("screen-landing");

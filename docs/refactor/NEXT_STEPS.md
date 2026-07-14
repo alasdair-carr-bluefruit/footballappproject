@@ -4,23 +4,23 @@ _Live tracker for the pre-v1.0 refactor phase (DEVELOPMENT_PLAN.md "Phase C").
 Read this first at the start of a session; it's the current source of truth for
 what's done and what's next. Last updated 2026-07-14._
 
-> **▶ Resume here (next session):** C.4 (mutation testing), C.5 (service layer)
-> and most of **C.7** are **done** — the analytics/stats extraction and the
-> `sw.js` cache-list fix (both below). The **one remaining C.7 item** is the
-> frontend **toast/retry helper**: replace the silent write-path `.catch(() =>
-> {})`s (progress/goals saves in `pitch.js`, team-info in `screens.js`) with a
-> user-visible toast + retry. That's a UX/brand decision (toast styling per
-> BRAND.md) — worth confirming scope with the coach before building. Read-path
-> `.catch(() => [])` fallbacks and `navigator.share().catch()` are fine as-is.
-> Once that lands, **Phase C is complete** → move to Phase D (v1.0 Plan Review).
+> **▶ Resume here (next session): Phase C is COMPLETE.** C.1–C.7 all done & on
+> `main`. Next is **Phase D — v1.0 "Plan Review" UX** (first feature built on
+> the new module + service structure; see DEVELOPMENT_PLAN.md Part 3 / Phase D).
 >
-> _mutmut workflow reminder:_ to re-check one module, set
-> `only_mutate = ["backend/algorithm/<mod>.py"]` in `[tool.mutmut]` (keep
-> `source_paths` on the whole package), `rm -rf mutants`, `.venv/bin/python -m
-> mutmut run`, then `mutmut results` / `mutmut show <mutant>`. **Always
-> `rm -rf mutants` when switching the `only_mutate` target** or the stale
-> working copy silently re-runs the previous module. Remove `only_mutate` again
-> before committing.
+> One small, optional loose end from C.7: the batch match add/delete loops in
+> `tournament.js` (`addTournamentMatch`/`deleteMatch` inside the tournament-edit
+> save) still use bare `.catch(() => {})` — left silent because a single-
+> iteration retry mid-batch is unsafe. If desired, wrap the whole batch save in
+> one toast. Everything else (single-action writes) now uses `withSaveToast`.
+>
+> _mutmut workflow reminder (for future algorithm work):_ to re-check one
+> module, set `only_mutate = ["backend/algorithm/<mod>.py"]` in `[tool.mutmut]`
+> (keep `source_paths` on the whole package), `rm -rf mutants`,
+> `.venv/bin/python -m mutmut run`, then `mutmut results` / `mutmut show
+> <mutant>`. **Always `rm -rf mutants` when switching the `only_mutate`
+> target** or the stale working copy silently re-runs the previous module.
+> Remove `only_mutate` again before committing.
 
 ## Done & on `main`
 
@@ -177,8 +177,18 @@ what's done and what's next. Last updated 2026-07-14._
      Cache bumped v5→v6 so existing clients re-cache on activate. Guarded by
      `tests/unit/test_service_worker_cache.py`, which parses app.js's imports
      and asserts `SHELL` covers every module (can't silently drift again).
-   - **Frontend toast/retry (remaining).** See the resume pointer at the top —
-     this is the last C.7 item and wants a scope/design check with the coach.
+   - **Frontend toast/retry (done).** New `frontend/toast.js` — `showToast`
+     (single transient toast, optional Retry action) and `withSaveToast(fn)`
+     which surfaces a retryable toast when a write rejects instead of the old
+     data-losing `.catch(() => {})`. Wired into the silent write-path saves:
+     progress/goals in `pitch.js`, team-info in `screens.js`, guest-removal and
+     position-overrides in `tournament.js`; the existing clipboard toast in
+     `season.js` now uses the helper too (retired the one-off `.sheets-toast`).
+     Reuses the trophy-amber accent for the Retry button. Verified end-to-end by
+     `test_failed_save_surfaces_retry_toast` (aborts the goals save, asserts the
+     toast + Retry appear and the flow still reaches full time). `toast.js` is in
+     the SW SHELL and the guard test now asserts SHELL covers *every* frontend
+     module.
    - *Optional (not started):* encapsulate DB→domain mapping as `.to_domain()`
      methods (V1_Improvements Task 5) instead of free functions in
      `repositories.py`.

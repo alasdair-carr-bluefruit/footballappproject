@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { state, ensureGameConfigs, refreshShirtNumbers } from "./state.js";
 import { showScreen, enterPitchView, openMatch } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
+import { withSaveToast } from "./toast.js";
 
 // ── Tournament Home ───────────────────────────────────────────────────────────
 async function loadTournamentHome() {
@@ -255,7 +256,7 @@ async function renderTournamentSquadGuests(tournamentId) {
     `;
     li.querySelector(".avail-remove-guest").addEventListener("click", async e => {
       e.preventDefault(); e.stopPropagation();
-      await api.removeGuestPlayer(tournamentId, p.id).catch(() => {});
+      await withSaveToast(() => api.removeGuestPlayer(tournamentId, p.id));
       renderTournamentSquadGuests(tournamentId);
     });
     ul.appendChild(li);
@@ -300,7 +301,7 @@ document.getElementById("btn-generate-all-matches").addEventListener("click", as
     const existing = state.activeTournamentData?.position_overrides || {};
     const merged = { ...existing, ...state.pendingPositionChanges };
     // Build final overrides: include existing overrides for players not in this squad screen
-    await api.setPositionOverrides(state.activeTournamentId, merged).catch(() => {});
+    await withSaveToast(() => api.setPositionOverrides(state.activeTournamentId, merged));
     state.pendingPositionChanges = {};
   }
 

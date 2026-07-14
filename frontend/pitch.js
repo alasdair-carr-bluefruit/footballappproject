@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { state, refreshShirtNumbers } from "./state.js";
 import { loadHome } from "./season.js";
 import { loadTournamentLobby } from "./tournament.js";
+import { withSaveToast } from "./toast.js";
 
 // NOTE on circular imports: pitch.js needs to navigate back into season.js
 // (loadHome) and tournament.js (loadTournamentLobby) after a match ends or
@@ -732,7 +733,7 @@ document.getElementById("btn-next").addEventListener("click", async () => {
     // Persist progress when advancing beyond the furthest reached slot
     if (state.matchStarted && state.currentSlot > (state.matchData.match.current_slot || 0)) {
       state.matchData.match.current_slot = state.currentSlot;
-      api.updateProgress(state.matchData.match.id, state.currentSlot).catch(() => {});
+      withSaveToast(() => api.updateProgress(state.matchData.match.id, state.currentSlot));
     }
 
     // Manual mode: carry prev slot's lineup into the next empty slot, then auto-tinker
@@ -813,8 +814,8 @@ async function doEndMatch() {
   // Save goals and mark match completed, then show Full Time screen
   if (state.matchData?.match.id) {
     const oppGoals = state.matchData.match.opponent_goals || 0;
-    await api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals).catch(() => {});
-    await api.updateProgress(state.matchData.match.id, state.currentSlot, "completed").catch(() => {});
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals));
+    await withSaveToast(() => api.updateProgress(state.matchData.match.id, state.currentSlot, "completed"));
     state.matchData.match.status = "completed";
   }
   await showFulltime();
@@ -1227,7 +1228,7 @@ async function saveGoalsIfNeeded() {
   if (!state.matchData || !state.matchData.match.id) return;
   const hasGoals = Object.values(state.goalCounts).some(v => v > 0);
   if (hasGoals) {
-    await api.saveGoals(state.matchData.match.id, state.goalCounts, state.matchData.match.opponent_goals || 0).catch(() => {});
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, state.matchData.match.opponent_goals || 0));
   }
 }
 
@@ -1304,7 +1305,7 @@ document.getElementById("ft-opp-input").addEventListener("input", e => {
 document.getElementById("btn-ft-done").addEventListener("click", async () => {
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   if (state.matchData?.match.id) {
-    await api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals).catch(() => {});
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals));
   }
   if (state.pitchBackContext === "tournament" && state.activeTournamentId) {
     loadTournamentLobby(state.activeTournamentId);

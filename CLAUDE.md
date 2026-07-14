@@ -15,15 +15,13 @@ A mobile-first Progressive Web App for grassroots youth football coaches to mana
 
 ## Current Phase
 
-**Refactor Phase (pre-v1.0)** — in progress. C.1 (app.js → ES modules), C.2
-(Playwright e2e smoke suite), C.3 (CSS/HTML visibility tests), C.4 (mutation
-testing), C.5 (service layer) and C.6 (relational schema) are done & on `main`.
-C.4 hardened all five algorithm modules (`validator`, `rotation_engine`,
-`time_balancer`, `skill_balancer`, `gk_selector`), each stopped at a documented
-equivalent-mutant tail. C.5 pulled router orchestration into `backend/services/`
-(`match_service`, `tournament_service`). C.7 mostly done — stats/analytics
-extraction (`services/analytics.py`) and the `sw.js` cache-list fix landed; only
-the frontend toast/retry helper remains. **Live tracker:
+**Refactor Phase (pre-v1.0) — COMPLETE.** C.1–C.7 all done & on `main`. C.1
+app.js → ES modules; C.2 Playwright e2e smoke suite; C.3 CSS/HTML visibility
+tests; C.4 mutation testing (all five algorithm modules hardened to a documented
+equivalent-mutant tail); C.5 service layer (`backend/services/match_service`,
+`tournament_service`); C.6 relational schema; C.7 backend tidy-ups
+(`services/analytics.py`, `sw.js` cache-list fix, `frontend/toast.js`
+toast/retry helper). **Next: Phase D — v1.0 "Plan Review" UX.** **Live tracker:
 `docs/refactor/NEXT_STEPS.md`.** See DEVELOPMENT_PLAN.md for the full roadmap.
 
 Completed phases:
@@ -37,7 +35,7 @@ Completed phases:
 - v0.8: Tournament mode — tournament entity, cross-match cumulative fairness (`prior_slots`), guest players, manual rotation mode, tournament stats (shipped 2026-05-24 onwards). Not built: 8-a-side preset, knockout bracket structure.
 - v0.9: Consecutive sit-out constraint, match timer (count-up, persistent), fairness impact on removal/reinstatement, in-app bug reporting, All-rounder default rotation, inspection-based DB migrations (shipped 2026-07-10)
 
-Next significant work: finish the Refactor phase (C.4/C.5 done, C.7 all but the frontend toast/retry helper done — see `docs/refactor/NEXT_STEPS.md`), then v1.0 Plan Review UX (first feature on the new structure), then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
+Next significant work: Refactor phase complete — next is v1.0 Plan Review UX (first feature on the new module + service structure; see DEVELOPMENT_PLAN.md Part 3 / Phase D), then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
 
 ---
 
@@ -128,6 +126,7 @@ football-app-project/
 │   ├── tournament.js     ← Tournament flow (create, squad, lobby, guests)
 │   ├── screens.js        ← Onboarding, landing, squad management, bug report
 │   ├── api.js            ← Fetch wrappers
+│   ├── toast.js          ← Toast notifications + withSaveToast retry helper (C.7)
 │   ├── style.css
 │   └── sw.js             ← Service Worker
 │

@@ -1,8 +1,9 @@
 // Service Worker — network-first with cache fallback
-const CACHE = "squad-rotation-v6";
-// app.js is a thin entry point that side-effect-imports the modules below, so
-// they must all be pre-cached for the app to work offline (app.js alone is not
-// enough). Keep this list in sync with frontend/*.js (see index.html).
+const CACHE = "squad-rotation-v7";
+// app.js is a thin entry point that side-effect-imports the feature modules, so
+// every frontend module must be pre-cached for the app to work offline (app.js
+// alone is not enough). Keep this list in sync with frontend/*.js — the
+// tests/unit/test_service_worker_cache.py guard fails if a module is missing.
 const SHELL = [
   "/",
   "/app.js",
@@ -12,6 +13,7 @@ const SHELL = [
   "/season.js",
   "/tournament.js",
   "/screens.js",
+  "/toast.js",
   "/api.js",
   "/style.css",
   "/manifest.json",
