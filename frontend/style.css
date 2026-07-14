@@ -766,6 +766,65 @@ html, body {
 
 .review-loading { color: var(--text-dim); text-align: center; padding: 24px 0; }
 
+/* Compact position-row grid (positions down, slots across) */
+.plan-grid {
+  display: grid;
+  gap: 3px;
+  align-items: stretch;
+}
+.plan-corner { background: transparent; }
+.plan-cell, .plan-rowlabel, .plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  padding: 5px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-head {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.55);
+  padding: 3px 2px;
+}
+.plan-rowlabel { justify-content: flex-start; padding-left: 6px; font-size: 10px; }
+.plan-empty { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.22); font-weight: 400; }
+.plan-cell.pos-gk  { background: #b37200; color: #ffd060; }
+.plan-cell.pos-def { background: #1a5276; color: #7ec8e3; }
+.plan-cell.pos-mid { background: rgba(255,255,255,0.12); color: #fff; }
+.plan-cell.pos-fwd { background: #1e6b2e; color: #7dda8a; }
+.plan-rowlabel.pos-gk  { color: #ffd060; }
+.plan-rowlabel.pos-def { color: #7ec8e3; }
+.plan-rowlabel.pos-mid { color: #fff; }
+.plan-rowlabel.pos-fwd { color: #7dda8a; }
+.plan-cell.chip-changed { outline: 1.5px solid rgba(245,181,68,0.9); outline-offset: -1.5px; }
+.plan-cell.under { box-shadow: inset 0 0 0 1.5px var(--trophy-amber); }
+.plan-skill-label, .plan-skill { color: #ffd700; background: rgba(255,255,255,0.08); font-size: 10px; }
+.plan-grid .plan-skill-label { background: transparent; }
+
+/* Wrapping "slots per player" strip */
+.plan-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  margin-top: 12px;
+}
+.plan-counts-title { font-size: 11px; color: var(--text-dim); width: 100%; margin-bottom: 2px; }
+.plan-count-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+}
+.plan-count-chip b { font-weight: 800; }
+.plan-count-chip.under { background: rgba(245,181,68,0.18); box-shadow: inset 0 0 0 1px rgba(245,181,68,0.55); }
+
 /* Under-slotted / uneven-time warning banner */
 .review-warning {
   margin: 10px 16px 0;

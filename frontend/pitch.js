@@ -160,6 +160,77 @@ function buildPlanGrid(listEl, md = state.matchData, opts = {}) {
   listEl.appendChild(skillLi);
 }
 
+// The compact token shown for a player in the position grid — shirt number if
+// set, else 3-letter initials (matches the pitch avatars the coach already reads).
+function playerToken(name) {
+  const num = state.shirtNumbers[name];
+  return num != null ? String(num) : name.slice(0, 3).toUpperCase();
+}
+
+// Compact POSITION-row grid for the "Review the plan" screen: one row per
+// formation position (+GK), a column per slot, each cell the player token who
+// fills it. Rows = team size (fixed), so it stays compact no matter how big the
+// squad is — unlike the per-player report grid. Plus a per-slot skill row.
+// `containerEl` is a block element; we build a CSS grid inside it.
+function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
+  const formation = md.match.formation || "1-2-1";
+  const positions = ["GK", ...formationPositions(formation)];
+  const { slotLabels } = planGridData(md);
+  const flagged = opts.underSlotted || new Set();
+
+  const cell = (cls, text, title) => {
+    const el = document.createElement("span");
+    el.className = cls;
+    el.textContent = text;
+    if (title) el.title = title;
+    return el;
+  };
+
+  const grid = document.createElement("div");
+  grid.className = "plan-grid";
+  grid.style.gridTemplateColumns = `minmax(30px, auto) repeat(${md.slots.length}, minmax(0, 1fr))`;
+
+  // Header: blank corner + slot labels.
+  grid.appendChild(cell("plan-corner", ""));
+  slotLabels.forEach(l => grid.appendChild(cell("plan-cell plan-head", l)));
+
+  // One row per position.
+  positions.forEach(posKey => {
+    const band = normalizePos(posKey).toLowerCase();
+    grid.appendChild(cell(`plan-rowlabel pos-${band}`, posKey));
+    md.slots.forEach((slot, i) => {
+      const p = slot.lineup[posKey];
+      if (!p) { grid.appendChild(cell("plan-cell plan-empty", "·")); return; }
+      const prev = i > 0 ? md.slots[i - 1].lineup[posKey]?.name : p.name;
+      const changed = opts.markChanges && i > 0 && prev !== p.name ? " chip-changed" : "";
+      const under = flagged.has(p.name) ? " under" : "";
+      grid.appendChild(cell(`plan-cell pos-${band}${changed}${under}`, playerToken(p.name), p.name));
+    });
+  });
+
+  // Skill-total row.
+  grid.appendChild(cell("plan-rowlabel plan-skill-label", "⚡"));
+  md.slots.forEach(slot => grid.appendChild(cell("plan-cell plan-skill", String(slot.skill_total ?? "?"))));
+
+  containerEl.appendChild(grid);
+}
+
+// Wrapping "slots per player" strip — preserves the fairness overview the report
+// grid gave, but compact (wraps instead of one row each). Under-slotted flagged.
+function buildCountsStrip(md, flagged) {
+  const { players } = planGridData(md);
+  const counts = players
+    .map(p => ({ name: p.name, count: slotCountForPlayer(p.name, md) }))
+    .sort((a, b) => b.count - a.count);
+  const wrap = document.createElement("div");
+  wrap.className = "plan-counts";
+  wrap.innerHTML = `<span class="plan-counts-title">Slots per player</span>` +
+    counts.map(c =>
+      `<span class="plan-count-chip${flagged.has(c.name) ? " under" : ""}">${c.name} <b>${c.count}</b></span>`
+    ).join("");
+  return wrap;
+}
+
 // ── Pitch helpers ─────────────────────────────────────────────────────────────
 function slotObj(slotIndex) {
   return state.matchData.slots[slotIndex];
@@ -574,89 +645,6 @@ function render() {
   }
 }
 
-// ── Quarter-break changes interstitial ────────────────────────────────────────
-function renderChanges() {
-  document.getElementById("btn-jump-live").hidden = true;
-  document.getElementById("btn-review-plan").hidden = true;
-  const prevSlot = slotObj(state.currentSlot - 1);
-  const nextSlot = slotObj(state.currentSlot);
-  const prevP = Math.floor((state.currentSlot - 1) / 2) + 1;
-  const nextP = Math.floor(state.currentSlot / 2) + 1;
-  const pLabel = (state.matchData.match.period_label || "Quarter") === "Half" ? "H" : "Q";
-
-  const off = outgoingSubs(prevSlot, nextSlot);
-  const on  = incomingSubs(prevSlot, nextSlot);
-  const formation = state.matchData.match.formation || "1-2-1";
-
-  const replacementMap = new Map();
-  const unpairedOut = new Set(off);
-  const allPos = ["GK", ...formationPositions(formation)];
-  allPos.forEach(pos => {
-    const cur = prevSlot.lineup[pos]?.name;
-    const nxt = nextSlot.lineup[pos]?.name;
-    if (nxt && cur && on.has(nxt) && off.has(cur)) {
-      replacementMap.set(nxt, cur);
-      unpairedOut.delete(cur);
-    }
-  });
-  const leftoverOut = [...unpairedOut];
-  let li = 0;
-  on.forEach(inName => {
-    if (!replacementMap.has(inName) && leftoverOut[li]) {
-      replacementMap.set(inName, leftoverOut[li++]);
-    }
-  });
-
-  const match = state.matchData.match;
-  const date = new Date(match.date + "T12:00:00");
-  const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-
-  document.getElementById("match-title").textContent =
-    `${dateStr}  ·  vs ${match.opponent || "Unknown"}`;
-  document.getElementById("slot-label").textContent = `${pLabel}${prevP} → ${pLabel}${nextP}`;
-  document.getElementById("slot-counter").textContent =
-    off.size === 0 ? "No changes" : `${off.size} change${off.size !== 1 ? "s" : ""}`;
-  document.getElementById("slot-skill").hidden = true;
-
-  const dots = document.querySelectorAll(".progress-dot");
-  dots.forEach((dot, i) => {
-    dot.classList.toggle("active", false);
-    dot.classList.toggle("done", i < state.currentSlot);
-  });
-
-  document.querySelector(".pitch-wrapper").style.display = "none";
-  document.querySelector(".bench-section").style.display = "none";
-  document.getElementById("report-section").style.display = "block";
-  document.getElementById("start-match-bar").hidden = true;
-
-  const list = document.getElementById("report-list");
-  list.innerHTML = "";
-
-  if (off.size === 0) {
-    const emptyLi = document.createElement("li");
-    emptyLi.className = "changes-empty";
-    emptyLi.textContent = "No changes — same lineup continues";
-    list.appendChild(emptyLi);
-  } else {
-    on.forEach(name => {
-      const replacing = replacementMap.get(name);
-      const item = document.createElement("li");
-      item.className = "changes-row";
-      item.innerHTML = `
-        <span class="changes-in">↑ ${name}</span>
-        ${replacing ? `<span class="changes-for">on for</span><span class="changes-out">↓ ${replacing}</span>` : ""}
-      `;
-      list.appendChild(item);
-    });
-  }
-
-  document.getElementById("btn-prev").disabled = false;
-  const btnNext = document.getElementById("btn-next");
-  btnNext.disabled = false;
-  const periodLbl = (state.matchData.match.period_label || "Quarter") === "Half" ? "Half" : "Quarter";
-  btnNext.textContent = `Start ${periodLbl} ${nextP} ▶`;
-}
-
 // ── Report ────────────────────────────────────────────────────────────────────
 function renderReport() {
   document.getElementById("btn-jump-live").hidden = true;
@@ -794,10 +782,9 @@ function renderReview() {
   const grid = document.getElementById("review-grid");
   grid.innerHTML = "";
   const under = underSlotted(state.matchData);
-  const ul = document.createElement("ul");
-  ul.className = "report-list";
-  buildPlanGrid(ul, state.matchData, { markChanges: true, underSlotted: new Set(under.items.map(i => i.name)) });
-  grid.appendChild(ul);
+  const flagged = new Set(under.items.map(i => i.name));
+  buildPositionGrid(grid, state.matchData, { markChanges: true, underSlotted: flagged });
+  grid.appendChild(buildCountsStrip(state.matchData, flagged));
 
   const warn = document.getElementById("review-warning");
   if (under.items.length) {
@@ -827,9 +814,9 @@ function buildReviewCard(md, { title, onOpen }) {
       <button class="btn btn-sm btn-secondary review-open-btn" type="button">Open ▶</button>
     </div>
     ${warnHtml}
-    <ul class="report-list"></ul>
+    <div class="review-card-grid"></div>
   `;
-  buildPlanGrid(card.querySelector(".report-list"), md,
+  buildPositionGrid(card.querySelector(".review-card-grid"), md,
     { markChanges: true, underSlotted: new Set(under.items.map(i => i.name)) });
   card.querySelector(".review-open-btn").addEventListener("click", onOpen);
   return card;
@@ -891,13 +878,11 @@ document.getElementById("btn-manual-slots-pitch").addEventListener("click", asyn
 });
 
 // ── Review-screen controls ────────────────────────────────────────────────────
-// Tinker: open the pitch editor on the current (unstarted) plan. Edits persist
-// via /adjust; "◀ Plan" returns to this screen with refreshed counts.
-document.getElementById("btn-review-tinker").addEventListener("click", () => {
+// View on pitch: open the pitch on the current (unstarted) plan in BROWSE mode
+// (edit off) so Prev/Next flick through the slots. The pitch's own "Tinker"
+// button toggles editing (persists via /adjust); "◀ Plan" returns here.
+document.getElementById("btn-review-view").addEventListener("click", () => {
   enterPitchView(state.matchData);
-  state.editMode = true;
-  state.currentSlot = 0;
-  render();
 });
 
 document.getElementById("btn-review-start").addEventListener("click", () => {
@@ -925,11 +910,6 @@ document.getElementById("btn-start-match-cta").addEventListener("click", () => d
 document.getElementById("btn-next").addEventListener("click", async () => {
   if (state.showingReport) {
     if (state.matchStarted) doEndMatch();
-    return;
-  }
-  if (state.showingChanges) {
-    state.showingChanges = false;
-    showMatch();
     return;
   }
   if (state.currentSlot < state.matchData.slots.length - 1) {
@@ -965,12 +945,7 @@ document.getElementById("btn-next").addEventListener("click", async () => {
       return;
     }
 
-    if (state.currentSlot % 2 === 0 && state.currentSlot > 0) {
-      state.showingChanges = true;
-      renderChanges();
-    } else {
-      render();
-    }
+    render();
   } else {
     // Last slot — show match report
     state.showingReport = true;
@@ -980,12 +955,6 @@ document.getElementById("btn-next").addEventListener("click", async () => {
 
 document.getElementById("btn-prev").addEventListener("click", () => {
   if (state.showingReport) { showMatch(); return; }
-  if (state.showingChanges) {
-    state.showingChanges = false;
-    state.currentSlot--;
-    showMatch();
-    return;
-  }
   if (state.currentSlot > 0) {
     state.currentSlot--;
     state.newPeriodHintSlot = null;

@@ -36,43 +36,53 @@ _NAV = {"season": _season_generate, "tournament": _tournament_open_first}
 
 @pytest.mark.parametrize("flow", ["season", "tournament"])
 def test_generation_lands_on_review_with_grid(seeded_squad, page: Page, flow):
-    """Both flows land on #screen-review showing a per-player grid with slot
-    totals + a skill-total row, and the single-match actions."""
+    """Both flows land on #screen-review showing the compact position grid
+    (position rows), a per-player slots strip, and the single-match actions."""
     _NAV[flow](page, seeded_squad)
 
     expect(page.locator("#screen-review")).to_be_visible()
     expect(page.locator("#screen-pitch")).to_be_hidden()
 
-    # Per-player rows (each with a slot total) + exactly one skill-total row.
-    expect(page.locator("#review-grid .report-row")).not_to_have_count(0)
-    expect(page.locator("#review-grid .report-row-skill")).to_have_count(1)
-    expect(page.locator("#review-grid .report-slots").first).to_contain_text("slot")
+    # Compact position grid: a GK row + outfield position rows.
+    expect(page.locator("#review-grid .plan-grid")).to_have_count(1)
+    expect(page.locator("#review-grid .plan-rowlabel").first).to_have_text("GK")
+    # Per-player slots strip preserves the fairness overview.
+    expect(page.locator("#review-grid .plan-count-chip")).not_to_have_count(0)
 
     # Actions offered on a single-match review.
     expect(page.locator("#review-actions-single")).to_be_visible()
     expect(page.locator("#btn-review-start")).to_be_visible()
-    expect(page.locator("#btn-review-tinker")).to_be_visible()
+    expect(page.locator("#btn-review-view")).to_be_visible()
 
 
 @pytest.mark.parametrize("flow", ["season", "tournament"])
-def test_review_tinker_roundtrip_then_start(seeded_squad, page: Page, flow):
-    """Tinker opens the pitch editor; '◀ Plan' returns to the grid; Start goes
-    live — the read-only-grid / edit-on-pitch model from the plan."""
+def test_review_browse_tinker_and_start(seeded_squad, page: Page, flow):
+    """'View on pitch' browses slots read-only (Prev/Next work); the pitch's
+    Tinker toggles editing; '◀ Plan' returns; Start goes live."""
     _NAV[flow](page, seeded_squad)
     expect(page.locator("#screen-review")).to_be_visible()
 
-    # Tinker → pitch editor (edit mode on).
-    page.click("#btn-review-tinker")
+    # View on pitch → browse mode (edit OFF), so slot nav works.
+    page.click("#btn-review-view")
     expect(page.locator("#screen-pitch")).to_be_visible()
-    expect(page.locator("#edit-mode-badge")).to_be_visible()
+    expect(page.locator("#edit-mode-badge")).to_be_hidden()
 
-    # Done editing → the "◀ Plan" pill returns to the review grid.
+    # Flick to the next slot — the counter advances (no sub interstitial in the way).
+    expect(page.locator("#slot-counter")).to_contain_text("Slot 1 of")
+    page.click("#btn-next")
+    expect(page.locator("#slot-counter")).to_contain_text("Slot 2 of")
+
+    # Tinker toggles the editor on/off on the pitch.
     page.click("#btn-adjust")
-    expect(page.locator("#btn-review-plan")).to_be_visible()
+    expect(page.locator("#edit-mode-badge")).to_be_visible()
+    page.click("#btn-adjust")
+    expect(page.locator("#edit-mode-badge")).to_be_hidden()
+
+    # "◀ Plan" pill returns to the review grid.
     page.click("#btn-review-plan")
     expect(page.locator("#screen-review")).to_be_visible()
 
-    # Start the match from the review screen → live pitch.
+    # Start from the review screen → live pitch.
     page.click("#btn-review-start")
     expect(page.locator("#screen-pitch")).to_be_visible()
     expect(page.locator("#live-badge")).to_be_visible()
@@ -93,11 +103,11 @@ def test_tournament_review_all_plans_stacks_a_grid_per_match(seeded_squad, page:
     page.click("#btn-tournament-review")
     expect(page.locator("#screen-review")).to_be_visible()
 
-    # Combined page: at least one match card, each with a grid; single-match
-    # actions are hidden (you start matches individually from their own review).
+    # Combined page: at least one match card, each with a position grid;
+    # single-match actions hidden (you start matches individually from their own review).
     cards = page.locator("#review-grid .review-card")
     expect(cards).not_to_have_count(0)
-    expect(cards.first.locator(".report-row")).not_to_have_count(0)
+    expect(cards.first.locator(".plan-grid")).to_have_count(1)
     expect(page.locator("#review-actions-single")).to_be_hidden()
 
     # Open ▶ → that match's single review, where Start Match is offered.

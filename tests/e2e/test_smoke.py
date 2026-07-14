@@ -49,11 +49,13 @@ def test_season_golden_path(seeded_squad, page: Page):
     # All available players are pre-checked — generate → land on plan review.
     page.click("#btn-generate")
     expect(page.locator("#screen-review")).to_be_visible()
-    expect(page.locator("#review-grid .report-row")).not_to_have_count(0)
+    expect(page.locator("#review-grid .plan-grid")).to_have_count(1)
 
-    # Tinker: "Tinker" opens the pitch editor (edit mode on); toggle it back off.
-    page.click("#btn-review-tinker")
+    # View on pitch (browse), then tinker on/off there.
+    page.click("#btn-review-view")
     expect(page.locator("#screen-pitch")).to_be_visible()
+    expect(page.locator("#edit-mode-badge")).to_be_hidden()
+    page.click("#btn-adjust")
     expect(page.locator("#edit-mode-badge")).to_be_visible()
     page.click("#btn-adjust")
     expect(page.locator("#edit-mode-badge")).to_be_hidden()

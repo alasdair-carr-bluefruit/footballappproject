@@ -32,10 +32,9 @@ def _goto_landing(page: Page, base: str) -> None:
 # pitch-state-machine tests assert on.
 def _review_to_pitch_prestart(page: Page) -> None:
     expect(page.locator("#screen-review")).to_be_visible()
-    page.click("#btn-review-tinker")
+    page.click("#btn-review-view")  # "View on pitch" opens the pitch in browse mode
     expect(page.locator("#screen-pitch")).to_be_visible()
-    page.click("#btn-adjust")  # exit edit mode → pitch pre-start (Start bar shown)
-    expect(page.locator("#edit-mode-badge")).to_be_hidden()
+    expect(page.locator("#edit-mode-badge")).to_be_hidden()  # browse, not edit
 
 
 def _season_to_plan_review(page: Page, base: str) -> None:

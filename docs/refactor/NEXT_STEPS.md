@@ -232,18 +232,26 @@ auto-track main.)
 
 ## Phase D — v1.0 "Plan Review" UX (in progress)
 
-- **D.1 — "Review the plan" screen. DONE (working tree, uncommitted→committed).**
+- **D.1 — "Review the plan" screen. DONE (committed local, not pushed).**
   New `#screen-review` is the landing after generating a plan (season *and*
-  tournament). Player-row grid (position chip per slot + per-player slot total +
-  skill row), an under-slotted-player warning (folds in bug **#3**), and Tinker /
-  Start Match / Back actions. Grid is read-only — "Tinker" opens the existing
-  pitch editor (persists via `/adjust`); a "◀ Plan" pill returns. All in
-  `pitch.js` (extracted shared `buildPlanGrid` from `renderReport`;
-  `enterReviewView`/`renderReview`/`buildReviewCard`/`underSlotted`; `openMatch`
-  routes planned matches to review). **Tournament** adds a lobby "📋 Review all
-  plans" (`enterTournamentReview`) that generates every match's rotation *in
-  order* (cross-match `prior_slots`) and stacks one card per match; each card's
-  "Open ▶" drops into that match's single review where Start lives.
+  tournament). **Compact POSITION-row grid** (`buildPositionGrid`): rows =
+  formation positions (GK + outfield keys) + a skill row, columns = slots, each
+  cell the player token (shirt # or initials, colored by band); rows stay fixed
+  at team size regardless of squad size (a coach-requested change away from the
+  first player-row layout, which scrolled badly for big squads). Below it a
+  wrapping "Slots per player" strip + an under-slotted warning (fair-share based;
+  folds in bug **#3**). Actions: **View on pitch** / Start Match / Back.
+  - **View on pitch** opens the pitch in *browse* mode (edit OFF) so Prev/Next
+    flick through slots; the pitch's own "Tinker" toggles editing (persists via
+    `/adjust`); a "◀ Plan" pill returns. The old quarter-break **sub-change
+    interstitial** (`renderChanges`/`showingChanges`) was **removed** entirely —
+    Next now goes straight slot→slot (subs still shown via the on-pitch arrows).
+  - Still in `pitch.js`. `buildPlanGrid` (player-row) is retained for the
+    full-time report only. `openMatch` routes planned matches to review.
+    **Tournament** adds a lobby "📋 Review all plans" (`enterTournamentReview`)
+    that generates every match's rotation *in order* (cross-match `prior_slots`)
+    and stacks one compact card per match; each "Open ▶" drops into that match's
+    single review where Start lives.
   - **Under-slotted heuristic:** a player is flagged only if below *fair share*
     (`floor(total on-pitch slots ÷ squad) − 1`), NOT below the busiest player —
     otherwise a full-time specialist keeper (plays every slot) falsely flags
