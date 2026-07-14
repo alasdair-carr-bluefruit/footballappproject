@@ -46,19 +46,22 @@ def test_season_golden_path(seeded_squad, page: Page):
     page.click("#btn-select-players")
     expect(page.locator("#screen-match-squad")).to_be_visible()
 
-    # All available players are pre-checked — generate the rotation.
+    # All available players are pre-checked — generate → land on plan review.
     page.click("#btn-generate")
-    expect(page.locator("#screen-pitch")).to_be_visible()
-    expect(page.locator("#pitch")).to_be_visible()
+    expect(page.locator("#screen-review")).to_be_visible()
+    expect(page.locator("#review-grid .report-row")).not_to_have_count(0)
 
-    # Tinker: toggle edit mode on and back off before kickoff.
-    page.click("#btn-adjust")
+    # Tinker: "Tinker" opens the pitch editor (edit mode on); toggle it back off.
+    page.click("#btn-review-tinker")
+    expect(page.locator("#screen-pitch")).to_be_visible()
     expect(page.locator("#edit-mode-badge")).to_be_visible()
     page.click("#btn-adjust")
     expect(page.locator("#edit-mode-badge")).to_be_hidden()
 
-    # Start the match, then walk the whole rotation to the report.
-    page.click("#btn-start-match-cta")
+    # "◀ Plan" returns to the review screen, then start from there.
+    page.click("#btn-review-plan")
+    expect(page.locator("#screen-review")).to_be_visible()
+    page.click("#btn-review-start")
     expect(page.locator("#live-badge")).to_be_visible()
     advance_to_report(page)
 
@@ -95,10 +98,11 @@ def test_tournament_golden_path(seeded_squad, page: Page):
     page.click("#btn-generate-all-matches")
     expect(page.locator("#screen-tournament-lobby")).to_be_visible()
 
-    # Open the first match (planned → generates a rotation), then play it out.
+    # Open the first match (planned → generates a rotation → plan review),
+    # then start it from the review screen and play it out.
     page.locator("#lobby-match-list .match-item-main").first.click()
-    expect(page.locator("#screen-pitch")).to_be_visible()
-    page.click("#btn-start-match-cta")
+    expect(page.locator("#screen-review")).to_be_visible()
+    page.click("#btn-review-start")
     expect(page.locator("#live-badge")).to_be_visible()
     advance_to_report(page)
     page.click("#btn-end-match")
@@ -123,9 +127,8 @@ def test_failed_save_surfaces_retry_toast(seeded_squad, page: Page):
     page.fill("#opponent-input", "Rovers")
     page.click("#btn-select-players")
     page.click("#btn-generate")
-    expect(page.locator("#screen-pitch")).to_be_visible()
-
-    page.click("#btn-start-match-cta")
+    expect(page.locator("#screen-review")).to_be_visible()
+    page.click("#btn-review-start")
     expect(page.locator("#live-badge")).to_be_visible()
     advance_to_report(page)
 
@@ -143,6 +146,6 @@ def test_screens_are_mutually_exclusive(seeded_squad, page: Page):
     """Guards the [hidden]/display-flex class of bug: only one screen visible."""
     page.goto(seeded_squad + "/")
     expect(page.locator("#screen-landing")).to_be_visible()
-    for hidden in ("#screen-home", "#screen-pitch", "#screen-new-match",
+    for hidden in ("#screen-home", "#screen-pitch", "#screen-review", "#screen-new-match",
                    "#screen-fulltime", "#screen-tutorial"):
         expect(page.locator(hidden)).to_be_hidden()

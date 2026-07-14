@@ -40,10 +40,10 @@ def test_completed_match_goals_restore_and_are_guarded(seeded_squad, page: Page)
     page.fill("#opponent-input", OPPONENT)
     page.click("#btn-select-players")
     page.click("#btn-generate")
-    expect(page.locator("#screen-pitch")).to_be_visible()
+    expect(page.locator("#screen-review")).to_be_visible()
 
     # Start the match and record one goal for the first on-pitch player at slot 0.
-    page.click("#btn-start-match-cta")
+    page.click("#btn-review-start")
     expect(page.locator("#live-badge")).to_be_visible()
     _long_press(page, page.locator("#pitch .player-circle").first)
     expect(page.locator("#pitch .player-circle").first.locator(".goal-badge")).to_contain_text("1")

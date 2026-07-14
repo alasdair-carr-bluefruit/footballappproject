@@ -50,9 +50,114 @@ function isShirtConflict(name) {
   return firstOwner !== name;
 }
 
-function slotCountForPlayer(playerName) {
-  if (!state.matchData) return 0;
-  return state.matchData.slots.filter(s => Object.values(s.lineup).some(p => p.name === playerName)).length;
+function slotCountForPlayer(playerName, md = state.matchData) {
+  if (!md) return 0;
+  return md.slots.filter(s => Object.values(s.lineup).some(p => p.name === playerName)).length;
+}
+
+// ── Plan grid (shared by the full-time report and the "Review the plan" screen)
+// A player-row grid: one row per player, a chip per slot showing the position
+// they play (or bench "–"), plus a per-player slot total and a skill-total row.
+// Parameterised by `md` so the tournament review can stack one grid per match.
+function planGridData(md) {
+  const totalSlots = md.slots.length;
+  const allPlayers = [
+    ...Object.values(md.slots[0].lineup),
+    ...md.slots[0].bench,
+  ];
+  // De-dupe by name (a player can appear in both lineup and bench across slots,
+  // but slot 0's lineup+bench already covers everyone exactly once).
+  const seen = new Set();
+  const players = allPlayers.filter(p => (seen.has(p.name) ? false : seen.add(p.name)));
+  players.sort((a, b) => a.name.localeCompare(b.name));
+
+  const perSlot = {};
+  players.forEach(p => { perSlot[p.name] = Array(totalSlots).fill(null); });
+  md.slots.forEach(slot => {
+    Object.entries(slot.lineup).forEach(([pos, p]) => {
+      if (perSlot[p.name]) perSlot[p.name][slot.slot_index] = normalizePos(pos);
+    });
+  });
+
+  const pLabel = (md.match.period_label || "Quarter") === "Half" ? "H" : "Q";
+  const slotLabels = [];
+  for (let i = 0; i < totalSlots; i++) {
+    const p = Math.floor(i / 2) + 1;
+    slotLabels.push(`${pLabel}${p}${i % 2 === 0 ? "a" : "b"}`);
+  }
+  return { players, perSlot, slotLabels, totalSlots };
+}
+
+// Players significantly under-slotted — flags bug #3. Compared against the FAIR
+// SHARE (floor of total on-pitch slots ÷ squad), NOT the busiest player: a
+// specialist keeper who plays every slot must not drag every outfielder into a
+// false "under-slotted" alarm. The engine guarantees ~floor(total/n)-1 each, so
+// anything below that (< fairShare-1) is a genuine shortfall.
+function underSlotted(md = state.matchData) {
+  const { players } = planGridData(md);
+  const n = players.length;
+  if (!n) return { items: [], fairShare: 0 };
+  const totalPlayerSlots = md.slots.reduce((sum, s) => sum + Object.keys(s.lineup).length, 0);
+  const fairShare = Math.floor(totalPlayerSlots / n);
+  const counts = players.map(p => ({ name: p.name, count: slotCountForPlayer(p.name, md) }));
+  return { items: counts.filter(c => c.count < fairShare - 1), fairShare };
+}
+
+// Fills `listEl` (a <ul>) with the per-player grid for `md`. Options:
+//   underSlotted: Set<name> — rows to flag with a ⚠ marker
+//   markChanges:  bool       — highlight chips where the position changed vs the
+//                              previous slot (a sub-in/out or a positional move)
+function buildPlanGrid(listEl, md = state.matchData, opts = {}) {
+  const { players, perSlot, slotLabels } = planGridData(md);
+  const flagged = opts.underSlotted || new Set();
+
+  players.forEach(({ name }) => {
+    const slots = perSlot[name];
+    const count = slots.filter(Boolean).length;
+    const goals = state.goalCounts[name] || 0;
+
+    const chipsHtml = slots.map((pos, i) => {
+      const changed = opts.markChanges && i > 0 && pos !== slots[i - 1] ? " chip-changed" : "";
+      if (!pos) return `<span class="slot-chip bench${changed}" title="${slotLabels[i]}">–</span>`;
+      return `<span class="slot-chip pos-${pos.toLowerCase()}${changed}" title="${slotLabels[i]}: ${pos}">
+        <span class="chip-quarter">${slotLabels[i]}</span>
+        <span class="chip-pos">${pos}</span>
+      </span>`;
+    }).join("");
+
+    const goalHtml = goals > 0 ? `<span class="report-goals">⚽ ${goals}</span>` : "";
+    const isUnder = flagged.has(name);
+    const warnMark = isUnder ? `<span class="report-under-mark" title="Fewer slots than most players">⚠</span>` : "";
+
+    const li = document.createElement("li");
+    li.className = "report-row" + (isUnder ? " report-row-under" : "");
+    li.innerHTML = `
+      <div class="report-name-row">
+        <span class="report-name">${warnMark}${name}</span>
+        ${goalHtml}
+        <span class="report-slots">${count} slot${count !== 1 ? "s" : ""}</span>
+      </div>
+      <div class="slot-chips">${chipsHtml}</div>
+    `;
+    listEl.appendChild(li);
+  });
+
+  // Skill totals row
+  const skillLi = document.createElement("li");
+  skillLi.className = "report-row report-row-skill";
+  const skillChipsHtml = md.slots.map((slot, i) =>
+    `<span class="slot-chip skill-chip" title="${slotLabels[i]}: skill ${slot.skill_total ?? "?"}">
+      <span class="chip-quarter">${slotLabels[i]}</span>
+      <span class="chip-pos">${slot.skill_total ?? "?"}</span>
+    </span>`
+  ).join("");
+  skillLi.innerHTML = `
+    <div class="report-name-row">
+      <span class="report-name">Skill total</span>
+    </div>
+    <div class="slot-chips">${skillChipsHtml}</div>
+  `;
+  listEl.appendChild(skillLi);
 }
 
 // ── Pitch helpers ─────────────────────────────────────────────────────────────
@@ -399,6 +504,10 @@ function render() {
     manualAssignBar.hidden = state.matchStarted || state.editMode || state.manualRotationMode || state.showingReport;
   }
 
+  // "◀ Plan" pill: back to the review grid, only while browsing an unstarted
+  // plan on the pitch (hidden during tinkering and once the match is live).
+  document.getElementById("btn-review-plan").hidden = state.matchStarted || state.editMode;
+
   if (!state.matchStarted) {
     // Review mode: coach browses the plan before starting
     startMatchBar.hidden = state.editMode;
@@ -468,6 +577,7 @@ function render() {
 // ── Quarter-break changes interstitial ────────────────────────────────────────
 function renderChanges() {
   document.getElementById("btn-jump-live").hidden = true;
+  document.getElementById("btn-review-plan").hidden = true;
   const prevSlot = slotObj(state.currentSlot - 1);
   const nextSlot = slotObj(state.currentSlot);
   const prevP = Math.floor((state.currentSlot - 1) / 2) + 1;
@@ -550,26 +660,11 @@ function renderChanges() {
 // ── Report ────────────────────────────────────────────────────────────────────
 function renderReport() {
   document.getElementById("btn-jump-live").hidden = true;
-  const allPlayers = [
-    ...Object.values(state.matchData.slots[0].lineup),
-    ...state.matchData.slots[0].bench,
-  ].sort((a, b) => a.name.localeCompare(b.name));
-
-  const totalSlots = state.matchData.slots.length;
-  const perSlot = {};
-  allPlayers.forEach(p => { perSlot[p.name] = Array(totalSlots).fill(null); });
-
-  state.matchData.slots.forEach(slot => {
-    Object.entries(slot.lineup).forEach(([pos, p]) => {
-      const displayPos = normalizePos(pos);
-      perSlot[p.name][slot.slot_index] = displayPos;
-    });
-  });
+  document.getElementById("btn-review-plan").hidden = true;
 
   const match = state.matchData.match;
   const date = new Date(match.date + "T12:00:00");
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  const pLabel = (match.period_label || "Quarter") === "Half" ? "H" : "Q";
 
   document.getElementById("slot-label").textContent = state.matchStarted ? "Full Time" : "Summary";
   document.getElementById("slot-counter").textContent = state.matchStarted ? "Match report" : "All slots";
@@ -589,61 +684,9 @@ function renderReport() {
     dot.classList.toggle("done", !isFinalDot);
   });
 
-  // Generate slot labels dynamically
-  const slotLabels = [];
-  for (let i = 0; i < totalSlots; i++) {
-    const p = Math.floor(i / 2) + 1;
-    const h = i % 2 === 0 ? "a" : "b";
-    slotLabels.push(`${pLabel}${p}${h}`);
-  }
-
   const list = document.getElementById("report-list");
   list.innerHTML = "";
-
-  allPlayers.forEach(({ name }) => {
-    const slots = perSlot[name];
-    const count = slots.filter(Boolean).length;
-    const goals = state.goalCounts[name] || 0;
-
-    const chipsHtml = slots.map((pos, i) => {
-      if (!pos) return `<span class="slot-chip bench" title="${slotLabels[i]}">–</span>`;
-      return `<span class="slot-chip pos-${pos.toLowerCase()}" title="${slotLabels[i]}: ${pos}">
-        <span class="chip-quarter">${slotLabels[i]}</span>
-        <span class="chip-pos">${pos}</span>
-      </span>`;
-    }).join("");
-
-    const goalHtml = goals > 0 ? `<span class="report-goals">⚽ ${goals}</span>` : "";
-
-    const li = document.createElement("li");
-    li.className = "report-row";
-    li.innerHTML = `
-      <div class="report-name-row">
-        <span class="report-name">${name}</span>
-        ${goalHtml}
-        <span class="report-slots">${count} slot${count !== 1 ? "s" : ""}</span>
-      </div>
-      <div class="slot-chips">${chipsHtml}</div>
-    `;
-    list.appendChild(li);
-  });
-
-  // Skill totals row
-  const skillLi = document.createElement("li");
-  skillLi.className = "report-row report-row-skill";
-  const skillChipsHtml = state.matchData.slots.map((slot, i) =>
-    `<span class="slot-chip skill-chip" title="${slotLabels[i]}: skill ${slot.skill_total ?? "?"}">
-      <span class="chip-quarter">${slotLabels[i]}</span>
-      <span class="chip-pos">${slot.skill_total ?? "?"}</span>
-    </span>`
-  ).join("");
-  skillLi.innerHTML = `
-    <div class="report-name-row">
-      <span class="report-name">Skill total</span>
-    </div>
-    <div class="slot-chips">${skillChipsHtml}</div>
-  `;
-  list.appendChild(skillLi);
+  buildPlanGrid(list, state.matchData);
 
   document.getElementById("btn-prev").disabled = false;
   if (state.matchStarted) {
@@ -671,7 +714,9 @@ function showMatch() {
   render();
 }
 
-function enterPitchView(data) {
+// Load a match's plan into `state` (shared by the pitch view and the review
+// screen). Returns the match status so callers can drive the timer/screen.
+function loadMatchData(data) {
   state.matchData = data;
   state.showingReport = false;
   state.showingChanges = false;
@@ -692,6 +737,11 @@ function enterPitchView(data) {
   // viewed slot, which starts on the live one but is then free to browse.
   state.liveSlot = data.match?.current_slot || 0;
   state.currentSlot = state.matchStarted ? state.liveSlot : 0;
+  return status;
+}
+
+function enterPitchView(data) {
+  const status = loadMatchData(data);
 
   // Timer: a persistent count-up clock, running only while the match is live
   if (status === "in_progress") {
@@ -721,6 +771,70 @@ function enterPitchView(data) {
   render();
 }
 
+// ── "Review the plan" screen ──────────────────────────────────────────────────
+// The landing after generating a plan (season + single tournament match): a
+// per-player rotation grid, an under-slotted-player warning, and Tinker / Start /
+// Back actions. Read-only — editing happens on the pitch ("Tinker") and persists
+// via /adjust, then "◀ Plan" returns here with fresh counts.
+function enterReviewView(data) {
+  loadMatchData(data);
+  stopTimerTicker();
+  state.reviewMode = "single";
+  showScreen("screen-review");
+  renderReview();
+}
+
+function renderReview() {
+  const match = state.matchData.match;
+  const date = new Date(match.date + "T12:00:00");
+  const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  document.getElementById("review-title").textContent = `${dateStr} · vs ${match.opponent || "Unknown"}`;
+  document.getElementById("review-actions-single").hidden = false;
+
+  const grid = document.getElementById("review-grid");
+  grid.innerHTML = "";
+  const under = underSlotted(state.matchData);
+  const ul = document.createElement("ul");
+  ul.className = "report-list";
+  buildPlanGrid(ul, state.matchData, { markChanges: true, underSlotted: new Set(under.items.map(i => i.name)) });
+  grid.appendChild(ul);
+
+  const warn = document.getElementById("review-warning");
+  if (under.items.length) {
+    warn.innerHTML = `<span class="review-warning-head">⚠ Uneven playing time</span>` +
+      under.items.map(i =>
+        `<span class="review-warning-item">${i.name}: ${i.count} slot${i.count !== 1 ? "s" : ""} (below the ~${under.fairShare} fair share)</span>`
+      ).join("");
+    warn.hidden = false;
+  } else {
+    warn.hidden = true;
+  }
+}
+
+// Builds one match's review card (header + optional warning + grid + Open button)
+// for the combined tournament review page.
+function buildReviewCard(md, { title, onOpen }) {
+  const card = document.createElement("div");
+  card.className = "review-card";
+  const under = underSlotted(md);
+  const warnHtml = under.items.length
+    ? `<div class="review-warning review-warning-card"><span class="review-warning-head">⚠ Uneven time</span>` +
+      under.items.map(i => `<span class="review-warning-item">${i.name}: ${i.count}</span>`).join("") + `</div>`
+    : "";
+  card.innerHTML = `
+    <div class="review-card-head">
+      <span class="review-card-title">${title}</span>
+      <button class="btn btn-sm btn-secondary review-open-btn" type="button">Open ▶</button>
+    </div>
+    ${warnHtml}
+    <ul class="report-list"></ul>
+  `;
+  buildPlanGrid(card.querySelector(".report-list"), md,
+    { markChanges: true, underSlotted: new Set(under.items.map(i => i.name)) });
+  card.querySelector(".review-open-btn").addEventListener("click", onOpen);
+  return card;
+}
+
 // Wraps enterPitchView for the two "assign positions manually" entry points
 // (new-match screen's "or assign positions manually" and the in-pitch-view
 // "Manual assign" bar) — both used to set these two flags inline themselves.
@@ -740,16 +854,21 @@ async function openMatch(matchId, backContext = "season") {
   // Ensure shirt numbers are current
   refreshShirtNumbers();
 
-  const data = await api.getMatch(matchId).catch(err => { alert(err.message); return null; });
+  let data = await api.getMatch(matchId).catch(err => { alert(err.message); return null; });
   if (!data) return;
 
   if (!data.slots || data.slots.length === 0) {
-    const generated = await api.generateRotation(matchId).catch(err => {
+    data = await api.generateRotation(matchId).catch(err => {
       alert("Could not generate rotation: " + err.message);
       return null;
     });
-    if (!generated) return;
-    enterPitchView(generated);
+    if (!data) return;
+  }
+
+  // A not-yet-started plan lands on the review screen; an in-progress/completed
+  // match goes straight to the pitch (live controls / report).
+  if ((data.match?.status || "planned") === "planned") {
+    enterReviewView(data);
   } else {
     enterPitchView(data);
   }
@@ -769,6 +888,35 @@ document.getElementById("btn-manual-slots-pitch").addEventListener("click", asyn
     btn.disabled = false;
     btn.textContent = "or assign positions manually";
   }
+});
+
+// ── Review-screen controls ────────────────────────────────────────────────────
+// Tinker: open the pitch editor on the current (unstarted) plan. Edits persist
+// via /adjust; "◀ Plan" returns to this screen with refreshed counts.
+document.getElementById("btn-review-tinker").addEventListener("click", () => {
+  enterPitchView(state.matchData);
+  state.editMode = true;
+  state.currentSlot = 0;
+  render();
+});
+
+document.getElementById("btn-review-start").addEventListener("click", () => {
+  enterPitchView(state.matchData);
+  doStartMatch();
+});
+
+document.getElementById("btn-review-back").addEventListener("click", () => {
+  if (state.reviewMode === "tournament-all" ||
+      (state.pitchBackContext === "tournament" && state.activeTournamentId)) {
+    loadTournamentLobby(state.activeTournamentId);
+  } else {
+    loadHome();
+  }
+});
+
+// "◀ Plan" pill on the pitch — jump back to the review grid (pre-start only).
+document.getElementById("btn-review-plan").addEventListener("click", () => {
+  enterReviewView(state.matchData);
 });
 
 // ── Pitch controls ────────────────────────────────────────────────────────────
@@ -1565,7 +1713,7 @@ document.getElementById("btn-ft-save").addEventListener("click", async () => {
   downloadBlob(blob, `FT-${state.matchData.match.date}.png`);
 });
 
-export { enterPitchView, enterManualAssignMode, openMatch, showScreen };
+export { enterPitchView, enterManualAssignMode, openMatch, showScreen, enterReviewView, buildReviewCard, underSlotted };
 
 // ── Screen management (leaf helper, kept here to avoid a circular import
 // between screens.js/season.js/tournament.js — every module needs it, and it

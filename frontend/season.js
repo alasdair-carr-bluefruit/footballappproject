@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { state, ensureGameConfigs } from "./state.js";
-import { showScreen, enterPitchView, enterManualAssignMode, openMatch } from "./pitch.js";
+import { showScreen, enterManualAssignMode, openMatch, enterReviewView } from "./pitch.js";
 import { selectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast } from "./toast.js";
 
@@ -171,7 +171,7 @@ document.getElementById("btn-generate").addEventListener("click", async () => {
     const data = await api.generateRotation(match.id, { available_player_ids: selectedIds });
     btn.disabled = false;
     btn.textContent = "Generate Rotation ▶";
-    enterPitchView(data);
+    enterReviewView(data);
   } catch (err) {
     alert("Error: " + err.message);
     btn.disabled = false;

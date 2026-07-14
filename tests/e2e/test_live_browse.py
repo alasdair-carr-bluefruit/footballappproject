@@ -24,8 +24,8 @@ def _season_to_live(page: Page, seeded_squad) -> None:
     page.fill("#opponent-input", "Browsers United")
     page.click("#btn-select-players")
     page.click("#btn-generate")
-    expect(page.locator("#screen-pitch")).to_be_visible()
-    page.click("#btn-start-match-cta")
+    expect(page.locator("#screen-review")).to_be_visible()
+    page.click("#btn-review-start")
     expect(page.locator("#live-badge")).to_be_visible()
 
 
@@ -38,8 +38,8 @@ def _tournament_to_live(page: Page, seeded_squad) -> None:
     page.click("#btn-create-tournament")
     page.click("#btn-generate-all-matches")
     page.locator("#lobby-match-list .match-item-main").first.click()
-    expect(page.locator("#screen-pitch")).to_be_visible()
-    page.click("#btn-start-match-cta")
+    expect(page.locator("#screen-review")).to_be_visible()
+    page.click("#btn-review-start")
     expect(page.locator("#live-badge")).to_be_visible()
 
 

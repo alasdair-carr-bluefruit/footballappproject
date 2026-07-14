@@ -26,6 +26,18 @@ def _goto_landing(page: Page, base: str) -> None:
     expect(page.locator("#screen-landing")).to_be_visible()
 
 
+# Generation now lands on the dedicated #screen-review; these helpers step on
+# into the PITCH pre-start view (Tinker opens the editor, Done drops back to the
+# pitch browsing the plan with the Start-Match bar), which is what these
+# pitch-state-machine tests assert on.
+def _review_to_pitch_prestart(page: Page) -> None:
+    expect(page.locator("#screen-review")).to_be_visible()
+    page.click("#btn-review-tinker")
+    expect(page.locator("#screen-pitch")).to_be_visible()
+    page.click("#btn-adjust")  # exit edit mode → pitch pre-start (Start bar shown)
+    expect(page.locator("#edit-mode-badge")).to_be_hidden()
+
+
 def _season_to_plan_review(page: Page, base: str) -> None:
     _goto_landing(page, base)
     page.click("#btn-season-mode")
@@ -33,7 +45,7 @@ def _season_to_plan_review(page: Page, base: str) -> None:
     page.fill("#opponent-input", "Rovers")
     page.click("#btn-select-players")
     page.click("#btn-generate")
-    expect(page.locator("#screen-pitch")).to_be_visible()
+    _review_to_pitch_prestart(page)
 
 
 def _tournament_to_plan_review(page: Page, base: str) -> None:
@@ -44,7 +56,7 @@ def _tournament_to_plan_review(page: Page, base: str) -> None:
     page.click("#btn-create-tournament")
     page.click("#btn-generate-all-matches")
     page.locator("#lobby-match-list .match-item-main").first.click()
-    expect(page.locator("#screen-pitch")).to_be_visible()
+    _review_to_pitch_prestart(page)
 
 
 _PLAN_REVIEW_NAV = {

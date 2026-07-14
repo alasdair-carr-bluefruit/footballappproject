@@ -471,6 +471,7 @@
     <div class="lobby-summary" id="lobby-summary"></div>
 
     <ul class="match-list" id="lobby-match-list"></ul>
+    <button class="btn-tournament-stats" id="btn-tournament-review">📋 Review all plans</button>
     <button class="btn-tournament-stats" id="btn-tournament-stats">📊 Tournament Stats</button>
 
     <!-- Guest players section -->
@@ -601,6 +602,7 @@
             <span class="slot-counter" id="slot-counter"></span>
             <span class="slot-skill" id="slot-skill" hidden></span>
             <button class="jump-live-btn" id="btn-jump-live" hidden>● Back to live</button>
+            <button class="jump-live-btn btn-review-plan" id="btn-review-plan" hidden>◀ Plan</button>
           </div>
         </div>
         <div class="match-timer" id="match-timer" hidden>
@@ -728,6 +730,29 @@
     </div>
 
   </div><!-- /screen-pitch -->
+
+  <!-- ── Screen: Review the plan ──────────────────────────────────────────── -->
+  <div id="screen-review" class="screen" hidden>
+    <header class="header header-sub">
+      <button class="btn-back" id="btn-review-back">◀ Matches</button>
+      <h2 id="review-title">Review the plan</h2>
+    </header>
+
+    <div class="review-warning" id="review-warning" hidden></div>
+
+    <div class="review-body" id="review-grid"></div>
+
+    <div class="review-actions" id="review-actions-single">
+      <button class="btn btn-secondary" id="btn-review-tinker">✎ Tinker</button>
+      <button class="btn-start-match-cta" id="btn-review-start">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9 7l8 4.5-8 4.5V7z" fill="currentColor" stroke="none"/>
+        </svg>
+        Start Match
+      </button>
+    </div>
+  </div><!-- /screen-review -->
 
   <!-- ── Screen: Full Time ───────────────────────────────────────────────── -->
   <div id="screen-fulltime" class="screen" hidden>

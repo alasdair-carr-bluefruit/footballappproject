@@ -228,11 +228,33 @@ build — monolithic app.js, no ES modules, SW cache v2 — missing v0.8/v0.9 + 
 refactor. Owner redeployed it 2026-07-14. (Legacy per-coach Render instance; doesn't
 auto-track main.)
 
-## After Phase C
+## Phase D — v1.0 "Plan Review" UX (in progress)
 
-**Phase D — v1.0 "Plan Review" UX** (first feature built on the new module
-structure; see DEVELOPMENT_PLAN.md Part 3 / Phase D). Then **Phase E — v1.1
-multi-user** (magic link + co-coach; `V1_MULTIUSER_PLAN.md`).
+- **D.1 — "Review the plan" screen. DONE (working tree, uncommitted→committed).**
+  New `#screen-review` is the landing after generating a plan (season *and*
+  tournament). Player-row grid (position chip per slot + per-player slot total +
+  skill row), an under-slotted-player warning (folds in bug **#3**), and Tinker /
+  Start Match / Back actions. Grid is read-only — "Tinker" opens the existing
+  pitch editor (persists via `/adjust`); a "◀ Plan" pill returns. All in
+  `pitch.js` (extracted shared `buildPlanGrid` from `renderReport`;
+  `enterReviewView`/`renderReview`/`buildReviewCard`/`underSlotted`; `openMatch`
+  routes planned matches to review). **Tournament** adds a lobby "📋 Review all
+  plans" (`enterTournamentReview`) that generates every match's rotation *in
+  order* (cross-match `prior_slots`) and stacks one card per match; each card's
+  "Open ▶" drops into that match's single review where Start lives.
+  - **Under-slotted heuristic:** a player is flagged only if below *fair share*
+    (`floor(total on-pitch slots ÷ squad) − 1`), NOT below the busiest player —
+    otherwise a full-time specialist keeper (plays every slot) falsely flags
+    every outfielder. Matches the engine's guaranteed-minimum language.
+  - **Parity:** both flows share `enterReviewView`; single tournament match open
+    (`openMatch(id,"tournament")`) lands on review too. e2e
+    `tests/e2e/test_plan_review.py` parametrizes `["season","tournament"]`; the
+    smoke/visibility/live-browse/completed-goal suites were re-pointed to step
+    through the review landing. 28 e2e + 255 non-e2e green.
+- **D.2 (not started):** tinkering undo/redo command stack.
+- **D.3 (not started):** revisit export (CSV/Sheets) via the review data.
+
+Then **Phase E — v1.1 multi-user** (magic link + co-coach; `V1_MULTIUSER_PLAN.md`).
 
 ## Env reminder
 

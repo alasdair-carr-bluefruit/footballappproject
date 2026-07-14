@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { state, ensureGameConfigs, refreshShirtNumbers } from "./state.js";
-import { showScreen, enterPitchView, openMatch } from "./pitch.js";
+import { showScreen, openMatch, enterReviewView, buildReviewCard } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast, withSaveToast } from "./toast.js";
 
@@ -706,7 +706,68 @@ document.getElementById("btn-generate-tournament-match").addEventListener("click
   // Update shirt numbers cache
   refreshShirtNumbers();
 
-  enterPitchView(result);
+  enterReviewView(result);
+});
+
+// ── Combined "Review all plans" page ──────────────────────────────────────────
+// Generates any missing rotations (in match order — cross-match fairness relies
+// on prior_slots accumulating) then stacks one read-only grid per match. Each
+// card's "Open ▶" drops into that match's own review (where Start Match lives).
+async function enterTournamentReview(id) {
+  state.activeTournamentId = id;
+  state.reviewMode = "tournament-all";
+  refreshShirtNumbers();
+  showScreen("screen-review");
+  document.getElementById("review-actions-single").hidden = true;
+  document.getElementById("review-warning").hidden = true;
+  const grid = document.getElementById("review-grid");
+  grid.innerHTML = "<p class='review-loading'>Generating plans…</p>";
+
+  let data;
+  try {
+    data = await api.getTournament(id);
+  } catch {
+    grid.innerHTML = "<p class='empty-state'>Couldn't reach the server — check your connection.</p>";
+    showToast("Connection lost — couldn't load these plans.", {
+      actionLabel: "Retry", action: () => enterTournamentReview(id),
+    });
+    return;
+  }
+
+  document.getElementById("review-title").textContent = `${data.tournament.name || "Tournament"} — all plans`;
+
+  const matches = [...(data.matches || [])].sort(
+    (a, b) => (a.match_number || 0) - (b.match_number || 0)
+  );
+
+  // Fetch each match's plan, generating it in order if not yet done. Skip
+  // matches that already have slots so tinkered plans aren't clobbered.
+  const plans = [];
+  for (const m of matches) {
+    let md = await api.getMatch(m.id).catch(() => null);
+    if (md && (!md.slots || md.slots.length === 0) && m.status === "planned") {
+      md = await api.generateRotation(m.id).catch(() => md);
+    }
+    plans.push({ m, md });
+  }
+
+  grid.innerHTML = "";
+  let rendered = 0;
+  plans.forEach(({ m, md }, i) => {
+    if (!md || !md.slots || md.slots.length === 0) return;
+    const stage = m.tournament_stage === "knockout" ? "Knockout" : `Match ${m.match_number || i + 1}`;
+    const title = m.opponent ? `${stage} · vs ${m.opponent}` : stage;
+    grid.appendChild(buildReviewCard(md, { title, onOpen: () => openMatch(m.id, "tournament") }));
+    rendered++;
+  });
+
+  if (!rendered) {
+    grid.innerHTML = "<p class='empty-state'>No match plans yet — add a match first.</p>";
+  }
+}
+
+document.getElementById("btn-tournament-review").addEventListener("click", () => {
+  if (state.activeTournamentId) enterTournamentReview(state.activeTournamentId);
 });
 
 export { loadTournamentHome, loadTournamentLobby };
