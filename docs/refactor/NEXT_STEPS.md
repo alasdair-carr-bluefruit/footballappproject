@@ -2,16 +2,23 @@
 
 _Live tracker for the pre-v1.0 refactor phase (DEVELOPMENT_PLAN.md "Phase C").
 Read this first at the start of a session; it's the current source of truth for
-what's done and what's next. Last updated 2026-07-13._
+what's done and what's next. Last updated 2026-07-14._
 
-> **▶ Resume here (next session):** C.4 mutation testing — continue with
-> `skill_balancer` (~130 survivors) then `gk_selector` (~65). Workflow: set
-> `only_mutate = ["backend/algorithm/skill_balancer.py"]` in `[tool.mutmut]`
-> (keep `source_paths` on the whole package), `.venv/bin/mutmut run`, then
-> `mutmut results` / `mutmut show <mutant>`. Write direct behavioural tests that
-> strengthen assertions; expect a large equivalent-mutant tail (skip those).
-> Remember to remove `only_mutate` again before committing. Full detail in the
-> C.4 section below.
+> **▶ Resume here (next session):** C.4 mutation testing is **done** — all five
+> algorithm modules (`validator`, `rotation_engine`, `time_balancer`,
+> `skill_balancer`, `gk_selector`) hardened, each stopped at a documented
+> equivalent-mutant tail. Next up is **C.5 — service layer extraction** (pull
+> orchestration out of `matches.py`/`tournaments.py` into
+> `backend/services/`), then **C.7 — backend tidy-ups** (analytics extraction,
+> toast/retry helper, `sw.js` cache-list fix). Detail in the sections below.
+>
+> _mutmut workflow reminder:_ to re-check one module, set
+> `only_mutate = ["backend/algorithm/<mod>.py"]` in `[tool.mutmut]` (keep
+> `source_paths` on the whole package), `rm -rf mutants`, `.venv/bin/python -m
+> mutmut run`, then `mutmut results` / `mutmut show <mutant>`. **Always
+> `rm -rf mutants` when switching the `only_mutate` target** or the stale
+> working copy silently re-runs the previous module. Remove `only_mutate` again
+> before committing.
 
 ## Done & on `main`
 
@@ -53,7 +60,8 @@ what's done and what's next. Last updated 2026-07-13._
 1. **C.4 — Mutation testing (mutmut)** against the pure algorithm modules
    (`rotation_engine`, `time_balancer`, `gk_selector`, `skill_balancer`,
    `validator`). Surviving mutants mean hollow assertions — strengthen them,
-   don't just add tests. **In progress:**
+   don't just add tests. **DONE — all five modules hardened; each remaining
+   survivor set is a documented equivalent tail:**
    - **Determinism (done).** `tests/unit/conftest.py` seeds `random` (seed 1234)
      autouse before every unit test, so the suite is a stable mutation oracle.
      This also kills the ~10% flakiness in `test_9_players_no_specialist_max_diff_1`
@@ -110,9 +118,34 @@ what's done and what's next. Last updated 2026-07-13._
      only reachable in degenerate over-subscribed squads (can't be satisfied
      anyway), and a few competitive-weight formula mutants survive via
      normalisation sign-flips that make them fragile to pin.
-   - **Remaining modules (next):** `skill_balancer` (~130), `gk_selector` (~65),
-     plus the rotation_engine tail if worthwhile. Same approach — call units
-     directly with crafted inputs; expect equivalents.
+   - **`skill_balancer` (done).** 274 mutants → **134 → 54 survivors**
+     (140→220 killed). New `test_skill_balancer_direct.py` (36 tests) calls the
+     constraint helpers directly on hand-built slots — the existing suite only
+     drove them through `generate_rotation`, so `_swap_is_valid`,
+     `_all_mid_quarter_limits_ok`, `_transition_ok_after_swap`,
+     `_effective_outfield_ids`, `_try_best_swap` and `balance_skills` were
+     effectively untested. Pins: specialist/DEF/duplicate swap guards; the
+     mid-quarter sub-limit incl. the odd-slot partner and out-of-range-partner
+     branches; change-count boundary (`<=` vs `<`); locked-slot skip;
+     variance-reducing best-swap selection incl. the strict `>` (a balanced
+     plan is left untouched); and skip-invalid-vs-break ordering. Remaining 54
+     are equivalents: `_position_variety_ok` provably always returns True
+     (outfield normalises to ≤3 categories so `len ≤ 4` is unreachable — same
+     story as the validator), the coupled two-pair mid-quarter/transition
+     `None`-arg mutants that net the same change-count, `//2`≡`/2` under `<=`,
+     and the `balance_skills` loop-counter tweaks (monotonic convergence →
+     same fixpoint).
+   - **`gk_selector` (done).** 47 survivors → **27**. New
+     `test_gk_selector_direct.py` (6 tests) pin the previously-loose warnings
+     (exact "No GK-capable…" and "Only emergency GK players…" strings) and the
+     GK time budget: `max_gk_quarters = max(1, fair_share // 2)` caps a lone
+     preferred keeper at 2 quarters (kills the `players_per_slot` default and
+     `//2`→`/2`), the `max(1, …)` floor holds at 1 quarter for a huge squad,
+     and the per-quarter usage counter must increment so Q2/Q4 use distinct
+     keepers (kills the `+1`→`-1` mutant). Remaining 27 are the
+     `_pick_gk_for_quarter` all-budget-exhausted fallback + `random.shuffle`
+     tiebreak `id(None)`/get-default mutants — no stable oracle, same tail as
+     `rotation_engine`.
 2. **C.5 — Service layer extraction.** Pull orchestration out of
    `backend/api/routers/matches.py` and `tournaments.py` into
    `backend/services/match_service.py` / `tournament_service.py`; routers become
