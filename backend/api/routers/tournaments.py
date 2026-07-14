@@ -9,7 +9,6 @@ the core Match / RotationPlan infrastructure, with the addition of:
 from __future__ import annotations
 
 import json
-from collections import defaultdict
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,19 +22,16 @@ from backend.db.repositories import (
     build_plan_response,
     delete_rotation,
     get_available_ids,
-    get_goals,
     get_goals_total,
     get_or_create_squad,
-    get_plan_slots,
     get_players,
     get_position_overrides,
-    get_rotation,
 )
 from backend.db.repositories import (
     set_position_overrides as save_position_overrides,
 )
 from backend.models.game_config import build_tournament_config
-from backend.services import match_service, tournament_service
+from backend.services import analytics, match_service, tournament_service
 
 router = APIRouter()
 
@@ -270,34 +266,7 @@ def get_tournament_stats(
     t = session.get(TournamentDB, tournament_id)
     if not t:
         raise HTTPException(status_code=404, detail="Tournament not found")
-
-    matches = list(session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all())
-
-    slot_counts: dict[int, int] = defaultdict(int)
-    goal_totals: dict[int, int] = defaultdict(int)
-
-    for m in matches:
-        if not get_rotation(session, m.id):
-            continue
-        for slot_data in get_plan_slots(session, m.id):
-            for pid in slot_data.get("lineup", {}).values():
-                if pid:
-                    slot_counts[int(pid)] += 1
-        for pid_str, count in get_goals(session, m.id).items():
-            goal_totals[int(pid_str)] += count
-
-    # Resolve player names
-    squad = get_or_create_squad(session)
-    all_players = get_players(session, squad.id)
-    id_to_name = {p.id: p.name for p in all_players if p.id is not None}
-
-    players_data = [
-        {"name": id_to_name.get(pid, f"Player {pid}"), "slots_played": slots, "goals": goal_totals.get(pid, 0)}
-        for pid, slots in slot_counts.items()
-    ]
-    players_data.sort(key=lambda x: (-x["slots_played"], x["name"]))
-
-    return {"players": players_data}
+    return analytics.tournament_stats(session, tournament_id)
 
 
 class TournamentUpdate(BaseModel):

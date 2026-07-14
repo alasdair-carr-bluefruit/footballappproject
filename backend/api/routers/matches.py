@@ -12,10 +12,8 @@ from backend.db.repositories import (
     create_blank_plan,
     delete_rotation,
     get_available_ids,
-    get_goals,
     get_goals_total,
     get_or_create_squad,
-    get_plan_slots,
     get_players,
     get_removed,
     get_rotation,
@@ -29,7 +27,7 @@ from backend.models.game_config import (
     PRESET_CONFIGS,
     get_config,
 )
-from backend.services import match_service
+from backend.services import analytics, match_service
 
 router = APIRouter()
 
@@ -355,129 +353,17 @@ def save_match_goals(
 @router.get("/stats/season")
 def get_season_stats(session: Session = Depends(get_session)) -> list[dict[str, Any]]:
     """Aggregate stats across all season matches (excludes tournament matches)."""
-    squad = get_or_create_squad(session)
-    # Exclude guest players (source_tournament_id IS NOT NULL)
-    players = [p for p in get_players(session, squad.id) if p.source_tournament_id is None]
-    matches = list(
-        session.exec(
-            select(MatchDB).where(
-                MatchDB.squad_id == squad.id,
-                MatchDB.tournament_id == None,  # noqa: E711
-            )
-        ).all()
-    )
-    rotations = {
-        r.match_id: r
-        for r in session.exec(select(RotationPlanDB)).all()
-        if r.match_id in {m.id for m in matches}
-    }
-
-    stats: dict[int, dict[str, Any]] = {}
-    for p in players:
-        stats[p.id] = {  # type: ignore[index]
-            "id": p.id,
-            "name": p.name,
-            "matches_available": 0,
-            "slots_played": 0,
-            "goals": 0,
-        }
-
-    for m in matches:
-        r = rotations.get(m.id)
-        if not r:
-            continue
-
-        # Count available players
-        available_ids = get_available_ids(session, m.id)
-        if not available_ids:
-            # Legacy: assume all players were available
-            available_ids = [p.id for p in players]
-        for pid in available_ids:
-            if pid in stats:
-                stats[pid]["matches_available"] += 1
-
-        # Count slots played per player
-        for slot in get_plan_slots(session, m.id):
-            for pos, pid in slot["lineup"].items():
-                if pid in stats:
-                    stats[pid]["slots_played"] += 1
-
-        # Count goals
-        for pid_str, count in get_goals(session, m.id).items():
-            pid = int(pid_str)
-            if pid in stats:
-                stats[pid]["goals"] += count
-
-    return sorted(stats.values(), key=lambda s: s["name"])
+    return analytics.season_stats(session)
 
 
 @router.get("/stats/player/{player_id}")
 def get_player_history(player_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Return per-match history for a single player: slots, positions, goals per match."""
     squad = get_or_create_squad(session)
-    players = get_players(session, squad.id)
-    player_db = next((p for p in players if p.id == player_id), None)
+    player_db = next((p for p in get_players(session, squad.id) if p.id == player_id), None)
     if not player_db:
         raise HTTPException(status_code=404, detail="Player not found")
-
-    matches = list(
-        session.exec(
-            select(MatchDB).where(
-                MatchDB.squad_id == squad.id,
-                MatchDB.tournament_id == None,  # noqa: E711 — season matches only
-            ).order_by(MatchDB.date.asc())  # type: ignore[arg-type]
-        ).all()
-    )
-    rotations = {
-        r.match_id: r
-        for r in session.exec(select(RotationPlanDB)).all()
-        if r.match_id in {m.id for m in matches}
-    }
-
-    _pos_normalize = {"LB": "DEF", "CB": "DEF", "CB2": "DEF", "RB": "DEF",
-                      "LM": "MID", "CM": "MID", "CM2": "MID", "RM": "MID", "CAM": "MID",
-                      "LW": "FWD", "CF": "FWD", "CF2": "FWD", "RW": "FWD", "GK": "GK"}
-
-    match_history = []
-    totals: dict[str, Any] = {"matches_available": 0, "slots_played": 0, "goals": 0,
-                               "positions": {"GK": 0, "DEF": 0, "MID": 0, "FWD": 0}}
-
-    for m in matches:
-        r = rotations.get(m.id)
-        if not r:
-            continue
-        avail_ids = get_available_ids(session, m.id)
-        if player_id not in avail_ids and avail_ids:
-            continue
-
-        totals["matches_available"] += 1
-        positions_this_match: list[str] = []
-        for slot in get_plan_slots(session, m.id):
-            for pos, pid in slot["lineup"].items():
-                if pid == player_id:
-                    norm = _pos_normalize.get(pos, pos)
-                    positions_this_match.append(norm)
-                    totals["positions"][norm] = totals["positions"].get(norm, 0) + 1
-
-        player_goals = get_goals(session, m.id).get(str(player_id), 0)
-
-        totals["slots_played"] += len(positions_this_match)
-        totals["goals"] += player_goals
-
-        match_history.append({
-            "match_id": m.id,
-            "date": m.date,
-            "opponent": m.opponent or "Unknown",
-            "slots_played": len(positions_this_match),
-            "goals": player_goals,
-            "positions": positions_this_match,
-        })
-
-    return {
-        "player": {"id": player_db.id, "name": player_db.name},
-        "matches": match_history,
-        "totals": totals,
-    }
+    return analytics.player_history(session, player_db)
 
 
 @router.post("/{match_id}/start")

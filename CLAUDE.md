@@ -21,8 +21,9 @@ testing), C.5 (service layer) and C.6 (relational schema) are done & on `main`.
 C.4 hardened all five algorithm modules (`validator`, `rotation_engine`,
 `time_balancer`, `skill_balancer`, `gk_selector`), each stopped at a documented
 equivalent-mutant tail. C.5 pulled router orchestration into `backend/services/`
-(`match_service`, `tournament_service`). C.7 (backend tidy-ups — stats/analytics
-extraction, frontend toast/retry, SW cache list) not started. **Live tracker:
+(`match_service`, `tournament_service`). C.7 mostly done — stats/analytics
+extraction (`services/analytics.py`) and the `sw.js` cache-list fix landed; only
+the frontend toast/retry helper remains. **Live tracker:
 `docs/refactor/NEXT_STEPS.md`.** See DEVELOPMENT_PLAN.md for the full roadmap.
 
 Completed phases:
@@ -36,7 +37,7 @@ Completed phases:
 - v0.8: Tournament mode — tournament entity, cross-match cumulative fairness (`prior_slots`), guest players, manual rotation mode, tournament stats (shipped 2026-05-24 onwards). Not built: 8-a-side preset, knockout bracket structure.
 - v0.9: Consecutive sit-out constraint, match timer (count-up, persistent), fairness impact on removal/reinstatement, in-app bug reporting, All-rounder default rotation, inspection-based DB migrations (shipped 2026-07-10)
 
-Next significant work: finish the Refactor phase (C.4 mutation testing + C.5 service layer done; next C.7 backend tidy-ups — see `docs/refactor/NEXT_STEPS.md`), then v1.0 Plan Review UX (first feature on the new structure), then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
+Next significant work: finish the Refactor phase (C.4/C.5 done, C.7 all but the frontend toast/retry helper done — see `docs/refactor/NEXT_STEPS.md`), then v1.0 Plan Review UX (first feature on the new structure), then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
 
 ---
 
@@ -114,7 +115,7 @@ football-app-project/
 │   │   ├── skill_balancer.py
 │   │   └── validator.py       ← configurable sub limits, position variety
 │   ├── api/              ← FastAPI routers (thin HTTP adapters)
-│   ├── services/         ← Orchestration: match_service, tournament_service (C.5)
+│   ├── services/         ← match_service, tournament_service (C.5), analytics (C.7)
 │   └── db/               ← SQLite repositories, additive migration pattern
 │
 ├── frontend/            ← ES modules (no framework); app.js is a thin entry point

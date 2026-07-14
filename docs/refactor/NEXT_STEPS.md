@@ -4,13 +4,15 @@ _Live tracker for the pre-v1.0 refactor phase (DEVELOPMENT_PLAN.md "Phase C").
 Read this first at the start of a session; it's the current source of truth for
 what's done and what's next. Last updated 2026-07-14._
 
-> **▶ Resume here (next session):** C.4 (mutation testing) and C.5 (service
-> layer) are **done**. Next up is **C.7 — backend tidy-ups**: extract
-> stats/history aggregation into `analytics.py` (season stats + player history
-> in `matches.py`, tournament stats in `tournaments.py`), replace silent
-> frontend `.catch()`s with a toast/retry helper, and fix the `sw.js` cache
-> list (it must list all six frontend modules — state/pitch/setup-form/season/
-> tournament/screens — not just app.js). Detail in the C.7 section below.
+> **▶ Resume here (next session):** C.4 (mutation testing), C.5 (service layer)
+> and most of **C.7** are **done** — the analytics/stats extraction and the
+> `sw.js` cache-list fix (both below). The **one remaining C.7 item** is the
+> frontend **toast/retry helper**: replace the silent write-path `.catch(() =>
+> {})`s (progress/goals saves in `pitch.js`, team-info in `screens.js`) with a
+> user-visible toast + retry. That's a UX/brand decision (toast styling per
+> BRAND.md) — worth confirming scope with the coach before building. Read-path
+> `.catch(() => [])` fallbacks and `navigator.share().catch()` are fine as-is.
+> Once that lands, **Phase C is complete** → move to Phase D (v1.0 Plan Review).
 >
 > _mutmut workflow reminder:_ to re-check one module, set
 > `only_mutate = ["backend/algorithm/<mod>.py"]` in `[tool.mutmut]` (keep
@@ -162,18 +164,24 @@ what's done and what's next. Last updated 2026-07-14._
      `rotation_engine`.
 2. **C.5 — Service layer extraction. DONE** — see the "Done & on `main`"
    section above for the summary.
-3. **C.7 — Backend tidy-ups (remaining).** Extract stats/history aggregation
-   into `analytics.py` (V1_Improvements Task 1) — the season-stats and
-   player-history endpoints in `matches.py` and `get_tournament_stats` in
-   `tournaments.py` are the last big chunks of aggregation logic still living in
-   the routers; pull them into a `backend/services/analytics.py` (or
-   `backend/analytics.py`) the same way C.5 pulled out the rotation flow.
-   Replace silent frontend `.catch()`s with a toast/retry helper; fix the SW
-   cache file list (now that frontend is multiple modules, `sw.js` must cache
-   all of them — check it lists state/pitch/setup-form/season/tournament/
-   screens, not just app.js). *Optional:* encapsulate DB→domain mapping as
-   `.to_domain()` methods (V1_Improvements Task 5) instead of free functions in
-   `repositories.py`.
+3. **C.7 — Backend tidy-ups.** Mostly **done**:
+   - **Stats/analytics extraction (done).** `backend/services/analytics.py` now
+     owns the three read-only aggregations — `season_stats`, `player_history`
+     (both were in `matches.py`) and `tournament_stats` (was in
+     `tournaments.py`). Routers keep only the 404 lookups. Reuses
+     `normalize_position` instead of the old inline position-map dict. Covered
+     by the existing stats integration tests.
+   - **SW cache list (done).** `sw.js` `SHELL` now lists all six frontend
+     modules (state/pitch/setup-form/season/tournament/screens) plus app.js, not
+     just app.js — a stale/offline load was previously served a broken app.
+     Cache bumped v5→v6 so existing clients re-cache on activate. Guarded by
+     `tests/unit/test_service_worker_cache.py`, which parses app.js's imports
+     and asserts `SHELL` covers every module (can't silently drift again).
+   - **Frontend toast/retry (remaining).** See the resume pointer at the top —
+     this is the last C.7 item and wants a scope/design check with the coach.
+   - *Optional (not started):* encapsulate DB→domain mapping as `.to_domain()`
+     methods (V1_Improvements Task 5) instead of free functions in
+     `repositories.py`.
 
 ## After Phase C
 

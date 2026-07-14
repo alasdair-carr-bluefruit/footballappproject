@@ -1,6 +1,21 @@
 // Service Worker — network-first with cache fallback
-const CACHE = "squad-rotation-v5";
-const SHELL = ["/", "/app.js", "/api.js", "/style.css", "/manifest.json"];
+const CACHE = "squad-rotation-v6";
+// app.js is a thin entry point that side-effect-imports the modules below, so
+// they must all be pre-cached for the app to work offline (app.js alone is not
+// enough). Keep this list in sync with frontend/*.js (see index.html).
+const SHELL = [
+  "/",
+  "/app.js",
+  "/state.js",
+  "/pitch.js",
+  "/setup-form.js",
+  "/season.js",
+  "/tournament.js",
+  "/screens.js",
+  "/api.js",
+  "/style.css",
+  "/manifest.json",
+];
 
 self.addEventListener("install", e => {
   // Cache each asset individually — a single failure won't abort the whole install
