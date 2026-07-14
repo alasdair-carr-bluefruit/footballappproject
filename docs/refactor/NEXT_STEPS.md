@@ -4,13 +4,13 @@ _Live tracker for the pre-v1.0 refactor phase (DEVELOPMENT_PLAN.md "Phase C").
 Read this first at the start of a session; it's the current source of truth for
 what's done and what's next. Last updated 2026-07-14._
 
-> **▶ Resume here (next session):** C.4 mutation testing is **done** — all five
-> algorithm modules (`validator`, `rotation_engine`, `time_balancer`,
-> `skill_balancer`, `gk_selector`) hardened, each stopped at a documented
-> equivalent-mutant tail. Next up is **C.5 — service layer extraction** (pull
-> orchestration out of `matches.py`/`tournaments.py` into
-> `backend/services/`), then **C.7 — backend tidy-ups** (analytics extraction,
-> toast/retry helper, `sw.js` cache-list fix). Detail in the sections below.
+> **▶ Resume here (next session):** C.4 (mutation testing) and C.5 (service
+> layer) are **done**. Next up is **C.7 — backend tidy-ups**: extract
+> stats/history aggregation into `analytics.py` (season stats + player history
+> in `matches.py`, tournament stats in `tournaments.py`), replace silent
+> frontend `.catch()`s with a toast/retry helper, and fix the `sw.js` cache
+> list (it must list all six frontend modules — state/pitch/setup-form/season/
+> tournament/screens — not just app.js). Detail in the C.7 section below.
 >
 > _mutmut workflow reminder:_ to re-check one module, set
 > `only_mutate = ["backend/algorithm/<mod>.py"]` in `[tool.mutmut]` (keep
@@ -54,6 +54,20 @@ what's done and what's next. Last updated 2026-07-14._
   playbook preserved in
   [`postgres-neon-migration-testing.md`](./postgres-neon-migration-testing.md)
   and the read-only checker in [`verify_backfill.py`](./verify_backfill.py).
+- **C.5 — Service layer extraction.** `backend/services/` now owns the
+  orchestration that sat in the routers. `match_service` holds the shared
+  rotation mechanics — `build_match_config`/`season_config` (the tournament-vs-
+  season config branch that was duplicated 4×), `generate_and_save_rotation`
+  (the domain-convert → prior-slots → must-play → generate → save → set-
+  available flow, previously copy-pasted across 3 endpoints), and
+  `reconstruct_plan`/`adjust_and_save` (the ~30-line stored-plan rebuild the
+  adjust/remove/reinstate handlers each repeated). `tournament_service` holds
+  tournament setup — `derive_period_structure`, `resolve_fairness`,
+  `apply_position_overrides`. Routers are now thin HTTP adapters (matches.py
+  815→665, tournaments.py 683→586); repositories still own the queries. The
+  pure config/setup helpers are unit-tested with no DB
+  (`tests/unit/services/`, 20 tests); the DB-coupled flows stay covered by the
+  integration + e2e suites. All 244 tests green (232 non-e2e + 12 e2e).
 
 ## Remaining Phase C work (suggested order)
 
@@ -146,18 +160,20 @@ what's done and what's next. Last updated 2026-07-14._
      `_pick_gk_for_quarter` all-budget-exhausted fallback + `random.shuffle`
      tiebreak `id(None)`/get-default mutants — no stable oracle, same tail as
      `rotation_engine`.
-2. **C.5 — Service layer extraction.** Pull orchestration out of
-   `backend/api/routers/matches.py` and `tournaments.py` into
-   `backend/services/match_service.py` / `tournament_service.py`; routers become
-   thin HTTP adapters, repositories keep the queries. Makes endpoint logic
-   unit-testable without a full DB.
-3. **C.7 — Backend tidy-ups.** Extract stats/history aggregation into
-   `analytics.py` (V1_Improvements Task 1); replace silent frontend `.catch()`s
-   with a toast/retry helper; fix the SW cache file list (now that frontend is
-   multiple modules, `sw.js` must cache all of them — check it lists
-   state/pitch/setup-form/season/tournament/screens, not just app.js).
-   *Optional:* encapsulate DB→domain mapping as `.to_domain()` methods
-   (V1_Improvements Task 5) instead of free functions in `repositories.py`.
+2. **C.5 — Service layer extraction. DONE** — see the "Done & on `main`"
+   section above for the summary.
+3. **C.7 — Backend tidy-ups (remaining).** Extract stats/history aggregation
+   into `analytics.py` (V1_Improvements Task 1) — the season-stats and
+   player-history endpoints in `matches.py` and `get_tournament_stats` in
+   `tournaments.py` are the last big chunks of aggregation logic still living in
+   the routers; pull them into a `backend/services/analytics.py` (or
+   `backend/analytics.py`) the same way C.5 pulled out the rotation flow.
+   Replace silent frontend `.catch()`s with a toast/retry helper; fix the SW
+   cache file list (now that frontend is multiple modules, `sw.js` must cache
+   all of them — check it lists state/pitch/setup-form/season/tournament/
+   screens, not just app.js). *Optional:* encapsulate DB→domain mapping as
+   `.to_domain()` methods (V1_Improvements Task 5) instead of free functions in
+   `repositories.py`.
 
 ## After Phase C
 

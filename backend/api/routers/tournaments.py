@@ -17,7 +17,6 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
-from backend.algorithm.rotation_engine import generate_rotation
 from backend.db.database import get_session
 from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, TournamentDB
 from backend.db.repositories import (
@@ -26,21 +25,17 @@ from backend.db.repositories import (
     get_available_ids,
     get_goals,
     get_goals_total,
-    get_must_play_players,
     get_or_create_squad,
     get_plan_slots,
     get_players,
     get_position_overrides,
-    get_prior_tournament_slots,
     get_rotation,
-    match_db_to_domain,
-    save_rotation,
-    set_available_ids,
 )
 from backend.db.repositories import (
     set_position_overrides as save_position_overrides,
 )
 from backend.models.game_config import build_tournament_config
+from backend.services import match_service, tournament_service
 
 router = APIRouter()
 
@@ -90,29 +85,6 @@ class TournamentMatchCreate(BaseModel):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _apply_position_overrides(players_db: list[PlayerDB], overrides: dict) -> list[PlayerDB]:
-    """Return players with tournament-scoped position overrides applied (non-mutating)."""
-    import copy as _copy
-    result = []
-    for p in players_db:
-        pid_str = str(p.id)
-        if pid_str in overrides and overrides[pid_str]:
-            p2 = _copy.copy(p)
-            positions = overrides[pid_str]
-            p2.preferred_positions = json.dumps(positions)
-            if "GK" in positions and len(positions) == 1:
-                p2.gk_status = "specialist"
-            elif "GK" in positions:
-                p2.gk_status = "can_play"
-            else:
-                p2.gk_status = "emergency_only"
-            p2.def_restricted = len(positions) > 0 and "DEF" not in positions
-            result.append(p2)
-        else:
-            result.append(p)
-    return result
-
 
 def _tournament_read(t: TournamentDB, match_count: int = 0) -> TournamentRead:
     return TournamentRead(
@@ -390,19 +362,12 @@ def set_available_players(
     players_db = [p for p in all_players if p.id in available_ids]
     position_overrides = get_position_overrides(t)
     if position_overrides:
-        players_db = _apply_position_overrides(players_db, position_overrides)
+        players_db = tournament_service.apply_position_overrides(players_db, position_overrides)
 
-    has_halftime = bool(t.has_halftime)
-    if has_halftime:
-        quarters = 2
-        quarter_length_mins = max(1, t.match_duration_mins // 2)
-    else:
-        quarters = 1
-        quarter_length_mins = t.match_duration_mins
-
+    quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
     total_duration = quarters * quarter_length_mins
     try:
-        config = build_tournament_config(t.team_size, t.formation, total_duration, has_halftime)
+        config = build_tournament_config(t.team_size, t.formation, total_duration, bool(t.has_halftime))
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -419,39 +384,13 @@ def set_available_players(
         ).order_by(MatchDB.match_number)  # type: ignore[arg-type]
     ).all())
 
-    updated = 0
     for db_match in planned_matches:
         # Delete existing rotation plan before regenerating
         delete_rotation(session, db_match.id)
         session.commit()
+        match_service.generate_and_save_rotation(session, db_match, players_db)
 
-        match_domain, squad_domain = match_db_to_domain(db_match, players_db)
-
-        prior_by_name = get_prior_tournament_slots(session, tournament_id, db_match.id, players_db)
-        player_name_map = {p.name: p for p in squad_domain.available}
-        prior_slots_for_algo = None
-        if prior_by_name:
-            prior_slots_for_algo = {
-                player_name_map[name]: count
-                for name, count in prior_by_name.items()
-                if name in player_name_map
-            }
-
-        must_play_players = get_must_play_players(
-            session, tournament_id, db_match.match_number, players_db, squad_domain.available,
-        )
-
-        plan = generate_rotation(
-            squad_domain, match_domain,
-            prior_slots=prior_slots_for_algo,
-            previous_match_zero_slot_players=must_play_players,
-        )
-        save_rotation(session, db_match.id, plan, players_db)
-        set_available_ids(session, db_match.id, [p.id for p in players_db])
-
-        updated += 1
-
-    return {"updated": updated}
+    return {"updated": len(planned_matches)}
 
 
 class SetPositionOverridesBody(BaseModel):
@@ -591,18 +530,8 @@ def add_tournament_match(
 
     squad = get_or_create_squad(session)
 
-    # Determine period structure from tournament settings
-    has_halftime = bool(t.has_halftime)
-    if has_halftime:
-        quarters = 2
-        quarter_length_mins = max(1, t.match_duration_mins // 2)
-    else:
-        quarters = 1
-        quarter_length_mins = t.match_duration_mins
-
-    # Fairness: knockouts can override
-    fv = body.knockout_fairness_value if (body.stage == "knockout" and body.knockout_fairness_value is not None) else t.fairness_value
-    fairness = "competitive" if fv > 15 else "equal"
+    quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
+    fv, fairness = tournament_service.resolve_fairness(t, body.stage, body.knockout_fairness_value)
 
     # Auto-assign match_number
     existing_count = len(list(session.exec(
@@ -636,11 +565,11 @@ def add_tournament_match(
     players_db = [p for p in all_players if p.id in available_ids]
     position_overrides = get_position_overrides(t)
     if position_overrides:
-        players_db = _apply_position_overrides(players_db, position_overrides)
+        players_db = tournament_service.apply_position_overrides(players_db, position_overrides)
 
     total_duration = quarters * quarter_length_mins
     try:
-        config = build_tournament_config(t.team_size, t.formation, total_duration, has_halftime)
+        config = build_tournament_config(t.team_size, t.formation, total_duration, bool(t.has_halftime))
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -650,33 +579,7 @@ def add_tournament_match(
             detail=f"Need at least {config.players_per_slot} players for {t.team_size}v{t.team_size}",
         )
 
-    match_domain, squad_domain = match_db_to_domain(db_match, players_db)
-
-    # Cross-match fairness: load prior slot counts from earlier tournament matches
-    prior_by_name = get_prior_tournament_slots(session, tournament_id, db_match.id, players_db)
-    player_name_map = {p.name: p for p in squad_domain.available}
-    prior_slots_for_algo = None
-    if prior_by_name:
-        prior_slots_for_algo = {
-            player_name_map[name]: count
-            for name, count in prior_by_name.items()
-            if name in player_name_map
-        }
-
-    # Consecutive sit-out constraint: guarantee a slot for anyone benched entirely last match
-    must_play_players = get_must_play_players(
-        session, tournament_id, db_match.match_number, players_db, squad_domain.available,
-    )
-
-    plan = generate_rotation(
-        squad_domain, match_domain,
-        prior_slots=prior_slots_for_algo,
-        previous_match_zero_slot_players=must_play_players,
-    )
-    save_rotation(session, db_match.id, plan, players_db)
-
-    # Store available player IDs on the rotation plan
-    set_available_ids(session, db_match.id, [p.id for p in players_db])
+    match_service.generate_and_save_rotation(session, db_match, players_db)
 
     id_to_player = {p.id: p for p in players_db if p.id is not None}
     plan_data = build_plan_response(session, db_match.id, id_to_player)

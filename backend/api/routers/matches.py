@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
-from backend.algorithm.rotation_engine import generate_rotation
 from backend.db.database import get_session
 from backend.db.models import MatchDB, RotationPlanDB
 from backend.db.repositories import (
@@ -15,15 +14,12 @@ from backend.db.repositories import (
     get_available_ids,
     get_goals,
     get_goals_total,
-    get_must_play_players,
     get_or_create_squad,
     get_plan_slots,
     get_players,
-    get_prior_tournament_slots,
     get_removed,
     get_rotation,
     match_db_to_domain,
-    save_rotation,
     set_available_ids,
     set_goals,
     set_removed,
@@ -31,38 +27,11 @@ from backend.db.repositories import (
 from backend.models.game_config import (
     DEFAULT_FORMATIONS,
     PRESET_CONFIGS,
-    Formation,
-    GameConfig,
-    build_tournament_config,
     get_config,
 )
+from backend.services import match_service
 
 router = APIRouter()
-
-
-def _season_config(team_size: int, formation: str, quarters: int, quarter_length_mins: int) -> GameConfig:
-    """Build a GameConfig for a season match, honouring the stored period structure."""
-    try:
-        preset = get_config(team_size, formation)
-    except KeyError:
-        preset = None
-
-    if preset and quarters == preset.periods:
-        return preset  # matches the preset exactly — nothing to override
-
-    # Build a custom config with the user's chosen period count
-    period_label = "Half" if quarters == 2 else "Quarter"
-    break_subs = None if quarters == 2 else (preset.break_subs if preset else 5)
-    mid_subs = preset.mid_period_subs if preset else 2
-    return GameConfig(
-        team_size=team_size,
-        formation=Formation.parse(formation),
-        periods=quarters,
-        period_length_mins=quarter_length_mins,
-        mid_period_subs=mid_subs,
-        break_subs=break_subs,
-        period_label=period_label,
-    )
 
 
 class MatchCreate(BaseModel):
@@ -120,13 +89,8 @@ def _match_read(m: MatchDB, has_rotation: bool, our_goals: int = 0) -> MatchRead
 
 def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dict[str, Any]:
     try:
-        if m.tournament_id:
-            total_duration = m.quarters * m.quarter_length_mins
-            cfg = build_tournament_config(m.team_size, m.formation, total_duration, m.quarters > 1)
-        else:
-            cfg = _season_config(m.team_size, m.formation, m.quarters, m.quarter_length_mins)
-        period_label = cfg.period_label
-    except (KeyError, Exception):
+        period_label = match_service.build_match_config(m).period_label
+    except Exception:
         period_label = "Quarter"
     return {
         "match": {
@@ -226,17 +190,10 @@ def generate_match_rotation(
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    if db_match.tournament_id:
-        total_duration = db_match.quarters * db_match.quarter_length_mins
-        try:
-            config = build_tournament_config(db_match.team_size, db_match.formation, total_duration, db_match.quarters > 1)
-        except (ValueError, KeyError) as e:
-            raise HTTPException(status_code=422, detail=str(e))
-    else:
-        try:
-            config = _season_config(db_match.team_size, db_match.formation, db_match.quarters, db_match.quarter_length_mins)
-        except (KeyError, ValueError) as e:
-            raise HTTPException(status_code=422, detail=str(e))
+    try:
+        config = match_service.build_match_config(db_match)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
     all_players = get_players(session, db_match.squad_id)
 
@@ -256,37 +213,7 @@ def generate_match_rotation(
             detail=f"Need at least {config.players_per_slot} players for {db_match.team_size}v{db_match.team_size}",
         )
 
-    match, squad = match_db_to_domain(db_match, players_db)
-
-    # For tournament matches, compute prior slot counts for cross-match fairness
-    prior_slots_for_algo = None
-    must_play_players = None
-    if db_match.tournament_id:
-        prior_by_name = get_prior_tournament_slots(
-            session, db_match.tournament_id, db_match.id, players_db,
-        )
-        player_name_map = {p.name: p for p in squad.available}
-        if prior_by_name:
-            prior_slots_for_algo = {
-                player_name_map[name]: count
-                for name, count in prior_by_name.items()
-                if name in player_name_map
-            }
-
-        must_play_players = get_must_play_players(
-            session, db_match.tournament_id, db_match.match_number, players_db, squad.available,
-        )
-
-    plan = generate_rotation(
-        squad, match,
-        prior_slots=prior_slots_for_algo,
-        previous_match_zero_slot_players=must_play_players,
-    )
-
-    save_rotation(session, match_id, plan, players_db)
-
-    # Store which players were available
-    set_available_ids(session, match_id, [p.id for p in players_db])
+    match_service.generate_and_save_rotation(session, db_match, players_db)
 
     id_to_player = {p.id: p for p in players_db if p.id is not None}
     plan_data = build_plan_response(session, match_id, id_to_player)
@@ -306,11 +233,7 @@ def create_blank_rotation(
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    if db_match.tournament_id:
-        total_duration = db_match.quarters * db_match.quarter_length_mins
-        config = build_tournament_config(db_match.team_size, db_match.formation, total_duration, db_match.quarters > 1)
-    else:
-        config = _season_config(db_match.team_size, db_match.formation, db_match.quarters, db_match.quarter_length_mins)
+    config = match_service.build_match_config(db_match)
 
     all_players = get_players(session, db_match.squad_id)
     if body and body.available_player_ids is not None:
@@ -348,8 +271,6 @@ def adjust_match_rotation(
     match_id: int, body: AdjustRequest, session: Session = Depends(get_session),
 ) -> dict[str, Any]:
     """Apply manual edits and re-generate unlocked slots."""
-    from backend.algorithm.rotation_engine import adjust_rotation
-
     db_match = session.get(MatchDB, match_id)
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -370,27 +291,9 @@ def adjust_match_rotation(
     match, squad = match_db_to_domain(db_match, players_db)
     id_to_player = {p.id: p for p in players_db if p.id is not None}
 
-    # Reconstruct current plan as domain objects
-    from backend.models.rotation import Position, RotationPlan, SlotAssignment
-    slots_data = get_plan_slots(session, match_id)
-    domain_players = squad.available
-    player_by_name = {p.name: p for p in domain_players}
-
-    current_slots = []
-    for sd in slots_data:
-        slot = SlotAssignment(slot_index=sd["slot_index"])
-        for pos_key, pid in sd["lineup"].items():
-            db_p = id_to_player.get(pid)
-            if db_p:
-                domain_p = player_by_name.get(db_p.name)
-                if domain_p:
-                    slot.lineup[Position(pos_key)] = domain_p
-        # Mark previously locked slots
-        if sd["slot_index"] in body.locked_slots:
-            slot.locked = True
-        current_slots.append(slot)
-
-    current_plan = RotationPlan(slots=current_slots)
+    current_plan = match_service.reconstruct_plan(
+        session, match_id, squad, id_to_player, extra_locked=body.locked_slots,
+    )
 
     # Convert edits from player IDs to player names
     edits_by_name: dict[int, dict[str, str]] = {}
@@ -402,19 +305,9 @@ def adjust_match_rotation(
             if pid in id_to_player
         }
 
-    must_play_players = None
-    if db_match.tournament_id:
-        must_play_players = get_must_play_players(
-            session, db_match.tournament_id, db_match.match_number, players_db, squad.available,
-        )
-
-    new_plan, fairness_warnings = adjust_rotation(
-        current_plan, edits_by_name, squad, match,
-        previous_match_zero_slot_players=must_play_players,
+    new_plan, fairness_warnings = match_service.adjust_and_save(
+        session, db_match, current_plan, edits_by_name, players_db, squad, match,
     )
-
-    # Save updated plan
-    save_rotation(session, match_id, new_plan, players_db)
 
     # Re-read for response
     plan_data = build_plan_response(session, match_id, id_to_player)
@@ -648,9 +541,6 @@ def remove_player_from_match(
     match_id: int, body: RemovePlayerRequest, session: Session = Depends(get_session),
 ) -> dict[str, Any]:
     """Mark a player unavailable from a given slot onward and re-generate remaining slots."""
-    from backend.algorithm.rotation_engine import adjust_rotation
-    from backend.models.rotation import Position, RotationPlan, SlotAssignment
-
     db_match = session.get(MatchDB, match_id)
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -673,32 +563,14 @@ def remove_player_from_match(
 
     match, squad = match_db_to_domain(db_match, players_db)
     id_to_player = {p.id: p for p in players_db if p.id is not None}
-    player_by_name = {p.name: p for p in squad.available}
 
-    # Reconstruct current plan; lock all slots before from_slot
-    slots_data = get_plan_slots(session, match_id)
-    current_slots = []
-    for sd in slots_data:
-        slot = SlotAssignment(slot_index=sd["slot_index"])
-        for pos_key, pid in sd["lineup"].items():
-            db_p = id_to_player.get(pid)
-            if db_p and db_p.name in player_by_name:
-                slot.lineup[Position(pos_key)] = player_by_name[db_p.name]
-        if sd["slot_index"] < body.from_slot:
-            slot.locked = True
-        current_slots.append(slot)
-
-    current_plan = RotationPlan(slots=current_slots)
-    must_play_players = None
-    if db_match.tournament_id:
-        must_play_players = get_must_play_players(
-            session, db_match.tournament_id, db_match.match_number, players_db, squad.available,
-        )
-    new_plan, fairness_warnings = adjust_rotation(
-        current_plan, {}, squad, match,
-        previous_match_zero_slot_players=must_play_players,
+    # Reconstruct current plan; lock all slots before from_slot, then re-generate
+    current_plan = match_service.reconstruct_plan(
+        session, match_id, squad, id_to_player, lock_before=body.from_slot,
     )
-    save_rotation(session, match_id, new_plan, players_db)
+    new_plan, fairness_warnings = match_service.adjust_and_save(
+        session, db_match, current_plan, {}, players_db, squad, match,
+    )
 
     plan_data = build_plan_response(session, match_id, id_to_player)
     response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
@@ -716,9 +588,6 @@ def reinstate_player_in_match(
     match_id: int, body: ReinstatePlayerRequest, session: Session = Depends(get_session),
 ) -> dict[str, Any]:
     """Restore a removed player and re-generate slots from current match position."""
-    from backend.algorithm.rotation_engine import adjust_rotation
-    from backend.models.rotation import Position, RotationPlan, SlotAssignment
-
     db_match = session.get(MatchDB, match_id)
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -741,33 +610,14 @@ def reinstate_player_in_match(
 
     match, squad = match_db_to_domain(db_match, players_db)
     id_to_player = {p.id: p for p in players_db if p.id is not None}
-    player_by_name = {p.name: p for p in squad.available}
 
-    # Lock all slots up to current_slot
-    from_slot = db_match.current_slot
-    slots_data = get_plan_slots(session, match_id)
-    current_slots = []
-    for sd in slots_data:
-        slot = SlotAssignment(slot_index=sd["slot_index"])
-        for pos_key, pid in sd["lineup"].items():
-            db_p = id_to_player.get(pid)
-            if db_p and db_p.name in player_by_name:
-                slot.lineup[Position(pos_key)] = player_by_name[db_p.name]
-        if sd["slot_index"] < from_slot:
-            slot.locked = True
-        current_slots.append(slot)
-
-    current_plan = RotationPlan(slots=current_slots)
-    must_play_players = None
-    if db_match.tournament_id:
-        must_play_players = get_must_play_players(
-            session, db_match.tournament_id, db_match.match_number, players_db, squad.available,
-        )
-    new_plan, fairness_warnings = adjust_rotation(
-        current_plan, {}, squad, match,
-        previous_match_zero_slot_players=must_play_players,
+    # Lock all slots up to current_slot, then re-generate the rest
+    current_plan = match_service.reconstruct_plan(
+        session, match_id, squad, id_to_player, lock_before=db_match.current_slot,
     )
-    save_rotation(session, match_id, new_plan, players_db)
+    new_plan, fairness_warnings = match_service.adjust_and_save(
+        session, db_match, current_plan, {}, players_db, squad, match,
+    )
 
     plan_data = build_plan_response(session, match_id, id_to_player)
     response = _rotation_response(db_match, plan_data["slots"], plan_data["warnings"])
