@@ -717,6 +717,22 @@ html, body {
 }
 .btn-adjust:active { opacity: 1; }
 
+.btn-recalc-following {
+  display: block;
+  width: 100%;
+  margin: 8px 0 0;
+  background: transparent;
+  color: var(--trophy-amber);
+  font-size: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--trophy-amber);
+  border-radius: 6px;
+  opacity: 0.85;
+  cursor: pointer;
+}
+.btn-recalc-following:active { opacity: 1; }
+.btn-recalc-following[hidden] { display: none; }
+
 /* ── Slot row (slot label + start match button side by side) ─────── */
 .slot-row {
   display: flex;

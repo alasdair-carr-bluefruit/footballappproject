@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { state, ensureGameConfigs, refreshShirtNumbers } from "./state.js";
+import { state, ensureGameConfigs, refreshShirtNumbers, displayPos } from "./state.js";
 import { showScreen, openMatch, enterReviewView, buildReviewCard } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast, withSaveToast } from "./toast.js";
@@ -201,7 +201,7 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
     const activePosSet = new Set(_effectivePositions(p, existingOverrides));
 
     const chipsHtml = ALL_POS.map(pos =>
-      `<button type="button" class="pos-chip${activePosSet.has(pos) ? " active" : ""}" data-pos="${pos}">${pos}</button>`
+      `<button type="button" class="pos-chip${activePosSet.has(pos) ? " active" : ""}" data-pos="${pos}">${displayPos(pos)}</button>`
     ).join("");
 
     const li = document.createElement("li");

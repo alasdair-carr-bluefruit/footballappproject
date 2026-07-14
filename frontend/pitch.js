@@ -1,8 +1,8 @@
 import { api } from "./api.js";
-import { state, refreshShirtNumbers } from "./state.js";
+import { state, refreshShirtNumbers, displayPos } from "./state.js";
 import { loadHome } from "./season.js";
 import { loadTournamentLobby } from "./tournament.js";
-import { withSaveToast } from "./toast.js";
+import { showToast, withSaveToast } from "./toast.js";
 
 // NOTE on circular imports: pitch.js needs to navigate back into season.js
 // (loadHome) and tournament.js (loadTournamentLobby) after a match ends or
@@ -119,9 +119,9 @@ function buildPlanGrid(listEl, md = state.matchData, opts = {}) {
     const chipsHtml = slots.map((pos, i) => {
       const changed = opts.markChanges && i > 0 && pos !== slots[i - 1] ? " chip-changed" : "";
       if (!pos) return `<span class="slot-chip bench${changed}" title="${slotLabels[i]}">–</span>`;
-      return `<span class="slot-chip pos-${pos.toLowerCase()}${changed}" title="${slotLabels[i]}: ${pos}">
+      return `<span class="slot-chip pos-${pos.toLowerCase()}${changed}" title="${slotLabels[i]}: ${displayPos(pos)}">
         <span class="chip-quarter">${slotLabels[i]}</span>
-        <span class="chip-pos">${pos}</span>
+        <span class="chip-pos">${displayPos(pos)}</span>
       </span>`;
     }).join("");
 
@@ -197,7 +197,7 @@ function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
   // One row per position.
   positions.forEach(posKey => {
     const band = normalizePos(posKey).toLowerCase();
-    grid.appendChild(cell(`plan-rowlabel pos-${band}`, posKey));
+    grid.appendChild(cell(`plan-rowlabel pos-${band}`, displayPos(posKey)));
     md.slots.forEach((slot, i) => {
       const p = slot.lineup[posKey];
       if (!p) { grid.appendChild(cell("plan-cell plan-empty", "·")); return; }
@@ -505,7 +505,7 @@ function render() {
       const isGk = posKey === "GK";
       const swapHandler = state.editMode ? () => openSwapPicker(state.currentSlot, posKey, name) : null;
       const dragData = state.editMode && !isEmpty ? { slotIndex: state.currentSlot, posKey } : null;
-      const circle = playerCircle(name || posKey, posKey, incoming.has(name), outgoing.has(name), isGk, swapHandler, dragData);
+      const circle = playerCircle(name || posKey, displayPos(posKey), incoming.has(name), outgoing.has(name), isGk, swapHandler, dragData);
       if (isEmpty) circle.classList.add("empty-slot");
       rowEl.appendChild(circle);
     });
@@ -615,6 +615,11 @@ function render() {
     document.getElementById("btn-jump-live").hidden = isCompleted || viewingLive;
   }
 
+  // "Recalculate rest of match": only while tinkering a plan (not manual-assign,
+  // not on the final slot — nothing follows it).
+  document.getElementById("btn-recalc-following").hidden =
+    !state.editMode || state.manualRotationMode || isLastSlot;
+
   // Slot-label badges: LIVE (this is the period in play) and LOCKED (coach-edited).
   const slotLabelEl = document.getElementById("slot-label");
   if (state.matchStarted && !isCompleted && periodOf(state.currentSlot) === livePeriod()) {
@@ -685,6 +690,7 @@ function renderReport() {
     document.getElementById("btn-next").textContent = "Next ▶";
   }
   document.getElementById("btn-adjust").hidden = true;
+  document.getElementById("btn-recalc-following").hidden = true;
   // End Match bar: visible in live mode on report view
   const endBar = document.getElementById("end-match-bar");
   if (endBar) endBar.hidden = !state.matchStarted || state.matchData.match.status === "completed";
@@ -1211,6 +1217,7 @@ document.getElementById("btn-action-remove").addEventListener("click", async () 
   const statusEl = document.getElementById("adjust-status");
   statusEl.hidden = false;
   try {
+    statusEl.textContent = "Regenerating plan…";
     const result = await api.removePlayer(state.matchData.match.id, player.id, state.currentSlot);
     statusEl.hidden = true;
     state.removedPlayers = result.removed_players || {};
@@ -1239,6 +1246,7 @@ document.getElementById("btn-reinstate-confirm").addEventListener("click", async
   const statusEl = document.getElementById("adjust-status");
   statusEl.hidden = false;
   try {
+    statusEl.textContent = "Regenerating plan…";
     const result = await api.reinstatePlayer(state.matchData.match.id, player.id);
     statusEl.hidden = true;
     state.removedPlayers = result.removed_players || {};
@@ -1258,6 +1266,42 @@ document.getElementById("btn-adjust").addEventListener("click", () => {
   const btn = document.getElementById("btn-adjust");
   btn.textContent = state.editMode ? "Done" : "Tinker";
   render();
+});
+
+// Explicit, following-only recalculation. Local edits never touch other slots;
+// this deliberately reflows every slot AFTER the one being viewed, keeping the
+// current slot and everything before it exactly as the coach left them.
+document.getElementById("btn-recalc-following").addEventListener("click", async () => {
+  if (!state.matchData) return;
+  const pivot = state.currentSlot;
+  if (pivot >= state.matchData.slots.length - 1) {
+    showToast("No later slots to recalculate.");
+    return;
+  }
+  const label = (state.matchData.match.period_label || "Quarter").toLowerCase();
+  if (!confirm(`Recalculate every slot after this one? The current ${label} and everything before it stay as they are.`)) return;
+
+  // Lock the viewed slot + all earlier slots; leave later ones unlocked so the
+  // engine regenerates ONLY the following slots.
+  const locked = state.matchData.slots
+    .map(s => s.slot_index)
+    .filter(i => i <= pivot);
+
+  const statusEl = document.getElementById("adjust-status");
+  statusEl.textContent = "Regenerating following slots…";
+  statusEl.hidden = false;
+  try {
+    const result = await api.adjustRotation(state.matchData.match.id, {}, locked);
+    statusEl.hidden = true;
+    // Slots after the pivot were regenerated, so any coach edits there are gone —
+    // drop them from the edited set; edits at/before the pivot are preserved.
+    state.lockedSlots = new Set([...state.lockedSlots].filter(i => i <= pivot));
+    applyAdjustResult(result);
+    warnIfUnderSlotted();
+  } catch (err) {
+    statusEl.hidden = true;
+    alert("Could not recalculate: " + err.message);
+  }
 });
 
 document.getElementById("btn-swap-cancel").addEventListener("click", () => {
@@ -1294,7 +1338,7 @@ function openSwapPicker(slotIndex, posKey, currentPlayerName) {
       const count = slotCountForPlayer(p.name);
       const li = document.createElement("li");
       li.className = "swap-item";
-      li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">${pos} · ${count} slot${count !== 1 ? "s" : ""}</span>`;
+      li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">${displayPos(pos)} · ${count} slot${count !== 1 ? "s" : ""}</span>`;
       li.addEventListener("click", () => executeSwap(p.id, p.name));
       list.appendChild(li);
     }
@@ -1326,12 +1370,13 @@ async function executeSwap(newPlayerId, newPlayerName) {
   }
 
   const statusEl = document.getElementById("adjust-status");
+  statusEl.textContent = "Saving edit…";
   statusEl.hidden = false;
 
-  // In manual mode keep every slot locked so the algorithm never auto-fills empties
-  const slotsToLock = state.manualRotationMode
-    ? state.matchData.slots.map(s => s.slot_index)
-    : [...state.lockedSlots];
+  // A tinker edit is a purely LOCAL swap: lock every slot so the engine never
+  // rewrites slots the coach didn't touch. To reflow later slots deliberately,
+  // the coach uses the explicit "Recalculate rest of match" button.
+  const slotsToLock = state.matchData.slots.map(s => s.slot_index);
 
   try {
     const result = await api.adjustRotation(
@@ -1339,14 +1384,9 @@ async function executeSwap(newPlayerId, newPlayerName) {
     );
 
     statusEl.hidden = true;
-
-    // Check for fairness warnings (skip in manual assign mode)
-    if (!state.manualRotationMode && result.fairness_warnings && result.fairness_warnings.length > 0) {
-      showFairnessWarning(result);
-      return;
-    }
-
+    state.lockedSlots.add(slotIndex);  // mark this slot as coach-edited (LOCKED badge)
     applyAdjustResult(result);
+    warnIfUnderSlotted();
   } catch (err) {
     statusEl.hidden = true;
     alert("Could not adjust: " + err.message);
@@ -1367,25 +1407,13 @@ function fillFairnessList(warnings) {
   });
 }
 
-function showFairnessWarning(result) {
-  fillFairnessList(result.fairness_warnings);
-  document.getElementById("btn-fairness-cancel").hidden = false;
-  const confirmBtn = document.getElementById("btn-fairness-confirm");
-  confirmBtn.textContent = "Apply anyway";
-
-  // Wire confirm button to apply
-  const handler = () => {
-    document.getElementById("fairness-overlay").hidden = true;
-    document.getElementById("adjust-status").hidden = false;
-    setTimeout(() => {
-      applyAdjustResult(result);
-      document.getElementById("adjust-status").hidden = true;
-    }, 600);
-    confirmBtn.removeEventListener("click", handler);
-  };
-  confirmBtn.addEventListener("click", handler);
-
-  document.getElementById("fairness-overlay").hidden = false;
+// Non-blocking: after a local tinker edit or a recalculate, flag any player now
+// below fair share (bug #3 heuristic). The edit already applied — this only warns.
+function warnIfUnderSlotted() {
+  const under = underSlotted();
+  if (under.items.length === 0) return;
+  const names = under.items.map(i => i.name).join(", ");
+  showToast(`⚠ Below fair share: ${names}`, { duration: 5000 });
 }
 
 // Informational variant: the recalculation has already been applied (e.g. after
@@ -1409,9 +1437,10 @@ function showFairnessInfo(warnings) {
 function applyAdjustResult(result) {
   state.matchData.slots = result.slots;
   state.matchData.warnings = result.warnings;
-  if (result.locked_slots) {
-    state.lockedSlots = new Set(result.locked_slots);
-  }
+  // NB: `state.lockedSlots` tracks *coach-edited* slots (drives the LOCKED badge),
+  // NOT the transport lock set we send to the API. Since every tinker edit now
+  // locks all slots on the wire, result.locked_slots is always "all" and must not
+  // be copied here — callers maintain lockedSlots explicitly.
   render();
 }
 

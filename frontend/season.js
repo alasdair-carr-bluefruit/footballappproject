@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { state, ensureGameConfigs } from "./state.js";
+import { state, ensureGameConfigs, displayPos } from "./state.js";
 import { showScreen, enterManualAssignMode, openMatch, enterReviewView } from "./pitch.js";
 import { selectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast } from "./toast.js";
@@ -264,7 +264,7 @@ async function loadPlayerHistory(playerId, playerName) {
   const t = data.totals;
   const posEntries = Object.entries(t.positions).filter(([, n]) => n > 0);
   const posHtml = posEntries.map(([pos, n]) =>
-    `<span class="history-pos-badge pos-${pos.toLowerCase()}">${pos} ×${n}</span>`
+    `<span class="history-pos-badge pos-${pos.toLowerCase()}">${displayPos(pos)} ×${n}</span>`
   ).join("");
 
   document.getElementById("history-totals").innerHTML = `
@@ -286,7 +286,7 @@ async function loadPlayerHistory(playerId, playerName) {
     const date = new Date(m.date + "T12:00:00");
     const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     const posChips = m.positions.map(pos =>
-      `<span class="slot-chip pos-${pos.toLowerCase()}">${pos}</span>`
+      `<span class="slot-chip pos-${pos.toLowerCase()}">${displayPos(pos)}</span>`
     ).join("");
     const goalsHtml = m.goals > 0 ? `<span class="history-match-goals">⚽ ${m.goals}</span>` : "";
 

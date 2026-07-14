@@ -88,6 +88,54 @@ def test_review_browse_tinker_and_start(seeded_squad, page: Page, flow):
     expect(page.locator("#live-badge")).to_be_visible()
 
 
+@pytest.mark.parametrize("flow", ["season", "tournament"])
+def test_tinker_edit_is_local_and_offers_following_recalc(seeded_squad, page: Page, flow):
+    """A tinker edit applies locally (bench player lands on the pitch) and the
+    explicit 'Recalculate rest of match' button appears while tinkering — hidden
+    on the final slot, where nothing follows. Parity across both flows."""
+    _NAV[flow](page, seeded_squad)
+    expect(page.locator("#screen-review")).to_be_visible()
+
+    page.click("#btn-review-view")
+    expect(page.locator("#screen-pitch")).to_be_visible()
+
+    # Not tinkering yet → recalc button hidden.
+    expect(page.locator("#btn-recalc-following")).to_be_hidden()
+
+    # Enter tinker on slot 1 (not the last) → recalc button offered.
+    expect(page.locator("#slot-counter")).to_contain_text("Slot 1 of")
+    page.click("#btn-adjust")
+    expect(page.locator("#edit-mode-badge")).to_be_visible()
+    expect(page.locator("#btn-recalc-following")).to_be_visible()
+
+    # A bench swap applies locally: pick the first bench player and slot them in.
+    bench_name = page.locator("#bench-list .bench-player .bench-name").first.inner_text().strip()
+    # Open the swap picker on an outfield player (last circle avoids the GK row),
+    # then choose the bench player.
+    page.locator("#pitch .player-circle").last.click()
+    expect(page.locator("#swap-overlay")).to_be_visible()
+    page.locator("#swap-list .swap-item", has_text=bench_name).first.click()
+    expect(page.locator("#swap-overlay")).to_be_hidden()
+    # The edit persisted — the swapped-in player is now on the pitch.
+    expect(page.locator("#pitch .player-circle .circle-name", has_text=bench_name)).not_to_have_count(0)
+
+    # The edit is LOCAL: only the edited slot (slot 1) carries the LOCKED badge.
+    expect(page.locator("#slot-label .slot-locked-badge")).to_have_count(1)
+    page.click("#btn-adjust")  # leave edit mode so Next is enabled
+    page.click("#btn-next")
+    expect(page.locator("#slot-counter")).to_contain_text("Slot 2 of")
+    expect(page.locator("#slot-label .slot-locked-badge")).to_have_count(0)
+
+    # On the final slot, recalc is hidden (no following slots to regenerate).
+    last = int(page.locator("#slot-counter").inner_text().split("of")[-1])
+    for _ in range(last - 2):
+        page.click("#btn-next")
+    expect(page.locator("#slot-counter")).to_contain_text(f"Slot {last} of")
+    page.click("#btn-adjust")
+    expect(page.locator("#edit-mode-badge")).to_be_visible()
+    expect(page.locator("#btn-recalc-following")).to_be_hidden()
+
+
 def test_tournament_review_all_plans_stacks_a_grid_per_match(seeded_squad, page: Page):
     """The lobby's 'Review all plans' generates any missing rotations and shows
     one read-only card (with its own grid) per match; 'Open ▶' drops into that

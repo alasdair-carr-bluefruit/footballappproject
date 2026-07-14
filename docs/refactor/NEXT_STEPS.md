@@ -261,7 +261,30 @@ auto-track main.)
     `tests/e2e/test_plan_review.py` parametrizes `["season","tournament"]`; the
     smoke/visibility/live-browse/completed-goal suites were re-pointed to step
     through the review landing. 28 e2e + 255 non-e2e green.
-- **D.2 (not started):** tinkering undo/redo command stack.
+- **D.1a — Tinker no-auto-recalc rework. DONE (committed local, not pushed).**
+  Closes deferred bug **#2** + the adjust-plan-rework memory. A tinker edit is now
+  a **purely local swap** — the frontend sends *all* slot indices as `locked_slots`
+  so `adjust_rotation` takes its everything-locked early-return and rewrites nothing
+  else. Reflowing later slots is now **explicit**: a "↻ Recalculate rest of match"
+  button (shown only while tinkering, hidden on the final slot) locks `0..currentSlot`
+  and regenerates **only the following** slots (pivot = the *viewed* slot). The old
+  blocking "Apply anyway" fairness overlay (`showFairnessWarning`) is retired for
+  edits — an under-slotted player now surfaces a **non-blocking** toast
+  (`warnIfUnderSlotted`, reusing the D.1 `underSlotted` fair-share check).
+  `showFairnessInfo` (remove/reinstate) still uses the shared overlay, untouched.
+  - **No backend change:** locks aren't persisted — `reconstruct_plan` derives them
+    per-request from `body.locked_slots`, so behaviour is entirely frontend-driven.
+  - **Badge fix:** `state.lockedSlots` now means *coach-edited* slots (drives the
+    LOCKED badge) and is maintained explicitly — `applyAdjustResult` no longer copies
+    the (now always-"all") transport lock set; `executeSwap` adds the edited slot;
+    recalc prunes edits past the pivot.
+  - **Tests:** `tests/unit/algorithm/test_adjust_rotation.py` (2) pins the local-swap
+    + lock-prefix contracts; new parametrized `["season","tournament"]` e2e in
+    `test_plan_review.py` proves the edit is local (only the edited slot badges
+    LOCKED), the swap applies, and the recalc button appears/ hides correctly.
+    **30 e2e + 257 non-e2e green.**
+- **D.2 (not started):** tinkering undo/redo command stack. (Now cleanly buildable —
+  each edit is one local, predictable delta.)
 - **D.3 (not started):** revisit export (CSV/Sheets) via the review data.
 
 Then **Phase E — v1.1 multi-user** (magic link + co-coach; `V1_MULTIUSER_PLAN.md`).

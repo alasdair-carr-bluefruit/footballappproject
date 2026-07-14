@@ -48,6 +48,19 @@ export const state = {
 
 // Shared across season.js + tournament.js (both need the formation/team-size
 // config payload). Consolidates 3 identical inline fetch-and-cache blocks.
+// Map any position code (granular real code OR normalized band) to the
+// simplified display label the coach sees: DEF / MID / ATT / GK. Display only —
+// stored values and CSS `pos-*` colour classes keep using the normalized band.
+const _DISP_DEF = new Set(["DEF", "LB", "CB", "CB2", "RB"]);
+const _DISP_MID = new Set(["MID", "LM", "CM", "CM2", "RM", "CAM"]);
+const _DISP_FWD = new Set(["FWD", "ATT", "LW", "CF", "CF2", "RW"]);
+export function displayPos(pos) {
+  if (_DISP_DEF.has(pos)) return "DEF";
+  if (_DISP_MID.has(pos)) return "MID";
+  if (_DISP_FWD.has(pos)) return "ATT";
+  return pos; // GK and anything else pass through
+}
+
 export async function ensureGameConfigs() {
   if (!state.gameConfigs) {
     state.gameConfigs = await api.getGameConfigs().catch(() => null);

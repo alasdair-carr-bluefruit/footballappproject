@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { state, refreshShirtNumbers } from "./state.js";
+import { state, refreshShirtNumbers, displayPos } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
@@ -173,7 +173,7 @@ async function loadSquad() {
       prefs.forEach(pos => {
         const isBest = pos === p.best_position;
         const cls = isBest ? "badge badge-pos badge-best" : "badge badge-pos";
-        badges.push(`<span class="${cls}">${pos}</span>`);
+        badges.push(`<span class="${cls}">${displayPos(pos)}</span>`);
       });
     } else {
       // Legacy fallback
@@ -246,7 +246,7 @@ function updateBestPositionOptions(selectedPositions, currentBest) {
   selectedPositions.forEach(pos => {
     const opt = document.createElement("option");
     opt.value = pos;
-    opt.textContent = pos;
+    opt.textContent = displayPos(pos);
     if (pos === currentBest) opt.selected = true;
     sel.appendChild(opt);
   });
