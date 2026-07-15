@@ -89,12 +89,28 @@ function buildFormationOptions(selectId, size) {
   }
 }
 
+// Default minutes per period by team size (editable on the form).
+// 5v5/6v6 = 10-min quarters, 7v7 = 12.5-min quarters, 9v9 = 30-min halves.
+const PERIOD_MINUTES = { 5: 10, 6: 10, 7: 12.5, 9: 30 };
+
+// Label + max reflect the period type: quarters cap at 22.5 min, halves at 45.
+function updateLengthConstraints() {
+  const halves = state.selectedPeriods === 2;
+  const label = document.getElementById("match-length-label");
+  if (label) label.textContent = halves ? "Minutes per half" : "Minutes per quarter";
+  const input = document.getElementById("match-length");
+  if (input) input.max = halves ? "45" : "22.5";
+}
+
 // ── Season: size drives formation options + period count ──
 function selectSize(size) {
   state.selectedSize = size;
   highlightActiveSize("#size-picker", size);
   selectPeriods(size >= 9 ? 2 : 4);
   buildFormationOptions("formation-select", size);
+  const lengthInput = document.getElementById("match-length");
+  if (lengthInput) lengthInput.value = String(PERIOD_MINUTES[size] ?? 10);
+  updateLengthConstraints();
 }
 
 function selectPeriods(periods) {
@@ -102,6 +118,7 @@ function selectPeriods(periods) {
   document.querySelectorAll("#period-picker .size-btn").forEach(btn => {
     btn.classList.toggle("active", parseInt(btn.dataset.periods) === periods);
   });
+  updateLengthConstraints();
 }
 
 document.getElementById("period-picker").addEventListener("click", e => {

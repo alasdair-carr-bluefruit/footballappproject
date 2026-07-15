@@ -9,6 +9,8 @@ reconstructing a single match's rotation.
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 from sqlmodel import Session
 
 from backend.algorithm.rotation_engine import adjust_rotation, generate_rotation
@@ -34,7 +36,7 @@ from backend.models.rotation import Position, RotationPlan, SlotAssignment
 # ── Game config ────────────────────────────────────────────────────────────────
 
 def season_config(
-    team_size: int, formation: str, quarters: int, quarter_length_mins: int,
+    team_size: int, formation: str, quarters: int, quarter_length_mins: float,
 ) -> GameConfig:
     """Build a GameConfig for a season match, honouring the stored period structure."""
     try:
@@ -43,7 +45,10 @@ def season_config(
         preset = None
 
     if preset and quarters == preset.periods:
-        return preset  # matches the preset exactly — nothing to override
+        # Preset period count — reuse it, but reflect the coach's chosen length.
+        if quarter_length_mins == preset.period_length_mins:
+            return preset
+        return replace(preset, period_length_mins=quarter_length_mins)
 
     # Build a custom config with the user's chosen period count
     period_label = "Half" if quarters == 2 else "Quarter"

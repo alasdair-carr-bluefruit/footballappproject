@@ -166,20 +166,13 @@
       </div>
     </header>
     <ul class="match-list" id="match-list"></ul>
-    <div class="export-bar" id="export-bar" hidden>
-      <button class="btn-export-main" id="btn-export-matches">Export</button>
-      <div class="export-dropdown" id="export-dropdown" hidden>
-        <button class="export-option" id="btn-export-csv">↓ Download CSV</button>
-        <button class="export-option btn-sheets" id="btn-export-sheets"><svg class="sheets-icon" viewBox="0 0 24 24"><rect fill="#34A853" width="24" height="24" rx="3"/><rect fill="#fff" x="5" y="7" width="14" height="2"/><rect fill="#fff" x="5" y="11" width="14" height="2"/><rect fill="#fff" x="5" y="15" width="9" height="2"/></svg>Google Sheets</button>
-      </div>
-    </div>
   </div>
 
   <!-- ── Screen: New Match ────────────────────────────────────────────────── -->
   <div id="screen-new-match" class="screen" hidden>
     <header class="header header-sub">
       <button class="btn-back" id="btn-new-match-back">◀ Matches</button>
-      <h2>New Match</h2>
+      <h2 id="new-match-title">New Match</h2>
     </header>
     <form class="form-card" id="new-match-form">
       <label>
@@ -216,6 +209,20 @@
       <div class="size-picker" id="period-picker">
         <button type="button" class="size-btn active" data-periods="4">4 Quarters</button>
         <button type="button" class="size-btn" data-periods="2">2 Halves</button>
+      </div>
+
+      <div class="inline-pair">
+        <label>
+          <span id="match-length-label">Minutes per quarter</span>
+          <input type="number" id="match-length" min="1" max="22.5" step="0.5" value="10" inputmode="decimal" />
+        </label>
+        <label class="switch-row">
+          <span>Show timer</span>
+          <span class="switch">
+            <input type="checkbox" id="match-show-timer" checked />
+            <span class="switch-slider"></span>
+          </span>
+        </label>
       </div>
 
       <label>
@@ -344,6 +351,7 @@
     <header class="header header-sub">
       <button class="btn-back" id="btn-stats-back">◀ Matches</button>
       <h2>Season Stats</h2>
+      <button class="btn-export-stats" id="btn-export-stats" hidden>⬆ Export</button>
     </header>
     <ul class="stats-list" id="stats-list"></ul>
   </div>
@@ -367,6 +375,7 @@
       </div>
       <div class="home-actions">
         <button class="btn btn-primary" id="btn-new-tournament">+ New Tournament</button>
+        <button class="btn btn-secondary" id="btn-all-tournament-stats">📊 All Tournament Stats</button>
       </div>
     </header>
     <ul class="match-list" id="tournament-list"></ul>
@@ -401,7 +410,7 @@
       <div class="inline-pair">
         <label>
           Match Duration (mins)
-          <input type="number" id="tournament-duration" min="5" max="45" value="10" />
+          <input type="number" id="tournament-duration" min="5" max="45" step="0.5" value="10" inputmode="decimal" />
         </label>
         <label>
           No. of group matches
@@ -411,6 +420,13 @@
       <label class="label-row">
         <input type="checkbox" id="tournament-halftime" />
         Matches have a half-time break
+      </label>
+      <label class="switch-row">
+        <span>Show match timer during games</span>
+        <span class="switch">
+          <input type="checkbox" id="tournament-show-timer" checked />
+          <span class="switch-slider"></span>
+        </span>
       </label>
       <label>
         Playing Time
@@ -806,7 +822,20 @@
       <div id="tournament-stats-content">
         <ul class="stats-list" id="tournament-stats-list"></ul>
       </div>
+      <button class="btn btn-primary btn-full" id="btn-export-tournament-stats">⬆ Export spreadsheet</button>
       <button class="btn btn-secondary btn-full" id="btn-tournament-stats-close">Close</button>
+    </div>
+  </div>
+
+  <!-- ── Modal: All Tournament Stats (aggregate across every tournament) ────── -->
+  <div class="swap-overlay" id="all-tournament-stats-overlay" hidden>
+    <div class="swap-panel swap-panel-wide">
+      <h3 class="swap-title">All Tournament Stats</h3>
+      <div id="all-tournament-stats-content">
+        <ul class="stats-list" id="all-tournament-stats-list"></ul>
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-export-all-tournament-stats">⬆ Export spreadsheet</button>
+      <button class="btn btn-secondary btn-full" id="btn-all-tournament-stats-close">Close</button>
     </div>
   </div>
 

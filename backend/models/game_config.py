@@ -80,7 +80,7 @@ class GameConfig:
     team_size: int
     formation: Formation
     periods: int  # 4 (quarters) or 2 (halves)
-    period_length_mins: int
+    period_length_mins: float  # minutes per period; float to allow e.g. 12.5
     mid_period_subs: int  # max subs at mid-period transition
     break_subs: int | None  # max subs at period break (None = unlimited)
     period_label: str  # "Quarter" or "Half"
@@ -120,7 +120,7 @@ def _make_configs(
     team_size: int,
     formations: list[str],
     periods: int,
-    period_length_mins: int,
+    period_length_mins: float,
     mid_period_subs: int,
     break_subs: int | None,
     period_label: str,
@@ -142,8 +142,8 @@ def _make_configs(
 PRESET_CONFIGS: dict[int, dict[str, GameConfig]] = {
     5: _make_configs(5, ["1-2-1", "2-1-1"], 4, 10, 2, 5, "Quarter"),
     6: _make_configs(6, ["1-3-1", "2-2-1", "1-2-2"], 4, 10, 2, 5, "Quarter"),
-    7: _make_configs(7, ["2-3-1", "3-2-1", "3-1-2", "1-3-2", "2-2-2", "2-1-3"], 4, 10, 3, 4, "Quarter"),
-    9: _make_configs(9, ["3-3-2", "2-4-2", "3-2-3", "3-4-1", "4-3-1"], 2, 20, 4, None, "Half"),
+    7: _make_configs(7, ["2-3-1", "3-2-1", "3-1-2", "1-3-2", "2-2-2", "2-1-3"], 4, 12.5, 3, 4, "Quarter"),
+    9: _make_configs(9, ["3-3-2", "2-4-2", "3-2-3", "3-4-1", "4-3-1"], 2, 30, 4, None, "Half"),
 }
 
 DEFAULT_FORMATIONS: dict[int, str] = {

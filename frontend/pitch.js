@@ -1052,8 +1052,15 @@ function timerElapsedSecs(timerState) {
   return Math.max(0, (end - timerState.startedAt - (timerState.pausedAccumMs || 0)) / 1000);
 }
 
+// The coach can hide the match clock per match via the create-match "show timer"
+// toggle (show_timer === 0). Undefined/legacy plans default to shown.
+function timerEnabled() {
+  return state.matchData?.match?.show_timer !== 0;
+}
+
 // Called from Start Match — begins a fresh clock for this match
 function beginMatchTimer() {
+  if (!timerEnabled()) return;
   writeTimer({ startedAt: Date.now(), pausedAt: null, pausedAccumMs: 0 });
   startTimerTicker();
 }
@@ -1061,6 +1068,7 @@ function beginMatchTimer() {
 // Called on re-entering a live match — resume the existing clock (or start one
 // if none is stored, e.g. it was cleared)
 function resumeMatchTimer() {
+  if (!timerEnabled()) return;
   if (!readTimer()) writeTimer({ startedAt: Date.now(), pausedAt: null, pausedAccumMs: 0 });
   startTimerTicker();
 }
@@ -1095,7 +1103,7 @@ function startTimerTicker() {
 function updateTimerDisplay() {
   const wrap = document.getElementById("match-timer");
   const timerState = readTimer();
-  if (!state.matchStarted || state.showingReport || !timerState) {
+  if (!timerEnabled() || !state.matchStarted || state.showingReport || !timerState) {
     wrap.hidden = true;
     return;
   }

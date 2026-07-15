@@ -1,17 +1,15 @@
 import { api } from "./api.js";
 import { state, ensureGameConfigs, displayPos } from "./state.js";
 import { showScreen, enterManualAssignMode, openMatch, enterReviewView } from "./pitch.js";
-import { selectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
+import { selectSize, selectPeriods, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast } from "./toast.js";
+import { exportSpreadsheet } from "./share.js";
 
 // ── Home screen ───────────────────────────────────────────────────────────────
 async function loadHome() {
   showScreen("screen-home");
   const list = document.getElementById("match-list");
   list.innerHTML = "<li class='loading'>Loading…</li>";
-
-  const exportBar = document.getElementById("export-bar");
-  document.getElementById("export-dropdown").hidden = true;
 
   let matches;
   try {
@@ -21,7 +19,6 @@ async function loadHome() {
     // same as "no matches" — say so and offer a retry instead of a misleading
     // empty list.
     list.innerHTML = "<li class='empty-state'>Couldn't reach the server — check your connection.</li>";
-    exportBar.hidden = true;
     showToast("Connection lost — couldn't load your matches.", {
       actionLabel: "Retry", action: () => loadHome(),
     });
@@ -31,11 +28,8 @@ async function loadHome() {
 
   if (matches.length === 0) {
     list.innerHTML = "<li class='empty-state'>No matches yet — tap New Match to start</li>";
-    exportBar.hidden = true;
     return;
   }
-
-  exportBar.hidden = false;
 
   matches.forEach(m => {
     const date = new Date(m.date + "T12:00:00");
@@ -60,6 +54,10 @@ async function loadHome() {
     const li = document.createElement("li");
     li.className = "match-item";
     if (m.status === "completed") li.classList.add("match-item-done");
+    // Planned matches can be re-edited (mirrors the tournament edit pencil); a
+    // live/finished match's settings are frozen.
+    const editBtn = m.status === "planned"
+      ? `<button class="btn-icon match-edit" title="Edit match">✎</button>` : "";
     li.innerHTML = `
       <div class="match-item-main">
         <span class="match-item-date">${dateStr}</span>
@@ -67,9 +65,14 @@ async function loadHome() {
         ${sizeBadge}
         ${statusBadge}
       </div>
+      ${editBtn}
       <button class="btn-icon match-delete" data-id="${m.id}" title="Delete match">✕</button>
     `;
     li.querySelector(".match-item-main").addEventListener("click", () => openMatch(m.id));
+    li.querySelector(".match-edit")?.addEventListener("click", e => {
+      e.stopPropagation();
+      openEditMatch(m);
+    });
     li.querySelector(".match-delete").addEventListener("click", async e => {
       e.stopPropagation();
       if (confirm(`Delete match vs ${opponent}?`)) {
@@ -92,8 +95,11 @@ document.getElementById("btn-home-back").addEventListener("click", () => showScr
 document.getElementById("btn-new-match-back").addEventListener("click", loadHome);
 
 document.getElementById("btn-go-new-match").addEventListener("click", async () => {
+  state.editingMatchId = null;
+  document.getElementById("new-match-title").textContent = "New Match";
   document.getElementById("match-date").value = new Date().toISOString().split("T")[0];
   document.getElementById("opponent-input").value = "";
+  document.getElementById("match-show-timer").checked = true;
   document.getElementById("btn-generate").disabled = false;
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
   document.getElementById("fairness-slider").value = 0;
@@ -108,6 +114,39 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   selectSize(5);
   showScreen("screen-new-match");
 });
+
+// Edit a planned match — reopen the setup form pre-filled (mirrors the tournament
+// edit pencil). On Generate/Manual the match is updated in place, then re-planned.
+async function openEditMatch(m) {
+  await ensureGameConfigs();
+  state.editingMatchId = m.id;
+  document.getElementById("new-match-title").textContent = "Edit Match";
+  document.getElementById("match-date").value = m.date;
+  document.getElementById("opponent-input").value = m.opponent || "";
+
+  state.selectedHomeAway = m.home_away || "home";
+  document.querySelectorAll(".ha-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.ha === state.selectedHomeAway));
+
+  // Size rebuilds formation options + default length/periods; then apply the
+  // match's own stored structure/length/timer on top.
+  selectSize(m.team_size || 5);
+  selectPeriods(m.quarters === 2 ? 2 : 4);
+  document.getElementById("formation-select").value = m.formation;
+  document.getElementById("match-length").value = String(m.quarter_length_mins ?? 10);
+  document.getElementById("match-show-timer").checked = m.show_timer !== 0;
+
+  document.getElementById("fairness-slider").value = m.fairness_value || 0;
+  updateFairnessLabel(m.fairness_value || 0);
+  const rot = String(m.rotation_intensity ?? 100);
+  const rotRadio = document.querySelector(`input[name="rotation"][value="${rot}"]`)
+    || document.querySelector('input[name="rotation"][value="100"]');
+  if (rotRadio) rotRadio.checked = true;
+
+  document.getElementById("btn-generate").disabled = false;
+  document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
+  showScreen("screen-new-match");
+}
 
 document.getElementById("home-away-picker").addEventListener("click", e => {
   const btn = e.target.closest(".ha-btn");
@@ -124,13 +163,25 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
   const fairnessVal = parseInt(document.getElementById("fairness-slider").value);
   const fairness = fairnessVal <= 15 ? "equal" : "competitive";
   const rotation_intensity = getRotationValue();
+  const halves = state.selectedPeriods === 2;
+  const lengthDefault = halves ? 30 : 10;
+  const maxLen = halves ? 45 : 22.5;
+  const lengthVal = parseFloat(document.getElementById("match-length").value);
+  if (Number.isFinite(lengthVal) && lengthVal > maxLen) {
+    alert(`Minutes per ${halves ? "half" : "quarter"} can't be more than ${maxLen}.`);
+    document.getElementById("match-length").focus();
+    return;
+  }
+  const quarter_length_mins = Number.isFinite(lengthVal) && lengthVal > 0 ? lengthVal : lengthDefault;
+  const show_timer = document.getElementById("match-show-timer").checked ? 1 : 0;
 
   state.pendingMatchConfig = {
     date, opponent, team_size: state.selectedSize, formation,
     fairness, fairness_value: fairnessVal, rotation_intensity,
     home_away: state.selectedHomeAway,
     quarters: state.selectedPeriods,
-    quarter_length_mins: state.selectedPeriods === 2 ? 20 : 10,
+    quarter_length_mins,
+    show_timer,
   };
 
   const players = await api.getPlayers().catch(() => []);
@@ -156,6 +207,16 @@ document.getElementById("btn-match-squad-back").addEventListener("click", () => 
   showScreen("screen-new-match");
 });
 
+// Create a new match, or update the one being edited, and return its id.
+async function persistMatchConfig() {
+  if (state.editingMatchId) {
+    await api.updateMatch(state.editingMatchId, state.pendingMatchConfig);
+    return state.editingMatchId;
+  }
+  const match = await api.createMatch(state.pendingMatchConfig);
+  return match.id;
+}
+
 // Step 2: Generate with selected players
 document.getElementById("btn-generate").addEventListener("click", async () => {
   const btn = document.getElementById("btn-generate");
@@ -167,8 +228,9 @@ document.getElementById("btn-generate").addEventListener("click", async () => {
   );
 
   try {
-    const match = await api.createMatch(state.pendingMatchConfig);
-    const data = await api.generateRotation(match.id, { available_player_ids: selectedIds });
+    const matchId = await persistMatchConfig();
+    const data = await api.generateRotation(matchId, { available_player_ids: selectedIds });
+    state.editingMatchId = null;
     btn.disabled = false;
     btn.textContent = "Generate Rotation ▶";
     enterReviewView(data);
@@ -190,8 +252,9 @@ document.getElementById("btn-manual-slots").addEventListener("click", async () =
   );
 
   try {
-    const match = await api.createMatch(state.pendingMatchConfig);
-    const data = await api.blankRotation(match.id, { available_player_ids: selectedIds });
+    const matchId = await persistMatchConfig();
+    const data = await api.blankRotation(matchId, { available_player_ids: selectedIds });
+    state.editingMatchId = null;
     btn.disabled = false;
     btn.textContent = "or assign positions manually";
     enterManualAssignMode(data);
@@ -207,11 +270,15 @@ document.getElementById("new-match-form").addEventListener("submit", e => e.prev
 
 // ── Stats screen ──────────────────────────────────────────────────────────────
 document.getElementById("btn-stats-back").addEventListener("click", loadHome);
+document.getElementById("btn-export-stats").addEventListener("click", () =>
+  exportSpreadsheet("/matches/export/season.xlsx", { fallbackName: "season-stats.xlsx", title: "Season Stats" }),
+);
 
 async function loadStats() {
   showScreen("screen-stats");
   const list = document.getElementById("stats-list");
   list.innerHTML = "<li class='loading'>Loading…</li>";
+  document.getElementById("btn-export-stats").hidden = true;
 
   const stats = await api.getSeasonStats().catch(() => []);
   list.innerHTML = "";
@@ -220,6 +287,7 @@ async function loadStats() {
     list.innerHTML = "<li class='empty-state'>No stats yet — play some matches first</li>";
     return;
   }
+  document.getElementById("btn-export-stats").hidden = false;
 
   const header = document.createElement("li");
   header.className = "stats-header";
@@ -304,80 +372,5 @@ async function loadPlayerHistory(playerId, playerName) {
     list.appendChild(li);
   });
 }
-
-// ── Season export ─────────────────────────────────────────────────────────────
-function buildMatchesCsv(matches) {
-  const rows = [
-    ["Date", "Opponent", "Size", "Formation", "Home/Away", "Has Rotation"],
-    ...matches.map(m => {
-      const d = new Date(m.date + "T12:00:00");
-      return [
-        d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
-        m.opponent || "", `${m.team_size || 5}v${m.team_size || 5}`,
-        m.formation || "", m.home_away || "home", m.has_rotation ? "Yes" : "No",
-      ];
-    }),
-  ];
-  const csv = rows.map(r => r.map(cell => {
-    const s = String(cell ?? "");
-    return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
-  }).join(",")).join("\n");
-  return csv;
-}
-
-function downloadBlob(blob, filename) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
-document.getElementById("btn-export-matches").addEventListener("click", async () => {
-  const matches = await api.getMatches().catch(() => []);
-  const csv = buildMatchesCsv(matches);
-  const file = new File([csv], "season-matches.csv", { type: "text/csv" });
-
-  // Mobile: native share sheet shows Excel, Sheets, etc.
-  if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: "Season Matches" }).catch(() => {});
-    return;
-  }
-
-  // Desktop: toggle dropdown
-  const dropdown = document.getElementById("export-dropdown");
-  dropdown.hidden = !dropdown.hidden;
-
-  document.getElementById("btn-export-csv").onclick = () => {
-    downloadBlob(new Blob([csv], { type: "text/csv" }), "season-matches.csv");
-    dropdown.hidden = true;
-  };
-
-  document.getElementById("btn-export-sheets").onclick = async () => {
-    const rows = [
-      ["Date", "Opponent", "Size", "Formation", "Home/Away", "Has Rotation"],
-      ...matches.map(m => {
-        const d = new Date(m.date + "T12:00:00");
-        return [d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
-          m.opponent || "", `${m.team_size || 5}v${m.team_size || 5}`, m.formation || "",
-          m.home_away || "home", m.has_rotation ? "Yes" : "No"];
-      }),
-    ];
-    const tsv = rows.map(r => r.map(c => String(c ?? "").replace(/\t/g, " ")).join("\t")).join("\n");
-    await navigator.clipboard.writeText(tsv).catch(() => {});
-    window.open("https://sheets.new", "_blank");
-    showToast("Data copied — paste with Ctrl+V / ⌘V into the new sheet");
-    dropdown.hidden = true;
-  };
-});
-
-// Close dropdown when clicking outside
-document.addEventListener("click", e => {
-  const bar = document.getElementById("export-bar");
-  if (bar && !bar.contains(e.target)) {
-    const dd = document.getElementById("export-dropdown");
-    if (dd) dd.hidden = true;
-  }
-});
 
 export { loadHome };

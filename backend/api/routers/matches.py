@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
@@ -28,7 +28,7 @@ from backend.models.game_config import (
     PRESET_CONFIGS,
     get_config,
 )
-from backend.services import analytics, match_service
+from backend.services import analytics, match_service, spreadsheet_export
 
 router = APIRouter()
 
@@ -37,13 +37,14 @@ class MatchCreate(BaseModel):
     date: str  # ISO format e.g. "2026-03-25"
     opponent: str = ""
     quarters: int = 4
-    quarter_length_mins: int = 10
+    quarter_length_mins: float = 10  # float to allow e.g. 12.5
     team_size: int = 5
     formation: str = "1-2-1"
     fairness: str = "equal"
     fairness_value: int = 0
     rotation_intensity: int = 50
     home_away: str = "home"
+    show_timer: int = 1  # 0=hide the match clock, 1=show
 
 
 class MatchRead(BaseModel):
@@ -51,7 +52,7 @@ class MatchRead(BaseModel):
     date: str
     opponent: str
     quarters: int
-    quarter_length_mins: int
+    quarter_length_mins: float
     has_rotation: bool
     team_size: int
     formation: str
@@ -63,6 +64,7 @@ class MatchRead(BaseModel):
     status: str = "planned"
     current_slot: int = 0
     our_goals: int = 0  # sum of all player goals (for match list display)
+    show_timer: int = 1
 
 
 def _match_read(m: MatchDB, has_rotation: bool, our_goals: int = 0) -> MatchRead:
@@ -83,6 +85,7 @@ def _match_read(m: MatchDB, has_rotation: bool, our_goals: int = 0) -> MatchRead
         status=m.status,
         current_slot=m.current_slot,
         our_goals=our_goals,
+        show_timer=m.show_timer,
     )
 
 
@@ -105,6 +108,7 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "opponent_goals": m.opponent_goals,
             "status": m.status,
             "current_slot": m.current_slot,
+            "show_timer": m.show_timer,
             "tournament_id": m.tournament_id,
             "tournament_stage": m.tournament_stage or "",
             "match_number": m.match_number,
@@ -153,6 +157,49 @@ def create_match(match: MatchCreate, session: Session = Depends(get_session)) ->
     session.commit()
     session.refresh(db_match)
     return _match_read(db_match, False)
+
+
+class MatchUpdate(BaseModel):
+    date: str | None = None
+    opponent: str | None = None
+    quarters: int | None = None
+    quarter_length_mins: float | None = None
+    team_size: int | None = None
+    formation: str | None = None
+    fairness: str | None = None
+    fairness_value: int | None = None
+    rotation_intensity: int | None = None
+    home_away: str | None = None
+    show_timer: int | None = None
+
+
+@router.put("/{match_id}", response_model=MatchRead)
+def update_match(
+    match_id: int, body: MatchUpdate, session: Session = Depends(get_session),
+) -> MatchRead:
+    """Edit a *planned* season match's settings (the caller re-generates after)."""
+    db_match = session.get(MatchDB, match_id)
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if db_match.tournament_id is not None:
+        raise HTTPException(status_code=400, detail="Edit tournament matches from the tournament")
+    if db_match.status != "planned":
+        raise HTTPException(status_code=400, detail="Only a planned match can be edited")
+
+    data = body.model_dump(exclude_unset=True)
+    team_size = data.get("team_size", db_match.team_size)
+    formation = data.get("formation", db_match.formation)
+    try:
+        get_config(team_size, formation)
+    except KeyError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    for key, value in data.items():
+        setattr(db_match, key, value)
+    session.add(db_match)
+    session.commit()
+    session.refresh(db_match)
+    return _match_read(db_match, get_rotation(session, match_id) is not None)
 
 
 @router.get("/{match_id}")
@@ -363,6 +410,17 @@ def save_match_goals(
 def get_season_stats(session: Session = Depends(get_session)) -> list[dict[str, Any]]:
     """Aggregate stats across all season matches (excludes tournament matches)."""
     return analytics.season_stats(session)
+
+
+@router.get("/export/season.xlsx")
+def export_season_xlsx(session: Session = Depends(get_session)) -> Response:
+    """Season stats as a formatted .xlsx (parent/investigation-facing; no skill data)."""
+    data, filename = spreadsheet_export.season_workbook(session)
+    return Response(
+        content=data,
+        media_type=spreadsheet_export.XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/stats/player/{player_id}")

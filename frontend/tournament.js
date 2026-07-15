@@ -3,6 +3,7 @@ import { state, ensureGameConfigs, refreshShirtNumbers, displayPos } from "./sta
 import { showScreen, openMatch, enterReviewView, buildReviewCard } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast, withSaveToast } from "./toast.js";
+import { exportSpreadsheet } from "./share.js";
 
 // ── Tournament Home ───────────────────────────────────────────────────────────
 async function loadTournamentHome() {
@@ -69,6 +70,7 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   document.getElementById("tournament-date").value = new Date().toISOString().split("T")[0];
   document.getElementById("tournament-duration").value = "10";
   document.getElementById("tournament-halftime").checked = false;
+  document.getElementById("tournament-show-timer").checked = true;
   document.getElementById("tournament-fairness-slider").value = 0;
   updateFairnessLabel(0, "tournament-fairness-value", "tournament-fairness-warning");
   const defaultRotRadio = document.querySelector('input[name="tournament-rotation"][value="100"]');
@@ -93,8 +95,9 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
   const name = document.getElementById("tournament-name-input").value.trim();
   const date = document.getElementById("tournament-date").value;
   const formation = document.getElementById("tournament-formation-select").value;
-  const duration = parseInt(document.getElementById("tournament-duration").value) || 10;
+  const duration = parseFloat(document.getElementById("tournament-duration").value) || 10;
   const hasHalftime = document.getElementById("tournament-halftime").checked;
+  const showTimer = document.getElementById("tournament-show-timer").checked;
   const fairnessValue = parseInt(document.getElementById("tournament-fairness-slider").value);
   const rotationIntensity = getRotationValue("tournament");
   state.pendingNumMatches = Math.max(1, parseInt(document.getElementById("tournament-num-matches").value) || 1);
@@ -115,6 +118,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     formation,
     match_duration_mins: duration,
     has_halftime: hasHalftime,
+    show_timer: showTimer ? 1 : 0,
     fairness_value: fairnessValue,
     rotation_intensity: rotationIntensity,
   };
@@ -421,6 +425,7 @@ document.getElementById("btn-edit-tournament").addEventListener("click", async (
   document.getElementById("tournament-date").value = t.date || "";
   document.getElementById("tournament-duration").value = t.match_duration_mins || 10;
   document.getElementById("tournament-halftime").checked = t.has_halftime || false;
+  document.getElementById("tournament-show-timer").checked = t.show_timer !== 0;
   const tFairness = t.fairness_value ?? 0;
   document.getElementById("tournament-fairness-slider").value = tFairness;
   updateFairnessLabel(tFairness, "tournament-fairness-value", "tournament-fairness-warning");
@@ -442,37 +447,65 @@ document.getElementById("btn-edit-tournament").addEventListener("click", async (
   showScreen("screen-new-tournament");
 });
 
+// Shared render for a tournament stats board (single tournament or all-combined).
+function renderTournamentStatsList(listEl, players) {
+  listEl.innerHTML = "";
+  if (!players || players.length === 0) {
+    listEl.innerHTML = "<li class='empty-state'>No match data yet</li>";
+    return;
+  }
+  players.forEach(p => {
+    const li = document.createElement("li");
+    li.className = "stats-row";
+    const goalsHtml = p.goals > 0 ? `<span class="stats-goals">⚽ ${p.goals}</span>` : "";
+    li.innerHTML = `
+      <span class="stats-name">${p.name}</span>
+      ${goalsHtml}
+      <span class="stats-slots">${p.slots_played} slot${p.slots_played !== 1 ? "s" : ""}</span>
+    `;
+    listEl.appendChild(li);
+  });
+}
+
 document.getElementById("btn-tournament-stats").addEventListener("click", async () => {
   const stats = await api.getTournamentStats(state.activeTournamentId).catch(err => {
     alert("Could not load stats: " + err.message);
     return null;
   });
   if (!stats) return;
-
-  const list = document.getElementById("tournament-stats-list");
-  list.innerHTML = "";
-
-  if (!stats.players || stats.players.length === 0) {
-    list.innerHTML = "<li class='empty-state'>No match data yet</li>";
-  } else {
-    stats.players.forEach(p => {
-      const li = document.createElement("li");
-      li.className = "stats-row";
-      const goalsHtml = p.goals > 0 ? `<span class="stats-goals">⚽ ${p.goals}</span>` : "";
-      li.innerHTML = `
-        <span class="stats-name">${p.name}</span>
-        ${goalsHtml}
-        <span class="stats-slots">${p.slots_played} slot${p.slots_played !== 1 ? "s" : ""}</span>
-      `;
-      list.appendChild(li);
-    });
-  }
-
+  renderTournamentStatsList(document.getElementById("tournament-stats-list"), stats.players);
   document.getElementById("tournament-stats-overlay").hidden = false;
 });
 
+document.getElementById("btn-export-tournament-stats").addEventListener("click", () =>
+  exportSpreadsheet(`/tournaments/${state.activeTournamentId}/export.xlsx`, {
+    fallbackName: "tournament-stats.xlsx", title: "Tournament Stats",
+  }),
+);
+
 document.getElementById("btn-tournament-stats-close").addEventListener("click", () => {
   document.getElementById("tournament-stats-overlay").hidden = true;
+});
+
+// All-tournament (aggregate) stats — reachable from the tournament landing page.
+document.getElementById("btn-all-tournament-stats").addEventListener("click", async () => {
+  const stats = await api.getAllTournamentStats().catch(err => {
+    alert("Could not load stats: " + err.message);
+    return null;
+  });
+  if (!stats) return;
+  renderTournamentStatsList(document.getElementById("all-tournament-stats-list"), stats.players);
+  document.getElementById("all-tournament-stats-overlay").hidden = false;
+});
+
+document.getElementById("btn-export-all-tournament-stats").addEventListener("click", () =>
+  exportSpreadsheet("/tournaments/export/all.xlsx", {
+    fallbackName: "all-tournament-stats.xlsx", title: "All Tournament Stats",
+  }),
+);
+
+document.getElementById("btn-all-tournament-stats-close").addEventListener("click", () => {
+  document.getElementById("all-tournament-stats-overlay").hidden = true;
 });
 
 function renderLobbyMatches(matches) {

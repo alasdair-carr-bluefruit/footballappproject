@@ -18,6 +18,7 @@ export const api = {
   // Squad
   getTeamInfo:   ()           => request("/squad/info"),
   updateTeamInfo:(data)       => request("/squad/info",           { method: "PUT",    body: data }),
+  updateMatch:   (id, data)   => request(`/matches/${id}`,        { method: "PUT",    body: data }),
   getPlayers:    ()           => request("/squad/players"),
   addPlayer:     (data)       => request("/squad/players",        { method: "POST",   body: data }),
   updatePlayer:  (id, data)   => request(`/squad/players/${id}`,  { method: "PUT",    body: data }),
@@ -52,6 +53,7 @@ export const api = {
   addGuestPlayer:       (id, data)=> request(`/tournaments/${id}/players`,{ method: "POST",   body: data }),
   removeGuestPlayer:    (id, pid) => request(`/tournaments/${id}/players/${pid}`, { method: "DELETE" }),
   getTournamentStats:   (id)      => request(`/tournaments/${id}/stats`),
+  getAllTournamentStats: ()       => request("/tournaments/stats/all"),
   updateTournament:     (id, data)=> request(`/tournaments/${id}`,        { method: "PUT",    body: data }),
   setAvailablePlayers:   (id, ids)      => request(`/tournaments/${id}/set-available-players`, { method: "POST", body: { available_player_ids: ids } }),
   setPositionOverrides:  (id, overrides) => request(`/tournaments/${id}/set-position-overrides`, { method: "POST", body: { overrides } }),

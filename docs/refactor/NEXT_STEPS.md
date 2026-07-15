@@ -283,9 +283,52 @@ auto-track main.)
     `test_plan_review.py` proves the edit is local (only the edited slot badges
     LOCKED), the swap applies, and the recalc button appears/ hides correctly.
     **30 e2e + 257 non-e2e green.**
-- **D.2 (not started):** tinkering undo/redo command stack. (Now cleanly buildable —
-  each edit is one local, predictable delta.)
-- **D.3 (not started):** revisit export (CSV/Sheets) via the review data.
+- **D.3 — Stats spreadsheet export. DONE (local, not pushed/committed yet).**
+  Parent/investigation-facing **.xlsx** export (openpyxl, backend-generated) that
+  **excludes skill and all internal settings** — columns: Player, Matches, Slots,
+  Minutes, Goals, GK/DEF/MID/FWD, plus a bold frozen header, TOTAL row and a
+  "planned playing time" footnote. Minutes derive from the recorded rotation
+  (one slot = `quarter_length_mins/2`, summed per-match in
+  `analytics._aggregate`). Delivered via the OS share sheet (`navigator.share`
+  with a File → Open in Sheets/Numbers) with a desktop download fallback
+  (`frontend/share.js`, reusing the season.js idiom). Three entry points:
+  **Season Stats** page, a NEW **All Tournament Stats** aggregate (button on the
+  tournament landing page → overlay → export, across *every* tournament), and the
+  single-tournament stats overlay (parity). Endpoints:
+  `GET /api/matches/export/season.xlsx`, `/api/tournaments/export/all.xlsx`
+  (+ `/stats/all` JSON), `/api/tournaments/{id}/export.xlsx` (static routes
+  declared before `/{tournament_id}` to avoid shadowing). SW cache bumped v7→v8;
+  `share.js` added to the SHELL. Tests: `tests/integration/test_export.py` (parses
+  each workbook, asserts columns/totals + **no "skill" anywhere**) and
+  `tests/e2e/test_export.py` (download wiring, season + all-tournament + single).
+  **33 e2e + 263 non-e2e green.**
+- **Match length + "show timer" toggle (local, not pushed).** Create-match now
+  lets the coach set **minutes per period** (per-size defaults 5/6v6=10, 7v7=12.5,
+  9v9=30-min halves; editable, fractional) and a per-match **show_timer** toggle
+  (default ON); both mirrored on the tournament create form (show_timer at the
+  tournament level, applied to its matches). Backend: `quarter_length_mins`
+  widened `int→float` (MatchDB/Match/GameConfig/API models); new `show_timer` int
+  flag on matches + tournaments; Alembic revision `b2e4a9c17d30` (add columns +
+  Postgres float alter; applied to local `football.db`). Length feeds the D.3
+  export minutes (`slot = length/2`); the count-up timer is gated in
+  `pitch.js:updateTimerDisplay`. Tests: `tests/integration/test_match_options.py`
+  + `tests/e2e/test_match_options.py`. SW cache v8→v9. **266 non-e2e + 37 e2e.**
+- **Season match edit + create-match polish (local, not pushed).** Re-added the
+  ability to **edit a planned season match** — a ✎ pencil on planned match items
+  reopens the setup form pre-filled and (on Generate/Manual) updates the match then
+  re-plans, mirroring the tournament edit pencil. New `PUT /api/matches/{id}`
+  (`MatchUpdate`, planned-only guard; rejects tournament matches) + `api.updateMatch`;
+  `state.editingMatchId`. Also: the **show-timer** control is now a **sliding
+  switch** next to Minutes per period (not a tickbox; tournament toggle matched);
+  **minutes capped** at 22.5 (quarters) / 45 (halves) with a blocking message; the
+  label reads "per half"/"per quarter" correctly; and the redundant **match-list
+  CSV export** on the season landing page was **removed**. Tests in
+  `test_match_options.py` (integration + e2e). SW cache v9→v10.
+- **Future — "End a season" archive:** owner wants a way to archive all
+  matches+tournaments (retrievable but hidden) for a clean new season. Captured in
+  [[project_end_season_archive]]; not built.
+- **D.2 (deferred, nice-to-have):** tinkering undo/redo command stack. (Cleanly
+  buildable — each edit is now one local, predictable delta.)
 
 Then **Phase E — v1.1 multi-user** (magic link + co-coach; `V1_MULTIUSER_PLAN.md`).
 

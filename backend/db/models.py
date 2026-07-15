@@ -23,6 +23,7 @@ class TournamentDB(SQLModel, table=True):
     formation: str = "1-2-1"
     match_duration_mins: int = 10  # total match duration (one period if no halftime)
     has_halftime: int = 0  # 0=False, 1=True (SQLite has no native bool)
+    show_timer: int = 1  # 0=hide the match clock, 1=show (applied to this tournament's matches)
     fairness_value: int = 50  # 0=equal time, 100=start strong
     rotation_intensity: int = 50
     status: str = "active"  # "active" | "completed"
@@ -52,9 +53,10 @@ class MatchDB(SQLModel, table=True):
     date: str  # ISO date string e.g. "2026-03-25"
     opponent: str = ""
     quarters: int = 4
-    quarter_length_mins: int = 10
+    quarter_length_mins: float = 10  # minutes per period; float to allow e.g. 12.5
     team_size: int = 5
     formation: str = "1-2-1"
+    show_timer: int = 1  # 0=hide the match clock, 1=show
     fairness: str = "equal"  # "equal" or "competitive"
     fairness_value: int = 0  # 0-100 slider raw value
     rotation_intensity: int = 50  # 0 = specialist, 100 = all-rounder

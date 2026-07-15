@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
@@ -31,7 +31,12 @@ from backend.db.repositories import (
     set_position_overrides as save_position_overrides,
 )
 from backend.models.game_config import build_tournament_config
-from backend.services import analytics, match_service, tournament_service
+from backend.services import (
+    analytics,
+    match_service,
+    spreadsheet_export,
+    tournament_service,
+)
 
 router = APIRouter()
 
@@ -45,6 +50,7 @@ class TournamentCreate(BaseModel):
     formation: str = "1-2-1"
     match_duration_mins: int = 10
     has_halftime: bool = False
+    show_timer: int = 1  # 0=hide the match clock, 1=show
     fairness_value: int = 50  # 0=equal, 100=start strong
     rotation_intensity: int = 50
 
@@ -57,6 +63,7 @@ class TournamentRead(BaseModel):
     formation: str
     match_duration_mins: int
     has_halftime: bool
+    show_timer: int = 1
     fairness_value: int
     rotation_intensity: int
     status: str
@@ -91,6 +98,7 @@ def _tournament_read(t: TournamentDB, match_count: int = 0) -> TournamentRead:
         formation=t.formation,
         match_duration_mins=t.match_duration_mins,
         has_halftime=bool(t.has_halftime),
+        show_timer=t.show_timer,
         fairness_value=t.fairness_value,
         rotation_intensity=t.rotation_intensity,
         status=t.status,
@@ -176,6 +184,7 @@ def create_tournament(
         formation=body.formation,
         match_duration_mins=body.match_duration_mins,
         has_halftime=1 if body.has_halftime else 0,
+        show_timer=body.show_timer,
         fairness_value=body.fairness_value,
         rotation_intensity=body.rotation_intensity,
     )
@@ -258,6 +267,25 @@ def get_tournament(
     }
 
 
+# Static /stats/all and /export/all.xlsx are declared BEFORE the /{tournament_id}/…
+# routes so the path parameter can never shadow them.
+@router.get("/stats/all")
+def get_all_tournament_stats(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Per-player stats aggregated across every tournament match (all tournaments)."""
+    return analytics.all_tournament_stats(session)
+
+
+@router.get("/export/all.xlsx")
+def export_all_tournaments_xlsx(session: Session = Depends(get_session)) -> Response:
+    """All-tournaments stats as a formatted .xlsx (no skill data)."""
+    data, filename = spreadsheet_export.all_tournaments_workbook(session)
+    return Response(
+        content=data,
+        media_type=spreadsheet_export.XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/{tournament_id}/stats")
 def get_tournament_stats(
     tournament_id: int, session: Session = Depends(get_session),
@@ -269,6 +297,22 @@ def get_tournament_stats(
     return analytics.tournament_stats(session, tournament_id)
 
 
+@router.get("/{tournament_id}/export.xlsx")
+def export_tournament_xlsx(
+    tournament_id: int, session: Session = Depends(get_session),
+) -> Response:
+    """Single-tournament stats as a formatted .xlsx (parity with the season export)."""
+    t = session.get(TournamentDB, tournament_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    data, filename = spreadsheet_export.tournament_workbook(session, tournament_id)
+    return Response(
+        content=data,
+        media_type=spreadsheet_export.XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 class TournamentUpdate(BaseModel):
     name: str | None = None
     date: str | None = None
@@ -276,6 +320,7 @@ class TournamentUpdate(BaseModel):
     formation: str | None = None
     match_duration_mins: int | None = None
     has_halftime: bool | None = None
+    show_timer: int | None = None
     fairness_value: int | None = None
     rotation_intensity: int | None = None
 
@@ -299,6 +344,8 @@ def update_tournament(
         t.match_duration_mins = body.match_duration_mins
     if body.has_halftime is not None:
         t.has_halftime = 1 if body.has_halftime else 0
+    if body.show_timer is not None:
+        t.show_timer = body.show_timer
     if body.fairness_value is not None:
         t.fairness_value = body.fairness_value
     if body.rotation_intensity is not None:
@@ -516,6 +563,7 @@ def add_tournament_match(
         quarter_length_mins=quarter_length_mins,
         team_size=t.team_size,
         formation=t.formation,
+        show_timer=t.show_timer,
         fairness=fairness,
         fairness_value=fv,
         rotation_intensity=t.rotation_intensity,

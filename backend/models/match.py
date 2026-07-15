@@ -14,7 +14,7 @@ class Match:
     date: date
     opponent: str = ""
     quarters: int = 4
-    quarter_length_mins: int = 10
+    quarter_length_mins: float = 10  # float to allow e.g. 12.5-min quarters
     game_config: GameConfig | None = None  # None → DEFAULT_CONFIG
     fairness: str = "equal"  # "equal" or "competitive"
     fairness_value: int = 0  # 0-100 slider value

@@ -44,6 +44,7 @@ export const state = {
   activeTournamentData: null, // full detail from GET /tournaments/{id}
   pendingNumMatches: 4,
   editingTournamentId: null, // null = creating new, set = editing existing
+  editingMatchId: null, // season match being edited (null = creating a new match)
 };
 
 // Shared across season.js + tournament.js (both need the formation/team-size
