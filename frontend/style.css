@@ -788,6 +788,7 @@ html, body {
   gap: 3px;
   align-items: stretch;
 }
+.plan-grid-stacked { margin-top: 10px; }
 .plan-corner { background: transparent; }
 .plan-cell, .plan-rowlabel, .plan-head {
   display: flex;

@@ -49,7 +49,7 @@ def test_season_golden_path(seeded_squad, page: Page):
     # All available players are pre-checked — generate → land on plan review.
     page.click("#btn-generate")
     expect(page.locator("#screen-review")).to_be_visible()
-    expect(page.locator("#review-grid .plan-grid")).to_have_count(1)
+    expect(page.locator("#review-grid .plan-grid")).to_have_count(2)  # 8 slots → two stacked tables
 
     # View on pitch (browse), then tinker on/off there.
     page.click("#btn-review-view")

@@ -43,8 +43,11 @@ def test_generation_lands_on_review_with_grid(seeded_squad, page: Page, flow):
     expect(page.locator("#screen-review")).to_be_visible()
     expect(page.locator("#screen-pitch")).to_be_hidden()
 
-    # Compact position grid: a GK row + outfield position rows.
-    expect(page.locator("#review-grid .plan-grid")).to_have_count(1)
+    # Compact position grid: a GK row + outfield position rows. Grids are split
+    # into stacked 4-column tables: an 8-slot season match (4 quarters) → two
+    # tables (Q1a–Q2b / Q3a–Q4b); the 2-slot tournament default stays single.
+    expected_grids = {"season": 2, "tournament": 1}[flow]
+    expect(page.locator("#review-grid .plan-grid")).to_have_count(expected_grids)
     expect(page.locator("#review-grid .plan-rowlabel").first).to_have_text("GK")
     # Per-player slots strip preserves the fairness overview.
     expect(page.locator("#review-grid .plan-count-chip")).not_to_have_count(0)
@@ -155,6 +158,7 @@ def test_tournament_review_all_plans_stacks_a_grid_per_match(seeded_squad, page:
     # single-match actions hidden (you start matches individually from their own review).
     cards = page.locator("#review-grid .review-card")
     expect(cards).not_to_have_count(0)
+    # The tournament default is a single 2-slot period → one table per card.
     expect(cards.first.locator(".plan-grid")).to_have_count(1)
     expect(page.locator("#review-actions-single")).to_be_hidden()
 

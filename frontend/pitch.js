@@ -186,33 +186,44 @@ function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
     return el;
   };
 
-  const grid = document.createElement("div");
-  grid.className = "plan-grid";
-  grid.style.gridTemplateColumns = `minmax(30px, auto) repeat(${md.slots.length}, minmax(0, 1fr))`;
+  // Split into stacked grids of at most CHUNK slots (one grid per match-half), so
+  // an 8-slot quarters match reads as two 4-column tables (Q1a–Q2b / Q3a–Q4b)
+  // instead of one cramped 8-column strip. A 4-slot (halves) match stays single.
+  const CHUNK = 4;
+  for (let start = 0; start < md.slots.length; start += CHUNK) {
+    const end = Math.min(start + CHUNK, md.slots.length);
+    const cols = end - start;
 
-  // Header: blank corner + slot labels.
-  grid.appendChild(cell("plan-corner", ""));
-  slotLabels.forEach(l => grid.appendChild(cell("plan-cell plan-head", l)));
+    const grid = document.createElement("div");
+    grid.className = start === 0 ? "plan-grid" : "plan-grid plan-grid-stacked";
+    grid.style.gridTemplateColumns = `minmax(30px, auto) repeat(${cols}, minmax(0, 1fr))`;
 
-  // One row per position.
-  positions.forEach(posKey => {
-    const band = normalizePos(posKey).toLowerCase();
-    grid.appendChild(cell(`plan-rowlabel pos-${band}`, displayPos(posKey)));
-    md.slots.forEach((slot, i) => {
-      const p = slot.lineup[posKey];
-      if (!p) { grid.appendChild(cell("plan-cell plan-empty", "·")); return; }
-      const prev = i > 0 ? md.slots[i - 1].lineup[posKey]?.name : p.name;
-      const changed = opts.markChanges && i > 0 && prev !== p.name ? " chip-changed" : "";
-      const under = flagged.has(p.name) ? " under" : "";
-      grid.appendChild(cell(`plan-cell pos-${band}${changed}${under}`, playerToken(p.name), p.name));
+    // Header: blank corner + slot labels for this chunk.
+    grid.appendChild(cell("plan-corner", ""));
+    for (let i = start; i < end; i++) grid.appendChild(cell("plan-cell plan-head", slotLabels[i]));
+
+    // One row per position.
+    positions.forEach(posKey => {
+      const band = normalizePos(posKey).toLowerCase();
+      grid.appendChild(cell(`plan-rowlabel pos-${band}`, displayPos(posKey)));
+      for (let i = start; i < end; i++) {
+        const p = md.slots[i].lineup[posKey];
+        if (!p) { grid.appendChild(cell("plan-cell plan-empty", "·")); continue; }
+        // Compare across the full plan (incl. the chunk boundary) so a sub at the
+        // start of a chunk still flags as changed.
+        const prev = i > 0 ? md.slots[i - 1].lineup[posKey]?.name : p.name;
+        const changed = opts.markChanges && i > 0 && prev !== p.name ? " chip-changed" : "";
+        const under = flagged.has(p.name) ? " under" : "";
+        grid.appendChild(cell(`plan-cell pos-${band}${changed}${under}`, playerToken(p.name), p.name));
+      }
     });
-  });
 
-  // Skill-total row.
-  grid.appendChild(cell("plan-rowlabel plan-skill-label", "⚡"));
-  md.slots.forEach(slot => grid.appendChild(cell("plan-cell plan-skill", String(slot.skill_total ?? "?"))));
+    // Skill-total row.
+    grid.appendChild(cell("plan-rowlabel plan-skill-label", "⚡"));
+    for (let i = start; i < end; i++) grid.appendChild(cell("plan-cell plan-skill", String(md.slots[i].skill_total ?? "?")));
 
-  containerEl.appendChild(grid);
+    containerEl.appendChild(grid);
+  }
 }
 
 // Wrapping "slots per player" strip — preserves the fairness overview the report
