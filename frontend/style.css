@@ -6,41 +6,74 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* ── Brand tokens (Gaffer v1.1) ──────────────────────────── */
-  --pitch:         #1A5C42;
-  --pitch-deep:    #0E3A29;
-  --matchday:      #2EBE6B;
-  --chalk:         #F2F4EE;
-  --trophy-amber:  #F5B544;
-  --coach-blue:    #35719E;  /* in-match prompts/advisories — distinct from amber (GK/incoming) */
-  --slate:         #1A1F1C;
+  /* ── Level brand base ──────────────────────────────────────────────────
+     Phase 1 keeps the current (Gaffer-green) VALUES so nothing shifts on
+     screen; Phase 2 flips these token values to the Level palette. Chalk and
+     Amber already equal Level's Chalk / Amber Phosphor. */
+  --pitch:         #0A2619;   /* primary pitch surface                       */
+  --pitch-deep:    #0B1210;   /* deep surface — header / bench / page bg     */
+  --pitch-green-l: #1A4030;   /* lighter pitch (gradients)                   */
+  --matchday:      #A4CC46;   /* primary action / accent (Signal Lime, muted)*/
+  --accent-press:  #8DB537;   /* action pressed state                        */
+  --success:       var(--matchday);   /* start-match / sub-in — tracks accent */
+  --live:          var(--matchday);   /* live-match indicator — tracks accent */
+  --chalk:         #F2F4EE;   /* primary text / off-white (== Level Chalk)   */
+  --white:         #fff;      /* pure white on coloured fills                */
+  --amber:         #F5B544;   /* warnings / GK / incoming (== Amber Phosphor)*/
+  --gold:          #ffd700;   /* goals                                       */
+  --coach-blue:    #3E6DA8;   /* in-match advisories                         */
+  --danger:        #e74c3c;   /* destructive / removal                       */
+  --danger-deep:   #c0392b;   /* stronger red — shirt-number conflict        */
+  --danger-soft:   #ef5350;   /* soft red — fairness loss                    */
+  --slate:         #1A1F1C;   /* dark text on light chips                    */
+  --on-accent:     #0A2619;   /* text / icons on Signal Lime                 */
+  --tinker-surface: #4E7E4A;  /* lighter, lime-leaning pitch while Tinkering  */
+  --provisional:    #E8D97A;  /* Provisional Chalk — dashed tinker outlines   */
+  --toast-bg:      #0B1210;   /* toast / dropdown surface                    */
 
-  /* ── Derived / functional ───────────────────────────────── */
+  /* Legacy aliases (kept so existing var() refs keep resolving) */
+  --trophy-amber:  var(--amber);
   --pitch-green:   var(--pitch);
-  --pitch-green-l: #1f6e50;
   --pitch-green-d: var(--pitch-deep);
-  --pitch-line:    rgba(242,244,238,0.12);
 
+  /* ── Canonical position palette ────────────────────────────────────────
+     Reconciled from 5 divergent copies. One hue per position:
+     GK = amber, DEF = blue, MID = neutral, FWD = green. Chips use the solid
+     colour; badges/pills derive a translucent tint via color-mix. */
+  --pos-gk:   #2FBFA8;  --pos-gk-fg:  #B6F0E6;
+  --pos-def:  #4F9BF0;  --pos-def-fg: #C4DEFB;
+  --pos-mid:  #A98CF0;  --pos-mid-fg: #E0D6FB;
+  --pos-fwd:  #DB7B54;  --pos-fwd-fg: #F6C7B2;
+
+  /* ── Functional / derived ──────────────────────────────────────────────*/
+  --pitch-line:    color-mix(in srgb, var(--chalk) 12%, transparent);
   --circle-bg:     var(--chalk);
   --circle-text:   var(--slate);
   --circle-size:   68px;
   --circle-font:   13px;
 
-  --incoming-bg:   var(--trophy-amber);
+  --incoming-bg:   var(--amber);
   --incoming-text: var(--slate);
-  --outgoing-bg:   #c0392b;
+  --outgoing-bg:   var(--danger-deep);
   --outgoing-text: var(--chalk);
 
   --bench-bg:      var(--pitch-deep);
-  --bench-border:  rgba(242,244,238,0.1);
+  --bench-border:  color-mix(in srgb, var(--chalk) 10%, transparent);
   --text-light:    var(--chalk);
-  --text-dim:      rgba(242,244,238,0.55);
+  --text-dim:      color-mix(in srgb, var(--chalk) 55%, transparent);
 
   --btn-primary:   var(--matchday);
-  --btn-disabled:  rgba(242,244,238,0.15);
+  --btn-disabled:  color-mix(in srgb, var(--chalk) 15%, transparent);
   --header-bg:     var(--pitch-deep);
 
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* ── Typography (the Level identity — 3 fonts) ──────────────────────────
+     Space Mono = display / data / initials; VT323 = live timer only;
+     Inter = UI / body fallback. */
+  --font-body:    Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-timer:   'VT323', ui-monospace, monospace;
+
+  font-family: var(--font-body);
   font-size: 15px;
   font-feature-settings: "tnum";
 }
@@ -78,6 +111,7 @@ html, body {
 }
 
 .slot-label {
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -97,8 +131,8 @@ html, body {
   font-size: 12px;
   font-weight: 600;
   color: var(--matchday);
-  background: rgba(46,190,107,0.12);
-  border: 1px solid rgba(46,190,107,0.25);
+  background: color-mix(in srgb, var(--matchday) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--matchday) 25%, transparent);
   border-radius: 10px;
   padding: 1px 7px;
 }
@@ -117,12 +151,12 @@ html, body {
   transition: background 0.2s;
 }
 .progress-dot.done    { background: rgba(255,255,255,0.45); }
-.progress-dot.active  { background: #fff; width: 20px; border-radius: 4px; }
+.progress-dot.active  { background: var(--white); width: 20px; border-radius: 4px; }
 /* The period actually in play — green ring, shows regardless of active/done state */
 .progress-dot.live    { box-shadow: 0 0 0 2px var(--matchday); }
 /* Final summary dot: small diamond shape */
 .progress-dot-final { border-radius: 2px; transform: rotate(45deg); margin-left: 4px; }
-.progress-dot-final.active { background: #fff; width: 10px; height: 10px; border-radius: 2px; }
+.progress-dot-final.active { background: var(--white); width: 10px; height: 10px; border-radius: 2px; }
 
 
 /* ── Pitch ────────────────────────────────────────────────────────── */
@@ -158,48 +192,30 @@ html, body {
 
 /* ── Tinkering mode ────────────────────────────────────────────────── */
 
-/* Lighter green base in tinkering mode */
+/* Tinkering = "modulation, not replacement": the pitch tints one step lighter
+   (Ghost Green) and movable tokens flatten and gain a dashed Provisional-Chalk
+   outline. No paper, no wobble — the identity lives in the type + the pill. */
 .pitch-wrapper.whiteboard {
-  background-color: #72C49A;
+  background-color: var(--tinker-surface);
 }
 
-/* Paper texture overlay — real JPG multiplied over the lighter green */
-.tinkering-overlay {
-  position: absolute;
-  inset: 0;
-  background: url('/assets/brand/texture-paper.jpg') center / cover no-repeat;
-  mix-blend-mode: multiply;
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-}
-
-.pitch-wrapper.whiteboard .tinkering-overlay {
-  opacity: 1;
-}
-
-/* On-pitch circles: hide normal border, show amber wobble ring via ::after */
 .pitch-wrapper .circle-avatar {
-  transition: border-color 0.25s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
+/* Movable tokens invert to a dark coin (chalk text) with a chunky dashed
+   Provisional-Chalk outline — a strong, unmistakable "edit mode" shift against
+   the lightened Ghost-Green pitch. GK / incoming coins keep their identity
+   colour (more specific rules below) but still gain the dashed outline. */
 .pitch-wrapper.whiteboard .circle-avatar {
-  border-color: transparent;
+  background: var(--pitch-deep);
+  color: var(--chalk);
+  border: 2.5px dashed var(--provisional);
+  animation: tinkerFadeIn 0.2s ease 0.05s both;
 }
 
-.pitch-wrapper.whiteboard .circle-avatar::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  border: 2.5px solid #F5B544;
-  filter: url(#pen-wobble);
-  pointer-events: none;
-  animation: wobbleRingIn 0.2s ease 0.1s both;
-}
-
-@keyframes wobbleRingIn {
-  from { opacity: 0; }
+@keyframes tinkerFadeIn {
+  from { opacity: 0.55; }
   to   { opacity: 1; }
 }
 
@@ -208,7 +224,7 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* Sub arrows, GK gloves, and goal badge must sit above the wobble ring ::after */
+/* Sub arrows, GK gloves, and goal badge sit above the token avatar */
 .sub-badge,
 .gk-gloves,
 .goal-badge {
@@ -225,8 +241,8 @@ html, body {
   z-index: 10;
   align-items: center;
   gap: 6px;
-  background: rgba(231, 76, 60, 0.88);
-  color: #fff;
+  background: color-mix(in srgb, var(--danger) 88%, transparent);
+  color: var(--white);
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -242,7 +258,7 @@ html, body {
 .live-pitch-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--white);
   animation: live-pulse 1.2s ease-in-out infinite;
 }
 
@@ -253,9 +269,9 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: rgba(39, 174, 96, 0.12);
-  border-top: 1px solid rgba(39, 174, 96, 0.25);
-  border-bottom: 1px solid rgba(39, 174, 96, 0.25);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--success) 25%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--success) 25%, transparent);
   padding: 9px 14px;
   animation: badgeFadeIn 0.3s ease;
 }
@@ -286,17 +302,24 @@ html, body {
   z-index: 10;
   align-items: center;
   gap: 6px;
-  background: #F5B544;
-  color: #1A1F1C;
-  font-family: 'Cabin Sketch', cursive;
-  font-size: 20px;
+  background: var(--matchday);
+  color: var(--on-accent);
+  font-family: var(--font-display);
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.03em;
-  padding: 6px 18px 6px 13px;
-  border-radius: 24px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 999px;
   pointer-events: none;
-  filter: url(#pen-wobble-sm);
 }
+
+/* Blinking terminal-block cursor — the one small broadcast-nostalgia nod. */
+.edit-mode-badge::after {
+  content: "_";
+  animation: cursorBlink 1s step-end infinite;
+}
+@keyframes cursorBlink { 50% { opacity: 0; } }
 
 .edit-mode-badge.visible {
   display: flex;
@@ -365,6 +388,7 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   transition: border-color 0.2s, background 0.2s;
   letter-spacing: 0.02em;
+  font-family: var(--font-display);
 }
 
 /* Outfield inner ring */
@@ -374,15 +398,15 @@ html, body {
 
 /* Conflicting shirt number — red token */
 .circle-avatar.number-conflict {
-  background: #c0392b;
-  color: #fff;
+  background: var(--danger-deep);
+  color: var(--white);
 }
 
 /* GK amber circle */
 .player-circle.is-gk .circle-avatar {
-  background: var(--trophy-amber);
-  color: #fff;
-  border-color: #ffd060;
+  background: var(--pos-gk);
+  color: var(--on-accent);
+  border-color: var(--pos-gk-fg);
 }
 
 /* Gloves badge */
@@ -398,14 +422,14 @@ html, body {
 .player-circle.incoming .circle-avatar {
   background: var(--incoming-bg);
   color: var(--incoming-text);
-  border-color: #fff;
+  border-color: var(--white);
 }
 
 
 .circle-name {
   font-size: 12px;
   font-weight: 600;
-  color: #fff;
+  color: var(--white);
   text-shadow: 0 1px 3px rgba(0,0,0,0.7);
   letter-spacing: 0.01em;
 }
@@ -429,8 +453,8 @@ html, body {
 }
 
 @keyframes holdRing {
-  from { box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 0 rgba(255,215,0,0.6); }
-  to   { box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 10px rgba(255,215,0,0); }
+  from { box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 0 color-mix(in srgb, var(--gold) 60%, transparent); }
+  to   { box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 10px color-mix(in srgb, var(--gold) 0%, transparent); }
 }
 .player-circle.tappable:active .circle-avatar {
   animation: holdRing 0.6s ease-out forwards;
@@ -438,9 +462,9 @@ html, body {
 
 /* Goal flash animation */
 @keyframes goalFlash {
-  0%   { box-shadow: 0 0 0 0 rgba(255,215,0,0.8); }
-  50%  { box-shadow: 0 0 0 12px rgba(255,215,0,0); }
-  100% { box-shadow: 0 0 0 0 rgba(255,215,0,0); }
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 80%, transparent); }
+  50%  { box-shadow: 0 0 0 12px color-mix(in srgb, var(--gold) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 0%, transparent); }
 }
 .player-circle.goal-scored .circle-avatar {
   animation: goalFlash 0.6s ease-out;
@@ -450,13 +474,13 @@ html, body {
 .goal-badge {
   position: absolute;
   top: -6px; left: -6px;
-  background: #fff;
+  background: var(--white);
   color: #1a3a1a;
   font-size: 10px;
   font-weight: 700;
   border-radius: 10px;
   padding: 1px 5px;
-  border: 2px solid #ffd700;
+  border: 2px solid var(--gold);
   white-space: nowrap;
 }
 
@@ -471,11 +495,11 @@ html, body {
   justify-content: center;
   font-size: 11px;
   font-weight: 800;
-  border: 2px solid #fff;
+  border: 2px solid var(--white);
 }
 
-.sub-badge.sub-in  { background: #27ae60; color: #fff; }
-.sub-badge.sub-out { background: #c0392b; color: #fff; }
+.sub-badge.sub-in  { background: var(--success); color: var(--on-accent); }
+.sub-badge.sub-out { background: var(--danger-deep); color: var(--white); }
 
 /* ── Bench ────────────────────────────────────────────────────────── */
 
@@ -514,13 +538,14 @@ html, body {
 }
 
 .bench-player.incoming {
-  background: rgba(255,215,0,0.15);
-  border-color: rgba(255,215,0,0.5);
+  background: color-mix(in srgb, var(--gold) 15%, transparent);
+  border-color: color-mix(in srgb, var(--gold) 50%, transparent);
 }
 
 .bench-avatar {
   width: 26px; height: 26px;
   border-radius: 50%;
+  font-family: var(--font-display);
   background: rgba(255,255,255,0.15);
   display: flex;
   align-items: center;
@@ -587,7 +612,7 @@ html, body {
 .report-goals {
   font-size: 13px;
   font-weight: 700;
-  color: #ffd700;
+  color: var(--gold);
 }
 
 /* Per-slot chips */
@@ -627,13 +652,13 @@ html, body {
   justify-content: center;
 }
 
-.slot-chip.pos-gk  { background: #b37200; color: #ffd060; }
-.slot-chip.pos-def { background: #1a5276;  color: #7ec8e3; }
-.slot-chip.pos-mid { background: rgba(255,255,255,0.12); color: #fff; }
-.slot-chip.pos-fwd { background: #1e6b2e;  color: #7dda8a; }
+.slot-chip.pos-gk  { background: var(--pos-gk);  color: var(--pos-gk-fg); }
+.slot-chip.pos-def { background: var(--pos-def); color: var(--pos-def-fg); }
+.slot-chip.pos-mid { background: var(--pos-mid); color: var(--pos-mid-fg); }
+.slot-chip.pos-fwd { background: var(--pos-fwd); color: var(--pos-fwd-fg); }
 
 .report-row-skill { border-top: 1px solid rgba(255,255,255,0.12); margin-top: 4px; padding-top: 4px; }
-.slot-chip.skill-chip { background: rgba(255,255,255,0.1); color: #ffd700; }
+.slot-chip.skill-chip { background: rgba(255,255,255,0.1); color: var(--gold); }
 
 /* ── Quarter-break changes interstitial ──────────────────────────── */
 
@@ -700,10 +725,10 @@ html, body {
 
 .btn-next {
   background: var(--btn-primary);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-next:disabled { background: var(--btn-disabled); color: rgba(255,255,255,0.4); cursor: default; }
-.btn-next:not(:disabled):active { background: #1f9e55; }
+.btn-next:not(:disabled):active { background: var(--accent-press); }
 
 .btn-adjust {
   background: transparent;
@@ -747,8 +772,8 @@ html, body {
   flex-shrink: 0;
 }
 .btn-start-match-cta {
-  background: #27ae60;
-  color: #fff;
+  background: var(--success);
+  color: var(--on-accent);
   font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -764,8 +789,8 @@ html, body {
 }
 .btn-start-match-cta:active { opacity: 0.85; animation: none; }
 @keyframes pulse-start {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.45); }
-  50%       { box-shadow: 0 0 0 10px rgba(39,174,96,0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 45%, transparent); }
+  50%       { box-shadow: 0 0 0 10px color-mix(in srgb, var(--success) 0%, transparent); }
 }
 
 /* ── "Review the plan" screen ────────────────────────────────────── */
@@ -811,17 +836,17 @@ html, body {
 }
 .plan-rowlabel { justify-content: flex-start; padding-left: 6px; font-size: 10px; }
 .plan-empty { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.22); font-weight: 400; }
-.plan-cell.pos-gk  { background: #b37200; color: #ffd060; }
-.plan-cell.pos-def { background: #1a5276; color: #7ec8e3; }
-.plan-cell.pos-mid { background: rgba(255,255,255,0.12); color: #fff; }
-.plan-cell.pos-fwd { background: #1e6b2e; color: #7dda8a; }
-.plan-rowlabel.pos-gk  { color: #ffd060; }
-.plan-rowlabel.pos-def { color: #7ec8e3; }
-.plan-rowlabel.pos-mid { color: #fff; }
-.plan-rowlabel.pos-fwd { color: #7dda8a; }
-.plan-cell.chip-changed { outline: 1.5px solid rgba(245,181,68,0.9); outline-offset: -1.5px; }
+.plan-cell.pos-gk  { background: var(--pos-gk);  color: var(--pos-gk-fg); }
+.plan-cell.pos-def { background: var(--pos-def); color: var(--pos-def-fg); }
+.plan-cell.pos-mid { background: var(--pos-mid); color: var(--pos-mid-fg); }
+.plan-cell.pos-fwd { background: var(--pos-fwd); color: var(--pos-fwd-fg); }
+.plan-rowlabel.pos-gk  { color: var(--pos-gk-fg); }
+.plan-rowlabel.pos-def { color: var(--pos-def-fg); }
+.plan-rowlabel.pos-mid { color: var(--pos-mid-fg); }
+.plan-rowlabel.pos-fwd { color: var(--pos-fwd-fg); }
+.plan-cell.chip-changed { outline: 1.5px solid color-mix(in srgb, var(--chalk) 80%, transparent); outline-offset: -1.5px; }
 .plan-cell.under { box-shadow: inset 0 0 0 1.5px var(--trophy-amber); }
-.plan-skill-label, .plan-skill { color: #ffd700; background: rgba(255,255,255,0.08); font-size: 10px; }
+.plan-skill-label, .plan-skill { color: var(--gold); background: rgba(255,255,255,0.08); font-size: 10px; }
 .plan-grid .plan-skill-label { background: transparent; }
 
 /* Wrapping "slots per player" strip */
@@ -840,15 +865,15 @@ html, body {
   background: rgba(255,255,255,0.08);
 }
 .plan-count-chip b { font-weight: 800; }
-.plan-count-chip.under { background: rgba(245,181,68,0.18); box-shadow: inset 0 0 0 1px rgba(245,181,68,0.55); }
+.plan-count-chip.under { background: color-mix(in srgb, var(--amber) 18%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 55%, transparent); }
 
 /* Under-slotted / uneven-time warning banner */
 .review-warning {
   margin: 10px 16px 0;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(245,181,68,0.14);
-  border: 1px solid rgba(245,181,68,0.5);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 50%, transparent);
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -861,7 +886,7 @@ html, body {
 /* Per-player row flag + chip highlight (shared report grid) */
 .report-row-under { box-shadow: inset 3px 0 0 var(--trophy-amber); }
 .report-under-mark { color: var(--trophy-amber); margin-right: 4px; }
-.slot-chip.chip-changed { outline: 1.5px solid rgba(245,181,68,0.85); outline-offset: -1.5px; }
+.slot-chip.chip-changed { outline: 1.5px solid color-mix(in srgb, var(--chalk) 80%, transparent); outline-offset: -1.5px; }
 
 /* Combined tournament review — one card per match */
 .review-card {
@@ -897,9 +922,9 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(39,174,96,0.18);
-  border: 1px solid rgba(39,174,96,0.5);
-  color: #2ecc71;
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 50%, transparent);
+  color: var(--live);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -910,7 +935,7 @@ html, body {
 .live-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: #2ecc71;
+  background: var(--live);
   animation: live-pulse 1.2s ease-in-out infinite;
 }
 @keyframes live-pulse {
@@ -927,7 +952,7 @@ html, body {
 .bench-removed-badge {
   margin-left: auto;
   font-size: 0.7rem;
-  color: #e74c3c;
+  color: var(--danger);
   font-weight: 600;
 }
 .bench-player.bench-removed .bench-name {
@@ -964,7 +989,7 @@ html, body {
   max-width: 480px;
   margin: 0 auto;
   background: var(--pitch);
-  border: 1px solid rgba(242,244,238,0.15);
+  border: 1px solid color-mix(in srgb, var(--chalk) 15%, transparent);
   border-radius: 12px;
   padding: 20px 16px;
   max-height: 60vh;
@@ -992,7 +1017,7 @@ html, body {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: rgba(242,244,238,0.06);
+  background: color-mix(in srgb, var(--chalk) 6%, transparent);
   border-radius: 8px;
   cursor: pointer;
   color: var(--chalk);
@@ -1000,7 +1025,7 @@ html, body {
   transition: background 0.1s;
 }
 
-.swap-item:active { background: rgba(242,244,238,0.12); }
+.swap-item:active { background: color-mix(in srgb, var(--chalk) 12%, transparent); }
 .swap-item .swap-name { flex: 1; font-weight: 500; }
 .swap-item .swap-pos { font-size: 12px; color: var(--text-dim); }
 
@@ -1013,12 +1038,12 @@ html, body {
 
 .fairness-item {
   padding: 8px 0;
-  border-bottom: 1px solid rgba(242,244,238,0.08);
+  border-bottom: 1px solid color-mix(in srgb, var(--chalk) 8%, transparent);
   font-size: 14px;
   color: var(--chalk);
 }
 
-.fairness-item .fairness-loss { color: #ef5350; font-weight: 600; }
+.fairness-item .fairness-loss { color: var(--danger-soft); font-weight: 600; }
 .fairness-item .fairness-gain { color: var(--matchday); font-weight: 600; }
 
 /* ── Edit mode indicators ────────────────────────────────────────── */
@@ -1026,7 +1051,7 @@ html, body {
 .pitch.edit-mode .player-circle { cursor: grab; }
 .pitch.edit-mode .player-circle:active { transform: scale(0.95); cursor: grabbing; }
 .player-circle.dragging { opacity: 0.4; transform: scale(0.9); }
-.player-circle.drag-over { outline: 2px solid var(--matchday); box-shadow: 0 0 0 4px rgba(46,190,107,0.25); }
+.player-circle.drag-over { outline: 2px solid var(--matchday); box-shadow: 0 0 0 4px color-mix(in srgb, var(--matchday) 25%, transparent); }
 
 .slot-locked-badge {
   display: inline-block;
@@ -1053,7 +1078,7 @@ html, body {
 
 /* "Back to live" — shown when browsing away from the live period. Green = live. */
 .jump-live-btn {
-  background: rgba(46,190,107,0.16);
+  background: color-mix(in srgb, var(--matchday) 16%, transparent);
   border: 1px solid var(--matchday);
   color: var(--matchday);
   font-size: 12px;
@@ -1070,7 +1095,7 @@ html, body {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  background: linear-gradient(170deg, var(--pitch-deep) 0%, var(--pitch) 60%, #1f6e50 100%);
+  background: linear-gradient(170deg, var(--pitch-deep) 0%, var(--pitch) 60%, var(--pitch-green-l) 100%);
   padding: 0 20px env(safe-area-inset-bottom);
   position: relative;
   overflow: hidden;
@@ -1156,7 +1181,7 @@ html, body {
 .squad-onboarding-title {
   font-size: 20px;
   font-weight: 800;
-  color: #fff;
+  color: var(--white);
   margin: 0;
 }
 
@@ -1217,14 +1242,14 @@ html, body {
 
 .landing--onboarding #btn-squad-management {
   border-color: var(--matchday);
-  background: rgba(46,190,107,0.14);
-  box-shadow: 0 0 0 3px rgba(46,190,107,0.4), 0 8px 32px rgba(0,0,0,0.5);
+  background: color-mix(in srgb, var(--matchday) 14%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--matchday) 40%, transparent), 0 8px 32px rgba(0,0,0,0.5);
   animation: pulse-highlight 2s ease-in-out infinite;
 }
 
 @keyframes pulse-highlight {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(46,190,107,0.4), 0 8px 32px rgba(0,0,0,0.5); }
-  50%       { box-shadow: 0 0 0 7px rgba(46,190,107,0.15), 0 8px 32px rgba(0,0,0,0.5); }
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--matchday) 40%, transparent), 0 8px 32px rgba(0,0,0,0.5); }
+  50%       { box-shadow: 0 0 0 7px color-mix(in srgb, var(--matchday) 15%, transparent), 0 8px 32px rgba(0,0,0,0.5); }
 }
 
 .mode-card.mode-coming-soon {
@@ -1245,7 +1270,7 @@ html, body {
 .mode-title {
   font-size: 17px;
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
 }
 
 .mode-desc {
@@ -1263,7 +1288,7 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--trophy-amber);
-  background: rgba(245,181,68,0.15);
+  background: color-mix(in srgb, var(--amber) 15%, transparent);
   padding: 3px 8px;
   border-radius: 6px;
 }
@@ -1346,10 +1371,10 @@ html, body {
 
 .pos-chip:active { opacity: 0.7; }
 
-.pos-chip[data-pos="GK"].active  { background: rgba(21,101,192,0.35); color: #90caf9; }
-.pos-chip[data-pos="DEF"].active { background: rgba(230,81,0,0.35);   color: #ffcc80; }
-.pos-chip[data-pos="MID"].active { background: rgba(46,204,113,0.25); color: #2ecc71; }
-.pos-chip[data-pos="FWD"].active { background: rgba(231,76,60,0.25);  color: #e74c3c; }
+.pos-chip[data-pos="GK"].active  { background: color-mix(in srgb, var(--pos-gk) 30%, transparent);  color: var(--pos-gk-fg); }
+.pos-chip[data-pos="DEF"].active { background: color-mix(in srgb, var(--pos-def) 30%, transparent); color: var(--pos-def-fg); }
+.pos-chip[data-pos="MID"].active { background: color-mix(in srgb, var(--pos-mid) 30%, transparent); color: var(--pos-mid-fg); }
+.pos-chip[data-pos="FWD"].active { background: color-mix(in srgb, var(--pos-fwd) 30%, transparent); color: var(--pos-fwd-fg); }
 
 .match-item-opponent { display: inline-flex; align-items: center; gap: 4px; }
 
@@ -1442,9 +1467,10 @@ html, body {
 }
 
 .history-stat-val {
+  font-family: var(--font-display);
   font-size: 28px;
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
 }
 
 .history-stat-lbl {
@@ -1467,10 +1493,10 @@ html, body {
   font-size: 12px;
   font-weight: 600;
 }
-.history-pos-badge.pos-gk  { background: rgba(230,126,34,0.25); color: #e67e22; }
-.history-pos-badge.pos-def { background: rgba(52,152,219,0.25); color: #3498db; }
-.history-pos-badge.pos-mid { background: rgba(46,204,113,0.25); color: #2ecc71; }
-.history-pos-badge.pos-fwd { background: rgba(231,76,60,0.25);  color: #e74c3c; }
+.history-pos-badge.pos-gk  { background: color-mix(in srgb, var(--pos-gk) 25%, transparent);  color: var(--pos-gk-fg); }
+.history-pos-badge.pos-def { background: color-mix(in srgb, var(--pos-def) 25%, transparent); color: var(--pos-def-fg); }
+.history-pos-badge.pos-mid { background: color-mix(in srgb, var(--pos-mid) 25%, transparent); color: var(--pos-mid-fg); }
+.history-pos-badge.pos-fwd { background: color-mix(in srgb, var(--pos-fwd) 25%, transparent); color: var(--pos-fwd-fg); }
 
 .history-list {
   list-style: none;
@@ -1493,7 +1519,7 @@ html, body {
 }
 
 .history-match-date { color: var(--text-dim); font-size: 12px; min-width: 50px; }
-.history-match-opp  { flex: 1; color: #fff; font-weight: 500; }
+.history-match-opp  { flex: 1; color: var(--white); font-weight: 500; }
 .history-match-goals { color: var(--text-dim); font-size: 13px; }
 .history-match-slots { font-size: 12px; color: var(--text-dim); }
 
@@ -1520,6 +1546,7 @@ html, body {
 }
 
 .app-title {
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
   color: var(--text-light);
@@ -1532,7 +1559,7 @@ html, body {
 
 .btn-primary {
   background: var(--btn-primary);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
   border-radius: 8px;
   padding: 10px 16px;
@@ -1541,7 +1568,7 @@ html, body {
   cursor: pointer;
   flex: 1;
 }
-.btn-primary:active { background: #1f9e55; }
+.btn-primary:active { background: var(--accent-press); }
 
 .btn-secondary {
   background: rgba(255,255,255,0.12);
@@ -1598,20 +1625,20 @@ html, body {
 .match-badge {
   font-size: 11px;
   background: rgba(255,200,0,0.2);
-  color: #ffd700;
+  color: var(--gold);
   border-radius: 4px;
   padding: 1px 6px;
   align-self: flex-start;
 }
 
 .match-badge-done {
-  background: rgba(46,204,113,0.15);
-  color: #2ecc71;
+  background: color-mix(in srgb, var(--live) 15%, transparent);
+  color: var(--live);
   font-weight: 600;
 }
 .match-badge-live {
-  background: rgba(231,76,60,0.2);
-  color: #e74c3c;
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  color: var(--danger);
   font-weight: 600;
 }
 .match-item-done {
@@ -1628,8 +1655,8 @@ html, body {
 .btn-end-match {
   width: 100%;
   background: transparent;
-  color: #e74c3c;
-  border: 1.5px solid rgba(231,76,60,0.5);
+  color: var(--danger);
+  border: 1.5px solid color-mix(in srgb, var(--danger) 50%, transparent);
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -1637,7 +1664,7 @@ html, body {
   cursor: pointer;
   letter-spacing: 0.02em;
 }
-.btn-end-match:active { background: rgba(231,76,60,0.1); }
+.btn-end-match:active { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .btn-return-plan {
   display: block;
   width: 100%;
@@ -1660,7 +1687,7 @@ html, body {
   padding: 14px 16px;
   cursor: pointer;
 }
-.match-delete:active { color: #e74c3c; }
+.match-delete:active { color: var(--danger); }
 
 /* Edit pencil sits before delete — give it a clear gap so the two icons don't
    read as one cluster (and a full-height tap target). */
@@ -1737,7 +1764,7 @@ html, body {
   width: 20px;
   left: 3px;
   top: 3px;
-  background: #fff;
+  background: var(--white);
   border-radius: 50%;
   transition: transform 0.2s;
 }
@@ -1824,7 +1851,7 @@ html, body {
 .size-btn.active {
   background: var(--btn-primary);
   border-color: var(--btn-primary);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .size-btn:not(.active):active {
@@ -1854,7 +1881,7 @@ html, body {
   height: 6px;
   -webkit-appearance: none;
   appearance: none;
-  background: linear-gradient(to right, var(--btn-primary), var(--trophy-amber), #ef5350);
+  background: linear-gradient(to right, var(--btn-primary), var(--trophy-amber), var(--danger-soft));
   border-radius: 3px;
   outline: none;
 }
@@ -1864,7 +1891,7 @@ html, body {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--white);
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
   cursor: pointer;
 }
@@ -1879,7 +1906,7 @@ html, body {
 .fairness-warning {
   text-align: center;
   font-size: 12px;
-  color: #ef5350;
+  color: var(--danger-soft);
   margin: 2px 0 4px;
   font-style: italic;
 }
@@ -1907,7 +1934,7 @@ html, body {
 .rotation-option input[type="radio"] { display: none; }
 
 .rotation-option:has(input:checked) {
-  background: rgba(46, 190, 107, 0.15);
+  background: color-mix(in srgb, var(--matchday) 15%, transparent);
   border-color: var(--matchday);
 }
 
@@ -1919,7 +1946,7 @@ html, body {
 
 .rotation-option-desc {
   font-size: 11px;
-  color: rgba(242, 244, 238, 0.55);
+  color: color-mix(in srgb, var(--chalk) 55%, transparent);
   line-height: 1.3;
 }
 
@@ -1928,7 +1955,7 @@ html, body {
   margin-top: 4px;
   font-size: 11px;
   line-height: 1.3;
-  color: #F5B544;
+  color: var(--amber);
 }
 
 /* Only show the warning once the coach actually selects that option */
@@ -1938,7 +1965,7 @@ html, body {
 
 .rotation-clarifier {
   font-size: 11px;
-  color: rgba(242, 244, 238, 0.45);
+  color: color-mix(in srgb, var(--chalk) 45%, transparent);
   font-style: italic;
   margin: 2px 0 8px;
 }
@@ -1980,18 +2007,18 @@ html, body {
 .pos-check input:checked + .pos-label {
   border-color: var(--btn-primary);
   background: rgba(76,175,80,0.2);
-  color: #fff;
+  color: var(--white);
 }
 
-.pos-check input:checked + .pos-label.pos-gk  { border-color: var(--trophy-amber); background: rgba(232,160,0,0.2); color: #ffd54f; }
-.pos-check input:checked + .pos-label.pos-def { border-color: #42a5f5; background: rgba(66,165,245,0.2); color: #90caf9; }
-.pos-check input:checked + .pos-label.pos-mid { border-color: #4caf50; background: rgba(76,175,80,0.2); color: #a5d6a7; }
-.pos-check input:checked + .pos-label.pos-fwd { border-color: #ef5350; background: rgba(239,83,80,0.2); color: #ef9a9a; }
+.pos-check input:checked + .pos-label.pos-gk  { border-color: var(--pos-gk);  background: color-mix(in srgb, var(--pos-gk) 20%, transparent);  color: var(--pos-gk-fg); }
+.pos-check input:checked + .pos-label.pos-def { border-color: var(--pos-def); background: color-mix(in srgb, var(--pos-def) 20%, transparent); color: var(--pos-def-fg); }
+.pos-check input:checked + .pos-label.pos-mid { border-color: var(--pos-mid); background: color-mix(in srgb, var(--pos-mid) 20%, transparent); color: var(--pos-mid-fg); }
+.pos-check input:checked + .pos-label.pos-fwd { border-color: var(--pos-fwd); background: color-mix(in srgb, var(--pos-fwd) 20%, transparent); color: var(--pos-fwd-fg); }
 
 /* ── Size badge on match list ────────────────────────────────────── */
 
 .size-badge {
-  background: rgba(46, 190, 107, 0.2);
+  background: color-mix(in srgb, var(--matchday) 20%, transparent);
   color: var(--matchday);
   font-weight: 700;
   font-size: 11px;
@@ -2056,13 +2083,13 @@ html, body {
   letter-spacing: 0.05em;
 }
 .badge-number         { background: rgba(255,255,255,0.15); color: var(--chalk); font-variant-numeric: tabular-nums; }
-.badge-number-conflict { background: #c0392b; color: #fff; }
+.badge-number-conflict { background: var(--danger-deep); color: var(--white); }
 
-.badge-gk        { background: #1565c0; color: #fff; }
-.badge-gkpref    { background: #1976d2; color: #fff; }
+.badge-gk        { background: #1565c0; color: var(--white); }
+.badge-gkpref    { background: #1976d2; color: var(--white); }
 .badge-gkcan     { background: rgba(255,255,255,0.15); color: var(--text-light); }
-.badge-emergency { background: #b71c1c; color: #fff; }
-.badge-def       { background: #e65100; color: #fff; }
+.badge-emergency { background: #b71c1c; color: var(--white); }
+.badge-def       { background: #e65100; color: var(--white); }
 
 .player-item-actions { display: flex; gap: 6px; }
 
@@ -2115,7 +2142,7 @@ html, body {
 .btn-export-main:active { background: rgba(255,255,255,0.06); }
 
 .export-dropdown {
-  background: #1a2e20;
+  background: var(--toast-bg);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 10px;
   overflow: hidden;
@@ -2131,7 +2158,7 @@ html, body {
   background: transparent;
   border: none;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  color: var(--chalk, #F2F4EE);
+  color: var(--chalk);
   font-size: 14px;
   padding: 14px 16px;
   cursor: pointer;
@@ -2156,8 +2183,8 @@ html, body {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: #1a2e20;
-  color: #F2F4EE;
+  background: var(--toast-bg);
+  color: var(--chalk);
   font-size: 14px;
   padding: 12px 20px;
   border-radius: 8px;
@@ -2172,7 +2199,7 @@ html, body {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: #F5B544;  /* trophy-amber accent */
+  color: var(--amber);  /* trophy-amber accent */
   font-weight: 600;
   font-size: 14px;
   padding: 4px 8px;
@@ -2180,8 +2207,8 @@ html, body {
   cursor: pointer;
 }
 
-.btn-danger { color: #e74c3c; }
-.btn-danger:active { background: rgba(231,76,60,0.15); }
+.btn-danger { color: var(--danger); }
+.btn-danger:active { background: color-mix(in srgb, var(--danger) 15%, transparent); }
 
 .squad-footer {
   padding: 12px 16px 24px;
@@ -2239,7 +2266,7 @@ html, body {
   display: block;
   width: 22px;
   height: 22px;
-  background: #fff;
+  background: var(--white);
   border-radius: 50%;
   position: absolute;
   top: 3px;
@@ -2322,7 +2349,7 @@ html, body {
 
 .ha-btn.active {
   border-color: var(--matchday);
-  background: rgba(46,190,107,0.15);
+  background: color-mix(in srgb, var(--matchday) 15%, transparent);
   color: var(--chalk);
 }
 
@@ -2415,7 +2442,7 @@ html, body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--matchday);
-  background: rgba(46,190,107,0.15);
+  background: color-mix(in srgb, var(--matchday) 15%, transparent);
   padding: 4px 12px;
   border-radius: 20px;
 }
@@ -2473,6 +2500,7 @@ html, body {
 }
 
 .ft-score-num {
+  font-family: var(--font-display);
   font-size: 48px;
   font-weight: 900;
   color: var(--chalk);
@@ -2484,7 +2512,7 @@ html, body {
 .ft-score-sep {
   font-size: 36px;
   font-weight: 300;
-  color: rgba(242,244,238,0.4);
+  color: color-mix(in srgb, var(--chalk) 40%, transparent);
 }
 
 .ft-meta {
@@ -2515,7 +2543,7 @@ html, body {
 }
 
 .ft-scorer {
-  background: rgba(46,190,107,0.15);
+  background: color-mix(in srgb, var(--matchday) 15%, transparent);
   color: var(--matchday);
   border-radius: 20px;
   padding: 4px 12px;
@@ -2582,7 +2610,7 @@ html, body {
 .tutorial-heading {
   font-size: 22px;
   font-weight: 800;
-  color: #fff;
+  color: var(--white);
   text-align: center;
   margin: 0;
 }
@@ -2619,7 +2647,7 @@ html, body {
 .tutorial-mode-item strong {
   display: block;
   font-size: 15px;
-  color: #fff;
+  color: var(--white);
   margin-bottom: 3px;
 }
 
@@ -2713,7 +2741,7 @@ html, body {
 .add-match-title {
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   margin: 0;
 }
 
@@ -2919,8 +2947,9 @@ html, body {
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 10px;
-  padding: 8px 14px;
-  font-size: 22px;
+  padding: 6px 14px;
+  font-family: var(--font-timer);
+  font-size: 30px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-light);
@@ -2976,8 +3005,8 @@ html, body {
    means GK / incoming sub / start-quarter, so the passive option must read
    differently from those. */
 .new-period-hint-ghost {
-  background: rgba(242,244,238,0.14);
-  border: 1px solid rgba(242,244,238,0.4);
+  background: color-mix(in srgb, var(--chalk) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chalk) 40%, transparent);
   border-radius: 6px;
   padding: 8px 12px;
   font-weight: 600;

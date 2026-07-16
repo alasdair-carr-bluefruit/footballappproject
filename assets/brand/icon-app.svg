@@ -1,11 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Gaffr app icon">
-  <title>Gaffr app icon</title>
-  <rect x="0" y="0" width="200" height="200" rx="42" fill="#1A5C42"/>
-  <line x1="0" y1="100" x2="200" y2="100" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.4"/>
-  <circle cx="100" cy="100" r="32" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.4"/>
-  <text x="100" y="138" text-anchor="middle"
-        font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif"
-        font-weight="900" font-size="140" letter-spacing="-6"
-        fill="#F2F4EE">G</text>
-  <circle cx="148" cy="132" r="9" fill="#2EBE6B"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Level app icon">
+  <title>Level app icon</title>
+  <!-- PLACEHOLDER icon — replace with the final Level mark
+       (a bubble centred between two horizontal lines — spirit level). -->
+  <rect x="0" y="0" width="200" height="200" rx="42" fill="#0A2619"/>
+  <text x="100" y="140" text-anchor="middle"
+        font-family="'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
+        font-weight="700" font-size="120" letter-spacing="-4"
+        fill="#F2F4EE">L</text>
 </svg>

@@ -3,6 +3,7 @@ import { state, refreshShirtNumbers, displayPos } from "./state.js";
 import { loadHome } from "./season.js";
 import { loadTournamentLobby } from "./tournament.js";
 import { showToast, withSaveToast } from "./toast.js";
+import { BRAND, chalkAlpha } from "./brand.js";
 
 // NOTE on circular imports: pitch.js needs to navigate back into season.js
 // (loadHome) and tournament.js (loadTournamentLobby) after a match ends or
@@ -160,11 +161,18 @@ function buildPlanGrid(listEl, md = state.matchData, opts = {}) {
   listEl.appendChild(skillLi);
 }
 
+// A player's short token label: the full name if it's ≤4 characters (short
+// enough to squeeze into the circle / grid cell), otherwise the first 3
+// letters. Shared by the pitch avatars and the position grid.
+function abbrevName(name) {
+  return (name.length <= 4 ? name : name.slice(0, 3)).toUpperCase();
+}
+
 // The compact token shown for a player in the position grid — shirt number if
-// set, else 3-letter initials (matches the pitch avatars the coach already reads).
+// set, else the abbreviated name (matches the pitch avatars the coach reads).
 function playerToken(name) {
   const num = state.shirtNumbers[name];
-  return num != null ? String(num) : name.slice(0, 3).toUpperCase();
+  return num != null ? String(num) : abbrevName(name);
 }
 
 // Compact POSITION-row grid for the "Review the plan" screen: one row per
@@ -308,7 +316,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
 
   const goals = state.goalCounts[name] || 0;
   const shirtNum = state.shirtNumbers[name];
-  const avatarContent = shirtNum != null ? String(shirtNum) : name.slice(0, 3).toUpperCase();
+  const avatarContent = shirtNum != null ? String(shirtNum) : abbrevName(name);
   const avatarConflict = shirtNum != null && isShirtConflict(name) ? " number-conflict" : "";
   div.innerHTML = `
     <div class="circle-avatar${avatarConflict}">${avatarContent}</div>
@@ -1581,7 +1589,7 @@ function buildResultBlob() {
     ctx.scale(SCALE, SCALE);
 
     // Background — Pitch Deep
-    ctx.fillStyle = "#0E3A29";
+    ctx.fillStyle = BRAND.pitchDeep;
     ctx.fillRect(0, 0, W, H);
 
     // Subtle centre-line texture
@@ -1590,7 +1598,7 @@ function buildResultBlob() {
     ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
 
     // Top accent bar — Pitch green
-    ctx.fillStyle = "#1A5C42";
+    ctx.fillStyle = BRAND.pitch;
     ctx.fillRect(0, 0, W, 6);
 
     // "FULL TIME" amber pill
@@ -1601,7 +1609,7 @@ function buildResultBlob() {
     const pillH = 30;
     const pillX = W / 2 - pillW / 2;
     const pillY = 22;
-    ctx.fillStyle = "#F5B544";
+    ctx.fillStyle = BRAND.amber;
     ctx.beginPath();
     if (ctx.roundRect) {
       ctx.roundRect(pillX, pillY, pillW, pillH, 15);
@@ -1609,12 +1617,12 @@ function buildResultBlob() {
       ctx.rect(pillX, pillY, pillW, pillH);
     }
     ctx.fill();
-    ctx.fillStyle = "#1A1F1C";
+    ctx.fillStyle = BRAND.slate;
     ctx.textAlign = "center";
     ctx.fillText("FULL TIME", W / 2, pillY + 20);
 
     // Date
-    ctx.fillStyle = "rgba(242,244,238,0.4)";
+    ctx.fillStyle = chalkAlpha(0.4);
     ctx.font = "14px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(dateStr, W / 2, 76);
@@ -1648,14 +1656,14 @@ function buildResultBlob() {
     const nameOffsetX = logoImg ? logoX + logoSize + 8 : logoX;
     const nameMax = W / 2 - nameOffsetX - 10;
     ctx.font = "bold 21px system-ui, sans-serif";
-    ctx.fillStyle = "rgba(242,244,238,0.9)";
+    ctx.fillStyle = chalkAlpha(0.9);
     ctx.textAlign = "left";
     ctx.fillText(trunc(homeTeam, nameMax), nameOffsetX, 128);
     ctx.textAlign = "right";
     ctx.fillText(trunc(awayTeam, W / 2 - 60), W - 40, 128);
 
     // Score — large, centered
-    ctx.fillStyle = "#F2F4EE";
+    ctx.fillStyle = BRAND.chalk;
     ctx.font = "bold 72px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(`${homeGoals} – ${awayGoals}`, W / 2, 210);
@@ -1665,7 +1673,7 @@ function buildResultBlob() {
       ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.beginPath(); ctx.moveTo(40, 228); ctx.lineTo(W - 40, 228); ctx.stroke();
 
-      ctx.fillStyle = "rgba(242,244,238,0.6)";
+      ctx.fillStyle = chalkAlpha(0.6);
       ctx.font = "17px system-ui, sans-serif";
       ctx.textAlign = "center";
       let y = 258;
@@ -1675,11 +1683,11 @@ function buildResultBlob() {
       });
     }
 
-    // Gaffer wordmark watermark
-    ctx.fillStyle = "rgba(242,244,238,0.2)";
+    // Level wordmark watermark
+    ctx.fillStyle = chalkAlpha(0.2);
     ctx.font = "12px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("Gaffer", W / 2, H - 12);
+    ctx.fillText("Level", W / 2, H - 12);
 
     return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
   }

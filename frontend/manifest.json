@@ -1,11 +1,11 @@
 {
-  "name": "Gaffer",
-  "short_name": "Gaffer",
-  "description": "Fair play made simple for grassroots coaches",
+  "name": "Level",
+  "short_name": "Level",
+  "description": "Keep things level — fair rotation for grassroots football.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#162e16",
-  "theme_color": "#162e16",
+  "background_color": "#0A2619",
+  "theme_color": "#0A2619",
   "icons": [
     {
       "src": "/icon-192.png",
