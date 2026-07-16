@@ -1,4 +1,10 @@
-# Gaffer — CLAUDE.md
+# Level — CLAUDE.md
+
+> **Rebranded Gaffer → "Level" (2026-07-16).** New palette (Studio Green /
+> Signal Lime), Space Mono + VT323 typography, spirit-level identity, and a
+> re-derived Tinker mode. Brand source of truth: `BRAND.md` + `assets/brand/tokens.json`
+> (mirrored by `frontend/style.css` `:root`). Internal `localStorage` keys keep
+> their `gaffer_` prefix on purpose (renaming resets live coaches' onboarding/timers).
 
 > This is the primary context file for AI-assisted development.
 > Edit this file freely as the project evolves.
@@ -102,12 +108,10 @@ football-app-project/
 ├── main.py               ← FastAPI app entry point
 │
 ├── assets/brand/
-│   ├── tokens.json       ← Design tokens (colours, typography, tinkering mode spec)
-│   ├── texture-paper.jpg ← Paper texture for Tinkering mode
-│   ├── icon-app.svg
-│   ├── logo-gaffer-primary.svg
-│   ├── logo-gaffer-reversed.svg
-│   └── logo-gaffer-mono-light.svg
+│   ├── tokens.json       ← Design tokens (Level palette, typography, tinker spec) — mirrors style.css :root
+│   ├── icon-app.svg / icon-app.png     ← App icon (spirit-level mark)
+│   ├── LevelLinesTransparent.png       ← Wide spirit-level lockup (landing screen)
+│   └── wordmark.svg / LevelWordmark*.png ← Wordmark art (app renders live Space Mono text)
 │
 ├── backend/
 │   ├── models/
@@ -215,12 +219,11 @@ football-app-project/
 
 ## Tinkering Mode
 
-When `editMode` is active:
-- Pitch gets `.whiteboard` class → paper texture (`texture-paper.jpg`) via `mix-blend-mode: multiply` over lighter green base (`#72C49A`)
-- Player circles: normal border hidden; amber wobble ring via `::after` + SVG `pen-wobble` filter (scale 3.2)
-- Bench stays crisp (no wobble off-pitch)
-- "TINKERING" pill (Cabin Sketch font, amber fill) top-right of pitch
-- Prev/Next buttons disabled while tinkering
+"Modulation, not replacement" (see BRAND.md §6). When `editMode` is active:
+- Pitch gets `.whiteboard` class → tints one step lighter to Ghost Green (`--tinker-surface: #4E7E4A`). No paper, no `mix-blend-mode`, no SVG wobble filters (all removed in the Level rebrand).
+- Player coins **invert**: dark fill (`--pitch-deep`) + chalk text + a chunky **dashed Provisional-Chalk outline** (`--provisional`). GK/incoming keep their identity colour but still get the dashed outline. Bench stays crisp (off-pitch).
+- "TINKERING" pill top-right: Signal-Lime fill, Studio-Green text, Space Mono, blinking terminal `_` cursor.
+- Prev/Next disabled while tinkering; exiting toasts "Sorted. Plan updated."
 - Drag-and-drop to swap players within a slot; tap to open swap picker
 - Slot locked after any edit; re-calculation adjusts only unlocked future slots
 

@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 110" role="img" aria-label="Level">
-  <title>Level (reversed)</title>
-  <!-- PLACEHOLDER wordmark — replace with the final Level art (Space Mono 700). -->
-  <text x="180" y="76" text-anchor="middle"
-        font-family="'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
-        font-weight="700" font-size="68" letter-spacing="-1"
-        fill="#F2F4EE">Level</text>
-</svg>

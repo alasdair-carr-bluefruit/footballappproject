@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Level</title>
   <link rel="icon" type="image/svg+xml" href="/assets/brand/icon-app.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,21 +25,21 @@
     <div class="tutorial-wrap">
       <div class="tutorial-logo">
         <img src="/assets/brand/icon-app.svg" alt="Level" class="logo-svg" />
-        <img src="/assets/brand/logo-level-reversed.svg" alt="Level" class="wordmark-svg wordmark-sm" />
+        <span class="wordmark-text wordmark-text-sm">Level</span>
       </div>
       <h2 class="tutorial-heading">Welcome to Level!</h2>
       <p class="tutorial-body">Fair play made simple. Generate balanced rotation plans so every player gets game time — on the pitch, on your phone.</p>
 
       <div class="tutorial-modes">
         <div class="tutorial-mode-item">
-          <span class="tutorial-mode-icon">📋</span>
+          <span class="tutorial-mode-icon"><svg class="mode-svg" viewBox="0 0 24 24" fill="none" stroke="var(--chalk)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="13" y2="17"/><circle cx="18" cy="17" r="1.8" fill="var(--matchday)" stroke="none"/></svg></span>
           <div>
             <strong>Season Mode</strong>
             <p>Week-to-week matches with your squad. Track playing time across the season.</p>
           </div>
         </div>
         <div class="tutorial-mode-item">
-          <span class="tutorial-mode-icon">🏆</span>
+          <span class="tutorial-mode-icon"><svg class="mode-svg" viewBox="0 0 24 24" fill="none" stroke="var(--chalk)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5 H7 M3 9 H7 M7 5 V9 M7 7 H11"/><path d="M3 15 H7 M3 19 H7 M7 15 V19 M7 17 H11"/><path d="M11 7 V17 M11 12 H15"/><circle cx="17" cy="12" r="1.8" fill="var(--matchday)" stroke="none"/></svg></span>
           <div>
             <strong>Tournament Mode</strong>
             <p>Back-to-back matches in a single day. Balanced rotation across multiple games.</p>
@@ -102,11 +103,11 @@
         </svg>
       </div>
       <div class="landing-hero">
-        <div class="landing-logo" aria-label="Level app icon">
-          <img src="/assets/brand/icon-app.svg" alt="Level" class="logo-svg" />
+        <div class="landing-logo" aria-label="Level logo">
+          <img src="/assets/brand/LevelLinesTransparent.png" alt="Level" class="landing-lines" />
         </div>
         <div class="landing-wordmark">
-          <img src="/assets/brand/logo-level-reversed.svg" alt="Level" class="wordmark-svg" />
+          <span class="wordmark-text">Level</span>
         </div>
         <p class="landing-subtitle">Keep things level.</p>
         <p class="landing-desc">Generate balanced rotation plans so every player gets game time. Track goals, manage minutes across the season, and create match plans in seconds — on the pitch, on your phone.</p>
@@ -120,17 +121,17 @@
 
       <div class="landing-modes">
         <button class="mode-card" id="btn-season-mode">
-          <span class="mode-icon">📋</span>
+          <span class="mode-icon"><svg class="mode-svg" viewBox="0 0 24 24" fill="none" stroke="var(--chalk)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="13" y2="17"/><circle cx="18" cy="17" r="1.8" fill="var(--matchday)" stroke="none"/></svg></span>
           <span class="mode-title">Season Mode</span>
           <span class="mode-desc">Week-to-week matches. Track playing time across the season.</span>
         </button>
         <button class="mode-card" id="btn-tournament-mode">
-          <span class="mode-icon">🏆</span>
+          <span class="mode-icon"><svg class="mode-svg" viewBox="0 0 24 24" fill="none" stroke="var(--chalk)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5 H7 M3 9 H7 M7 5 V9 M7 7 H11"/><path d="M3 15 H7 M3 19 H7 M7 15 V19 M7 17 H11"/><path d="M11 7 V17 M11 12 H15"/><circle cx="17" cy="12" r="1.8" fill="var(--matchday)" stroke="none"/></svg></span>
           <span class="mode-title">Tournament Mode</span>
           <span class="mode-desc">Back-to-back matches in a day. Balanced rotation across all games.</span>
         </button>
         <button class="mode-card mode-card-squad" id="btn-squad-management">
-          <span class="mode-icon">👥</span>
+          <span class="mode-icon"><svg class="mode-svg" viewBox="0 0 24 24" fill="none" stroke="var(--chalk)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1"/><path d="M16 13a5 5 0 0 1 4 6"/><circle cx="17" cy="8.5" r="2.6" fill="var(--matchday)" stroke="none"/></svg></span>
           <span class="mode-title">Squad Management</span>
           <span class="mode-desc">Add or remove players, set positions, update your team name and badge.</span>
         </button>

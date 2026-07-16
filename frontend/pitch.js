@@ -1289,10 +1289,12 @@ document.getElementById("btn-reinstate-confirm").addEventListener("click", async
 
 // ── Edit mode (adjust plan) ────────────────────────────────────────────────────
 document.getElementById("btn-adjust").addEventListener("click", () => {
+  const finishing = state.editMode; // was tinkering; this click finishes
   state.editMode = !state.editMode;
   const btn = document.getElementById("btn-adjust");
   btn.textContent = state.editMode ? "Done" : "Tinker";
   render();
+  if (finishing) showToast("Sorted. Plan updated.");
 });
 
 // Explicit, following-only recalculation. Local edits never touch other slots;
@@ -1440,7 +1442,7 @@ function warnIfUnderSlotted() {
   const under = underSlotted();
   if (under.items.length === 0) return;
   const names = under.items.map(i => i.name).join(", ");
-  showToast(`⚠ Below fair share: ${names}`, { duration: 5000 });
+  showToast(`⚠ Still to level up: ${names}`, { duration: 5000 });
 }
 
 // Informational variant: the recalculation has already been applied (e.g. after

@@ -1131,11 +1131,12 @@ html, body {
 }
 
 .landing-logo {
-  width: 80px;
-  height: 80px;
+  width: 260px;
+  max-width: 74%;
   margin-bottom: 16px;
   filter: drop-shadow(0 2px 10px rgba(0,0,0,0.3));
 }
+.landing-lines { width: 100%; height: auto; display: block; }
 
 .logo-svg {
   width: 100%;
@@ -1143,10 +1144,22 @@ html, body {
 }
 
 .landing-wordmark {
-  width: 180px;
   margin-bottom: 12px;
   filter: drop-shadow(0 1px 6px rgba(0,0,0,0.3));
 }
+
+/* Wordmark rendered as live Space Mono text — transparent, crisp at any size,
+   recolours to context. Swap back to <img src="wordmark.svg"> if a bespoke
+   transparent lockup is added later. */
+.wordmark-text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--chalk);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-size: 40px;
+}
+.wordmark-text-sm { font-size: 24px; }
 
 .wordmark-svg {
   width: 100%;
@@ -1214,11 +1227,12 @@ html, body {
 }
 
 .mode-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 6px;
+  padding: 16px 20px;
   border: 1.5px solid rgba(255,255,255,0.15);
   border-radius: 14px;
   background: rgba(255,255,255,0.06);
@@ -1227,6 +1241,10 @@ html, body {
   text-align: left;
   position: relative;
 }
+/* Icon left, title right-justified on the same row; description spans below. */
+.mode-card .mode-icon  { grid-column: 1; grid-row: 1; margin: 0; }
+.mode-card .mode-title { grid-column: 2; grid-row: 1; text-align: right; }
+.mode-card .mode-desc  { grid-column: 1 / -1; grid-row: 2; }
 
 .mode-card:active {
   background: rgba(255,255,255,0.12);
@@ -1263,9 +1281,11 @@ html, body {
 }
 
 .mode-icon {
-  font-size: 24px;
   margin-bottom: 2px;
 }
+
+/* Line-style Level mode icons (chalk stroke + lime accent) — landing + tutorial */
+.mode-svg { width: 30px; height: 30px; display: block; }
 
 .mode-title {
   font-size: 17px;
