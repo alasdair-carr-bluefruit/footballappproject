@@ -1442,7 +1442,7 @@ function warnIfUnderSlotted() {
   const under = underSlotted();
   if (under.items.length === 0) return;
   const names = under.items.map(i => i.name).join(", ");
-  showToast(`⚠ Still to level up: ${names}`, { duration: 5000 });
+  showToast(`⚠ Uneven playing time: ${names}`, { duration: 5000 });
 }
 
 // Informational variant: the recalculation has already been applied (e.g. after

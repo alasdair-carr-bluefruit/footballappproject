@@ -80,15 +80,16 @@ sits at full saturation. The nostalgia lives in the **typography**, not the colo
 | Coach Blue | `#3E6DA8` | In-match advisory prompts. |
 
 ### Position palette (functional coding — not brand colour)
-DEF/MID/FWD/GK on the pitch and plan grid. Deliberately clear of Signal Lime
-(CTA) and Amber Phosphor (warning):
+DEF/MID/FWD/GK on the pitch and plan grid — a spread, toned-down tetrad. MID's
+lime shares the Signal-Lime hue (coach preference); its solid chips use dark
+text for legibility.
 
 | Position | Fill | Foreground |
 |---|---|---|
-| GK | teal `#2FBFA8` | `#B6F0E6` |
-| DEF | azure `#4F9BF0` | `#C4DEFB` |
-| MID | violet `#A98CF0` | `#E0D6FB` |
-| FWD | coral `#DB7B54` | `#F6C7B2` |
+| GK | teal `#3E8E97` | `#C4E6EA` |
+| DEF | purple `#7E5FA8` | `#DED2EE` |
+| MID | lime `#AEC93C` | `#E4EDB2` (dark `#223007` on solid chips) |
+| FWD | burnt-orange `#C57A3E` | `#F4D6BB` |
 
 *Developer note: all colour values are defined once in `frontend/style.css`
 `:root`; tints derive via `color-mix`. Do not hardcode hexes elsewhere. Canvas
@@ -115,7 +116,7 @@ broadcast reference — not the colour.
 Direct, warm, efficient. British grassroots vocabulary used naturally. We speak
 like a calm assistant manager, not a mate down the pub.
 
-**Sounds like us:** "Sorted. Plan updated." · "Still to level up: Sam, Alex." ·
+**Sounds like us:** "Sorted. Plan updated." · "Uneven playing time: Sam, Alex." ·
 "Tap a player to swap them out." · "Couldn't reach the server — check your
 connection."
 

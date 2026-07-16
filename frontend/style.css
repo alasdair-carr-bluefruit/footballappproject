@@ -40,10 +40,10 @@
      Reconciled from 5 divergent copies. One hue per position:
      GK = amber, DEF = blue, MID = neutral, FWD = green. Chips use the solid
      colour; badges/pills derive a translucent tint via color-mix. */
-  --pos-gk:   #2FBFA8;  --pos-gk-fg:  #B6F0E6;
-  --pos-def:  #4F9BF0;  --pos-def-fg: #C4DEFB;
-  --pos-mid:  #A98CF0;  --pos-mid-fg: #E0D6FB;
-  --pos-fwd:  #DB7B54;  --pos-fwd-fg: #F6C7B2;
+  --pos-gk:   #3E8E97;  --pos-gk-fg:  #C4E6EA;
+  --pos-def:  #7E5FA8;  --pos-def-fg: #DED2EE;
+  --pos-mid:  #AEC93C;  --pos-mid-fg: #E4EDB2;
+  --pos-fwd:  #C57A3E;  --pos-fwd-fg: #F4D6BB;
 
   /* ── Functional / derived ──────────────────────────────────────────────*/
   --pitch-line:    color-mix(in srgb, var(--chalk) 12%, transparent);
@@ -844,6 +844,9 @@ html, body {
 .plan-rowlabel.pos-def { color: var(--pos-def-fg); }
 .plan-rowlabel.pos-mid { color: var(--pos-mid-fg); }
 .plan-rowlabel.pos-fwd { color: var(--pos-fwd-fg); }
+/* MID's bright lime is light — the solid grid chips need dark token text (the
+   light --pos-mid-fg stays for tint badges + row labels on the dark bg). */
+.slot-chip.pos-mid, .plan-cell.pos-mid { color: #223007; }
 .plan-cell.chip-changed { outline: 1.5px solid color-mix(in srgb, var(--chalk) 80%, transparent); outline-offset: -1.5px; }
 .plan-cell.under { box-shadow: inset 0 0 0 1.5px var(--trophy-amber); }
 .plan-skill-label, .plan-skill { color: var(--gold); background: rgba(255,255,255,0.08); font-size: 10px; }
