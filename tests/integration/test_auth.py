@@ -9,8 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import select
 
+from backend.auth.session import verify_session
 from backend.db.database import get_session
 from backend.db.models import InviteDB
+from backend.settings import SESSION_COOKIE
 from main import app
 
 pytestmark = pytest.mark.integration
@@ -92,6 +94,20 @@ def test_logout_clears_session(clients):
     assert c.get("/api/auth/me").status_code == 200
     c.post("/api/auth/logout")
     assert c.get("/api/auth/me").status_code == 401
+
+
+def test_session_rolls_forward_on_activity(clients):
+    """Each authenticated request re-issues a valid session cookie (sliding window),
+    so an active coach never has to request a fresh magic link."""
+    c = clients()
+    _redeem(c, "rolling@example.com")
+    resp = c.get("/api/auth/me")
+    assert resp.status_code == 200
+    set_cookie = resp.headers.get("set-cookie", "")
+    assert SESSION_COOKIE in set_cookie  # middleware refreshed it
+    # The refreshed token is itself valid.
+    refreshed = c.cookies.get(SESSION_COOKIE)
+    assert verify_session(refreshed) is not None
 
 
 def test_duplicate_email_redeem_is_rejected(clients):

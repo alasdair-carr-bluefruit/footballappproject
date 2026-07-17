@@ -16,7 +16,14 @@ import hashlib
 import hmac
 import time
 
-from backend.settings import SESSION_MAX_AGE_DAYS, secret_key
+from starlette.responses import Response
+
+from backend.settings import (
+    SESSION_COOKIE,
+    SESSION_MAX_AGE_DAYS,
+    cookie_secure,
+    secret_key,
+)
 
 
 def _b64e(raw: bytes) -> str:
@@ -59,3 +66,19 @@ def verify_session(token: str | None) -> int | None:
     if time.time() - issued > SESSION_MAX_AGE_DAYS * 86400:
         return None
     return account_id
+
+
+def set_session_cookie(response: Response, account_id: int) -> None:
+    """Write a freshly-signed session cookie. Shared by login/verify and the
+    rolling-refresh middleware so cookie attributes stay in one place. Because the
+    token is re-signed with the current time, calling this on each authenticated
+    request turns the 30-day expiry into a *sliding* window (30 days of inactivity)."""
+    response.set_cookie(
+        SESSION_COOKIE,
+        sign_session(account_id),
+        max_age=SESSION_MAX_AGE_DAYS * 86400,
+        httponly=True,
+        secure=cookie_secure(),
+        samesite="lax",
+        path="/",
+    )

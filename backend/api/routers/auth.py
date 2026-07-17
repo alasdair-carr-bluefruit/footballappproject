@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from backend.auth.email import send_login_link
-from backend.auth.session import sign_session
+from backend.auth.session import set_session_cookie
 from backend.auth.tokens import (
     hash_token,
     is_expired,
@@ -27,10 +27,8 @@ from backend.db.repositories import get_or_create_squad
 from backend.settings import (
     LOGIN_TOKEN_TTL_MINUTES,
     SESSION_COOKIE,
-    SESSION_MAX_AGE_DAYS,
     app_base_url,
     auth_enabled,
-    cookie_secure,
     resend_api_key,
 )
 
@@ -39,18 +37,6 @@ router = APIRouter()
 
 def _norm_email(email: str) -> str:
     return (email or "").strip().lower()
-
-
-def _set_session_cookie(response: Response, account_id: int) -> None:
-    response.set_cookie(
-        SESSION_COOKIE,
-        sign_session(account_id),
-        max_age=SESSION_MAX_AGE_DAYS * 86400,
-        httponly=True,
-        secure=cookie_secure(),
-        samesite="lax",
-        path="/",
-    )
 
 
 def _account_public(account: AccountDB) -> dict:
@@ -110,7 +96,7 @@ def redeem_invite(
     session.commit()
     session.refresh(account)
 
-    _set_session_cookie(response, account.id)  # type: ignore[arg-type]
+    set_session_cookie(response, account.id)  # type: ignore[arg-type]
     return _account_public(account)
 
 
@@ -176,7 +162,7 @@ def verify_login(
     session.commit()
     session.refresh(account)
 
-    _set_session_cookie(response, account.id)  # type: ignore[arg-type]
+    set_session_cookie(response, account.id)  # type: ignore[arg-type]
     return _account_public(account)
 
 

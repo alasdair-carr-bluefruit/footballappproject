@@ -13,8 +13,9 @@ from backend.api.routers import (
     squad_router,
     tournament_router,
 )
+from backend.auth.session import set_session_cookie, verify_session
 from backend.db.database import create_db_and_tables
-from backend.settings import auth_enabled, frontend_origin, validate_config
+from backend.settings import SESSION_COOKIE, auth_enabled, frontend_origin, validate_config
 
 
 @asynccontextmanager
@@ -46,6 +47,26 @@ else:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+@app.middleware("http")
+async def rolling_session(request, call_next):
+    """Sliding-session refresh: on any authenticated request, re-issue the session
+    cookie with a fresh timestamp, so the 30-day expiry counts from last activity
+    (an active coach never has to re-request a magic link). Skipped when the
+    response already touches the cookie (login sets a new one, logout clears it)."""
+    response = await call_next(request)
+    if not auth_enabled():
+        return response
+    already_set = any(
+        h.split("=", 1)[0].strip().lower() == SESSION_COOKIE.lower()
+        for h in response.headers.getlist("set-cookie")
+    )
+    if not already_set:
+        account_id = verify_session(request.cookies.get(SESSION_COOKIE))
+        if account_id is not None:
+            set_session_cookie(response, account_id)
+    return response
+
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
