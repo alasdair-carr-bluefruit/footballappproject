@@ -29,13 +29,18 @@
 >   lifecycle, rolling, admin tooling), `tests/e2e/test_auth_e2e.py` (`auth_server`
 >   fixture, full browser flow). Testing guide: `docs/multi-user-testing.md`.
 >
-> **NEXT = deploy only (§8).** Not started: **Dockerfile**, **DEPLOY.md**, Railway
-> Hobby project, fresh Neon DB, Resend account. Env to set in prod:
-> `AUTH_ENABLED=true`, `SECRET_KEY`, `ADMIN_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`,
-> `APP_BASE_URL`, `FRONTEND_ORIGIN`, `DATABASE_URL` (leave `COOKIE_SECURE` unset →
-> secure on). **Domain purchased** (name: _TBD — fill in_) → point at the Railway
-> app; set `FRONTEND_ORIGIN`/`APP_BASE_URL` to it; optionally verify it with Resend
-> for a branded From address.
+> **DEPLOY ARTEFACTS DONE (2026-07-17):** `Dockerfile` + `.dockerignore` at repo
+> root (python:3.12-slim, `pip install -e ".[api]"`, uvicorn on `$PORT`) and a
+> full **`DEPLOY.md`** (Railway + Neon + Resend + domain, env table, smoke test).
+> Also added `httpx` to the `[api]` extras — the Resend sender imports it and it
+> was previously dev-only (email would have silently failed in prod). **Still to do
+> by hand (external accounts, can't script):** create Railway Hobby project, fresh
+> Neon DB, Resend account, set env vars, point the domain, run the smoke test.
+> Env to set in prod: `AUTH_ENABLED=true`, `SECRET_KEY`, `ADMIN_KEY`,
+> `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL`, `FRONTEND_ORIGIN`, `DATABASE_URL`
+> (leave `COOKIE_SECURE` unset → secure on). **Domain: `keepthingslevel.com`** →
+> point at the Railway app; set `FRONTEND_ORIGIN`/`APP_BASE_URL` to it; verify it
+> with Resend for a branded From address. See `DEPLOY.md`.
 >
 > **Safety:** existing live Render instances are unaffected — separate app + fresh
 > Neon DB; and even a stray `main` redeploy stays behaviourally identical because

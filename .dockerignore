@@ -1,0 +1,15 @@
+# Keep the build context (and image) small.
+.git
+.venv
+__pycache__/
+**/__pycache__/
+*.pyc
+football.db
+*.db
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+football_rotation.egg-info/
+node_modules/
+tests/e2e/
+*.rtf
