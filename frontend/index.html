@@ -72,6 +72,7 @@
   <!-- ── Screen: Landing ───────────────────────────────────────────────────── -->
   <div id="screen-landing" class="screen" hidden>
     <div class="landing">
+      <button type="button" class="auth-signout" id="btn-signout" hidden>Sign out</button>
       <div class="landing-bg" aria-hidden="true">
         <svg class="pitch-svg" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
           <!-- Pitch outline -->
@@ -137,6 +138,40 @@
         </button>
       </div>
       <button type="button" class="bug-report" id="btn-bug-report">Report a bug</button>
+    </div>
+  </div>
+
+  <!-- ── Screen: Sign-in (magic link) ─────────────────────────────────────── -->
+  <div id="screen-login" class="screen" hidden>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="landing-wordmark"><span class="wordmark-text">Level</span></div>
+        <h2 class="auth-title">Coach sign-in</h2>
+        <p class="auth-sub">Enter your email and we'll send you a one-time sign-in link.</p>
+        <form id="login-form" class="auth-form">
+          <input type="email" id="login-email" class="auth-input" placeholder="you@example.com" autocomplete="email" required />
+          <button type="submit" class="btn btn-primary btn-full" id="btn-login-send">Send me a link</button>
+        </form>
+        <p class="auth-msg" id="login-msg" hidden></p>
+        <a class="auth-devlink" id="login-devlink" hidden href="#"></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Screen: Join (redeem invite) ─────────────────────────────────────── -->
+  <div id="screen-join" class="screen" hidden>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="landing-wordmark"><span class="wordmark-text">Level</span></div>
+        <h2 class="auth-title">Create your team</h2>
+        <p class="auth-sub">You've been invited to Level. Set up your account to get started.</p>
+        <form id="join-form" class="auth-form">
+          <input type="text" id="join-name" class="auth-input" placeholder="Your name" autocomplete="name" />
+          <input type="email" id="join-email" class="auth-input" placeholder="you@example.com" autocomplete="email" required />
+          <button type="submit" class="btn btn-primary btn-full" id="btn-join-create">Create my team</button>
+        </form>
+        <p class="auth-msg" id="join-msg" hidden></p>
+      </div>
     </div>
   </div>
 

@@ -1,12 +1,25 @@
 const BASE = "/api";
 
+// A 401 handler the app can register (auth.js) — invoked when the session has
+// expired or is missing so the app can drop back to the login screen. Kept as a
+// hook so api.js stays UI-agnostic. Suppressed for the boot probe (see auth.js).
+let onUnauthorized = null;
+export function setUnauthorizedHandler(fn) { onUnauthorized = fn; }
+
 async function request(path, options = {}) {
-  const init = { headers: { "Content-Type": "application/json" }, ...options };
+  const init = {
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",  // send/receive the session cookie (multi-user auth)
+    ...options,
+  };
   if (init.body && typeof init.body === "object") {
     init.body = JSON.stringify(init.body);
   }
   const res = await fetch(BASE + path, init);
   if (!res.ok) {
+    if (res.status === 401 && onUnauthorized && !init.suppressAuthRedirect) {
+      onUnauthorized();
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || res.statusText);
   }
@@ -15,6 +28,13 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // Auth (multi-user). me() suppresses the 401 redirect — it IS the probe.
+  me:            ()      => request("/auth/me", { suppressAuthRedirect: true }),
+  redeemInvite:  (body)  => request("/auth/redeem",       { method: "POST", body, suppressAuthRedirect: true }),
+  requestLink:   (email) => request("/auth/request-link", { method: "POST", body: { email }, suppressAuthRedirect: true }),
+  verifyLogin:   (token) => request("/auth/verify",       { method: "POST", body: { token }, suppressAuthRedirect: true }),
+  logout:        ()      => request("/auth/logout",       { method: "POST" }),
+
   // Squad
   getTeamInfo:   ()           => request("/squad/info"),
   updateTeamInfo:(data)       => request("/squad/info",           { method: "PUT",    body: data }),

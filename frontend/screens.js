@@ -8,7 +8,10 @@ import { withSaveToast } from "./toast.js";
 // ── First-launch tutorial ─────────────────────────────────────────────────────
 // Check server first — if a team name exists the DB already has data (e.g. a
 // returning user on a new device) so skip the tutorial entirely.
-(async function initScreen() {
+// Invoked by auth.js once the auth gate (if any) has resolved — NOT auto-run,
+// so a logged-out coach never briefly sees the app behind the login screen.
+export async function bootApp() {
+  maybeDismissSquadTip();  // players-exist check, now post-auth
   try {
     const info = await api.getTeamInfo();
     if (info) state.teamInfo = info;
@@ -25,7 +28,7 @@ import { withSaveToast } from "./toast.js";
   } else {
     showScreen("screen-landing");
   }
-})();
+}
 
 // Tutorial logo upload
 document.getElementById("tutorial-logo-btn").addEventListener("click", () => {
@@ -73,10 +76,14 @@ function dismissSquadTip() {
 
 // ── Landing screen ────────────────────────────────────────────────────────────
 
-// Auto-dismiss squad tip if players already exist (guards against cached JS etc.)
-api.getPlayers().then(players => {
-  if (players.length > 0) dismissSquadTip();
-}).catch(() => {});
+// Auto-dismiss squad tip if players already exist (guards against cached JS etc.).
+// Called from bootApp() — i.e. after the auth gate — so it never fires an
+// unauthenticated request before the coach has signed in.
+export function maybeDismissSquadTip() {
+  api.getPlayers().then(players => {
+    if (players.length > 0) dismissSquadTip();
+  }).catch(() => {});
+}
 
 document.getElementById("btn-season-mode").addEventListener("click", () => loadHome());
 document.getElementById("btn-tournament-mode").addEventListener("click", () => loadTournamentHome());

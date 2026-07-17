@@ -1,5 +1,5 @@
 // Service Worker — network-first with cache fallback
-const CACHE = "squad-rotation-v31";
+const CACHE = "squad-rotation-v32";
 // app.js is a thin entry point that side-effect-imports the feature modules, so
 // every frontend module must be pre-cached for the app to work offline (app.js
 // alone is not enough). Keep this list in sync with frontend/*.js — the
@@ -14,6 +14,7 @@ const SHELL = [
   "/season.js",
   "/tournament.js",
   "/screens.js",
+  "/auth.js",
   "/toast.js",
   "/share.js",
   "/api.js",

@@ -3063,3 +3063,67 @@ html, body {
   cursor: pointer;
   min-height: 40px;
 }
+
+/* ── Auth screens (multi-user sign-in / invite redeem) ───────────────────────── */
+.auth-wrap {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--pitch);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 28px 24px;
+  text-align: center;
+}
+.auth-card .landing-wordmark { margin-bottom: 12px; }
+.auth-title {
+  font-size: 20px;
+  margin: 4px 0 6px;
+  color: var(--chalk);
+}
+.auth-sub {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0 0 20px;
+}
+.auth-form { display: flex; flex-direction: column; gap: 12px; }
+.auth-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--pitch-deep);
+  color: var(--chalk);
+}
+.auth-input:focus { outline: none; border-color: var(--matchday); }
+.auth-msg {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: var(--chalk);
+}
+.auth-devlink {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--matchday);
+}
+.auth-signout {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--chalk);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
