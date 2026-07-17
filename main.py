@@ -77,3 +77,13 @@ app.include_router(feedback_router, prefix="/api/feedback", tags=["feedback"])
 
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
+
+if __name__ == "__main__":
+    # Entry point for container/PaaS launch. Reads $PORT in Python so the port is
+    # never subject to shell-expansion quirks (Railway/Fly inject $PORT at runtime).
+    import os
+
+    import uvicorn
+
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")))

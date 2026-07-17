@@ -17,5 +17,6 @@ RUN pip install --upgrade pip && pip install -e ".[api]"
 ENV PORT=8000
 EXPOSE 8000
 
-# Shell form so $PORT expands at runtime.
-CMD python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Exec form + main.py reads $PORT in Python — no shell-expansion dependency
+# (avoids the literal-"$PORT" crash when a platform runs the command without a shell).
+CMD ["python", "main.py"]
