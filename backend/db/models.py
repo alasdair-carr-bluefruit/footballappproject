@@ -12,6 +12,50 @@ class SquadDB(SQLModel, table=True):
     team_logo: str = ""  # base64 DataURL or empty string
 
 
+# ── Multi-user identity (v1.1) ──────────────────────────────────────────────────
+# An AccountDB row is the identity; a squad belongs to exactly one account (the
+# link lives here, not on SquadDB, so multi-squad-per-account later is additive).
+# Auth is magic-link only: no passwords/PINs are ever stored. See V1_MULTIUSER_PLAN.md.
+class AccountDB(SQLModel, table=True):
+    __tablename__ = "accounts"  # type: ignore[assignment]
+
+    id: int | None = Field(default=None, primary_key=True)
+    squad_id: int = Field(foreign_key="squads.id")  # 1:1 for now
+    email: str = Field(index=True, unique=True)  # the login handle (magic-link target)
+    display_name: str = ""  # coach's name, shown in the UI
+    status: str = "invited"  # "invited" | "active" | "disabled"
+    created_at: str = ""  # ISO datetime
+    last_login_at: str | None = None
+    seen_tutorial: int = 0  # server-side onboarding flag (follows the coach across devices)
+
+
+# A one-time invite token — only coaches sent a /join?token=… link can create a
+# team (invite-only onboarding). We store only the hash of the raw token.
+class InviteDB(SQLModel, table=True):
+    __tablename__ = "invites"  # type: ignore[assignment]
+
+    id: int | None = Field(default=None, primary_key=True)
+    token_hash: str = Field(index=True)  # sha256 of the raw token; raw is never stored
+    account_id: int | None = None  # set once redeemed
+    created_at: str = ""
+    expires_at: str = ""  # ISO datetime, e.g. +14 days
+    redeemed_at: str | None = None
+    note: str = ""  # free text, e.g. "Dave – U10s"
+
+
+# A one-time magic-link login token — hashed, short-lived, single-use. Same shape
+# as InviteDB but scoped to an existing account (returning-device login).
+class LoginTokenDB(SQLModel, table=True):
+    __tablename__ = "login_tokens"  # type: ignore[assignment]
+
+    id: int | None = Field(default=None, primary_key=True)
+    account_id: int = Field(foreign_key="accounts.id", index=True)
+    token_hash: str = Field(index=True)  # sha256 of the raw token
+    created_at: str = ""
+    expires_at: str = ""  # ISO datetime, ~15-min expiry
+    consumed_at: str | None = None
+
+
 class TournamentDB(SQLModel, table=True):
     __tablename__ = "tournaments"  # type: ignore[assignment]
 

@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from backend.api.deps import get_current_squad, owned_player
 from backend.db.database import get_session
 from backend.db.models import PlayerDB, SquadDB
-from backend.db.repositories import get_or_create_squad
 
 router = APIRouter()
 
@@ -19,14 +19,16 @@ class TeamInfo(BaseModel):
 
 
 @router.get("/info", response_model=TeamInfo)
-def get_team_info(session: Session = Depends(get_session)) -> TeamInfo:
-    squad = get_or_create_squad(session)
+def get_team_info(squad: SquadDB = Depends(get_current_squad)) -> TeamInfo:
     return TeamInfo(team_name=squad.team_name, team_logo=squad.team_logo)
 
 
 @router.put("/info", response_model=TeamInfo)
-def update_team_info(info: TeamInfo, session: Session = Depends(get_session)) -> TeamInfo:
-    squad = get_or_create_squad(session)
+def update_team_info(
+    info: TeamInfo,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> TeamInfo:
     squad.team_name = info.team_name
     squad.team_logo = info.team_logo
     session.add(squad)
@@ -73,8 +75,10 @@ def _player_to_read(p: PlayerDB) -> PlayerRead:
 
 
 @router.get("/players", response_model=list[PlayerRead])
-def list_players(session: Session = Depends(get_session)) -> list[PlayerRead]:
-    squad = get_or_create_squad(session)
+def list_players(
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> list[PlayerRead]:
     # Exclude tournament guest players (source_tournament_id IS NOT NULL)
     players = list(
         session.exec(
@@ -88,8 +92,11 @@ def list_players(session: Session = Depends(get_session)) -> list[PlayerRead]:
 
 
 @router.post("/players", response_model=PlayerRead, status_code=201)
-def add_player(player: PlayerCreate, session: Session = Depends(get_session)) -> PlayerRead:
-    squad = get_or_create_squad(session)
+def add_player(
+    player: PlayerCreate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> PlayerRead:
     existing = session.exec(
         select(PlayerDB).where(PlayerDB.squad_id == squad.id, PlayerDB.name == player.name)
     ).first()
@@ -106,11 +113,12 @@ def add_player(player: PlayerCreate, session: Session = Depends(get_session)) ->
 
 @router.put("/players/{player_id}", response_model=PlayerRead)
 def update_player(
-    player_id: int, player: PlayerCreate, session: Session = Depends(get_session)
+    player_id: int,
+    player: PlayerCreate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> PlayerRead:
-    db_player = session.get(PlayerDB, player_id)
-    if not db_player:
-        raise HTTPException(status_code=404, detail="Player not found")
+    db_player = owned_player(player_id, squad, session)
     data = player.model_dump()
     data["preferred_positions"] = json.dumps(data["preferred_positions"])
     for key, val in data.items():
@@ -122,9 +130,11 @@ def update_player(
 
 
 @router.delete("/players/{player_id}", status_code=204)
-def delete_player(player_id: int, session: Session = Depends(get_session)) -> None:
-    db_player = session.get(PlayerDB, player_id)
-    if not db_player:
-        raise HTTPException(status_code=404, detail="Player not found")
+def delete_player(
+    player_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> None:
+    db_player = owned_player(player_id, squad, session)
     session.delete(db_player)
     session.commit()
