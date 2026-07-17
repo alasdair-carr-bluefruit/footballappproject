@@ -6,13 +6,16 @@ sufficient for a trial. When no ADMIN_KEY is configured the endpoints are closed
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from typing import Any
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from backend.auth.session import set_session_cookie
 from backend.auth.tokens import hash_token, iso_in, new_token, now_iso
 from backend.db.database import get_session
-from backend.db.models import InviteDB
+from backend.db.models import AccountDB, InviteDB, MatchDB, PlayerDB, SquadDB, TournamentDB
 from backend.settings import INVITE_TTL_DAYS, admin_key, app_base_url
 
 router = APIRouter()
@@ -65,3 +68,66 @@ def list_invites(session: Session = Depends(get_session)) -> list[dict]:
         }
         for inv in invites
     ]
+
+
+# ── Account support tooling (investigate / impersonate) ─────────────────────────
+@router.get("/accounts", dependencies=[Depends(require_admin)])
+def list_accounts(session: Session = Depends(get_session)) -> list[dict]:
+    """List all coach accounts so you can find the one to investigate."""
+    accounts = session.exec(select(AccountDB).order_by(AccountDB.id.desc())).all()  # type: ignore[attr-defined]
+    return [
+        {
+            "id": a.id,
+            "email": a.email,
+            "display_name": a.display_name,
+            "status": a.status,
+            "squad_id": a.squad_id,
+            "created_at": a.created_at,
+            "last_login_at": a.last_login_at,
+        }
+        for a in accounts
+    ]
+
+
+@router.get("/accounts/{account_id}/dump", dependencies=[Depends(require_admin)])
+def dump_account(account_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Read-only snapshot of an account's squad, players, matches and tournaments —
+    for investigating "something looks weird" without touching anything."""
+    account = session.get(AccountDB, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    squad = session.get(SquadDB, account.squad_id)
+    players = session.exec(select(PlayerDB).where(PlayerDB.squad_id == account.squad_id)).all()
+    matches = session.exec(select(MatchDB).where(MatchDB.squad_id == account.squad_id)).all()
+    tournaments = session.exec(
+        select(TournamentDB).where(TournamentDB.squad_id == account.squad_id)
+    ).all()
+    return {
+        "account": {
+            "id": account.id, "email": account.email, "display_name": account.display_name,
+            "status": account.status, "created_at": account.created_at,
+            "last_login_at": account.last_login_at,
+        },
+        "squad": {"id": squad.id, "team_name": squad.team_name} if squad else None,
+        "counts": {
+            "players": len(players), "matches": len(matches), "tournaments": len(tournaments),
+        },
+        "players": [{"id": p.id, "name": p.name, "shirt_number": p.shirt_number,
+                     "is_guest": p.source_tournament_id is not None} for p in players],
+        "matches": [{"id": m.id, "date": m.date, "opponent": m.opponent, "status": m.status,
+                     "tournament_id": m.tournament_id} for m in matches],
+        "tournaments": [{"id": t.id, "name": t.name, "date": t.date} for t in tournaments],
+    }
+
+
+@router.post("/accounts/{account_id}/impersonate", dependencies=[Depends(require_admin)])
+def impersonate_account(
+    account_id: int, response: Response, session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    """Issue a session cookie for this account so you (the dev) can log in AS the
+    coach and see/fix exactly what they see through the normal UI. Use sparingly."""
+    account = session.get(AccountDB, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    set_session_cookie(response, account.id)  # type: ignore[arg-type]
+    return {"impersonating": account.id, "email": account.email, "squad_id": account.squad_id}

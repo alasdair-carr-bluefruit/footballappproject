@@ -166,6 +166,38 @@ def test_request_link_for_unknown_email_is_silent(clients):
     assert "dev_link" not in resp.json()  # no account → no link, but still 200 (no enumeration)
 
 
+# ── Admin support tooling ───────────────────────────────────────────────────────
+def test_admin_can_list_dump_and_impersonate(clients):
+    coach = clients()
+    _redeem(coach, "support@example.com")
+    coach.post("/api/squad/players", json={"name": "Kid", "gk_status": "emergency_only"})
+    match_id = coach.post("/api/matches/",
+                          json={"date": "2026-03-25", "opponent": "Rovers"}).json()["id"]
+
+    admin = clients()
+    hdr = {"X-Admin-Key": ADMIN}
+    accounts = admin.get("/api/admin/accounts", headers=hdr).json()
+    acct = next(a for a in accounts if a["email"] == "support@example.com")
+
+    dump = admin.get(f"/api/admin/accounts/{acct['id']}/dump", headers=hdr).json()
+    assert dump["counts"] == {"players": 1, "matches": 1, "tournaments": 0}
+    assert dump["matches"][0]["id"] == match_id
+
+    # Impersonate: the admin client gets a session cookie for the coach's account.
+    imp = admin.post(f"/api/admin/accounts/{acct['id']}/impersonate", headers=hdr)
+    assert imp.status_code == 200
+    assert admin.get("/api/auth/me").json()["email"] == "support@example.com"
+    # ...and now sees the coach's data through the normal API.
+    assert admin.get(f"/api/matches/{match_id}").status_code == 200
+
+
+def test_admin_account_tooling_is_gated(clients):
+    c = clients()
+    assert c.get("/api/admin/accounts").status_code == 403
+    assert c.get("/api/admin/accounts/1/dump").status_code == 403
+    assert c.post("/api/admin/accounts/1/impersonate").status_code == 403
+
+
 # ── Isolation / IDOR ────────────────────────────────────────────────────────────
 def test_accounts_are_isolated(clients):
     a, b = clients(), clients()
