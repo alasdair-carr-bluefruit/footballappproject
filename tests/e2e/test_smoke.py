@@ -12,22 +12,27 @@ pytestmark = pytest.mark.e2e
 
 
 def advance_to_report(page: Page) -> None:
-    """Play the match through to the last-slot report — Next then reads 'End Match'.
+    """Play through to the final-slot summary — where Next reads 'Confirm ▶'.
 
     Next only BROWSES now; the match progresses via the "Start period" prompt, so
-    at each period boundary we commit the period before moving on. (#report-section
-    is reused by the intermediate sub-changes view, so button text is the
-    unambiguous signal that we're actually on the final report.)
+    at each period boundary we commit the period before moving on. On the final
+    slot Next reads 'End Match' and opens the summary; the summary's Next then
+    reads 'Confirm ▶' (which finalises to Full Time). Callers land here and click
+    Next once more to confirm.
     """
     btn = page.locator("#btn-next")
     for _ in range(40):
-        if "End Match" in (btn.text_content() or ""):
+        txt = btn.text_content() or ""
+        if "Confirm" in txt:            # on the summary screen
             return
+        if "End Match" in txt:          # final slot → open the summary
+            btn.click()
+            continue
         # At the start of the next period? Commit it so the match actually advances.
         if page.locator("#new-period-hint").is_visible():
             page.click("#btn-new-period-reset")
         btn.click()
-    raise AssertionError("never reached the match report after 40 Next clicks")
+    raise AssertionError("never reached the match summary after 40 Next clicks")
 
 
 def test_season_golden_path(seeded_squad, page: Page):
@@ -68,7 +73,7 @@ def test_season_golden_path(seeded_squad, page: Page):
     advance_to_report(page)
 
     # End the match → full-time screen with our team named.
-    page.click("#btn-end-match")
+    page.click("#btn-next")  # summary's "Confirm ▶" -> full time
     expect(page.locator("#screen-fulltime")).to_be_visible()
     expect(page.locator("#ft-home-name")).to_have_text("Testers FC")
 
@@ -107,7 +112,7 @@ def test_tournament_golden_path(seeded_squad, page: Page):
     page.click("#btn-review-start")
     expect(page.locator("#live-badge")).to_be_visible()
     advance_to_report(page)
-    page.click("#btn-end-match")
+    page.click("#btn-next")  # summary's "Confirm ▶" -> full time
     expect(page.locator("#screen-fulltime")).to_be_visible()
 
     # §1d: Done routes back to the tournament lobby, not the season home.
@@ -136,7 +141,7 @@ def test_failed_save_surfaces_retry_toast(seeded_squad, page: Page):
 
     # Make the goals save fail, then end the match.
     page.route("**/api/matches/*/goals", lambda route: route.abort())
-    page.click("#btn-end-match")
+    page.click("#btn-next")  # summary's "Confirm ▶" -> full time
 
     # A toast with a Retry action appears; the flow still completes to full time.
     expect(page.locator(".toast")).to_be_visible()

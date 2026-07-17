@@ -135,6 +135,35 @@ def test_live_controls_visibility(seeded_squad, page: Page, flow):
     expect(page.locator("#start-match-bar")).to_be_hidden()
 
 
+@pytest.mark.parametrize("flow", ["season", "tournament"])
+def test_single_end_affordance_per_screen(seeded_squad, page: Page, flow):
+    """No screen shows two buttons that both end the match. On the final slot Next
+    reads 'End Match' and the live 'end early' bar is hidden; on the summary Next
+    reads 'Confirm ▶' and the bar stays hidden."""
+    _PLAN_REVIEW_NAV[flow](page, seeded_squad)
+    page.click("#btn-start-match-cta")
+
+    # Advance to the final live slot (Next reads "End Match" there).
+    btn = page.locator("#btn-next")
+    for _ in range(40):
+        if "End Match" in (btn.text_content() or ""):
+            break
+        if page.locator("#new-period-hint").is_visible():
+            page.click("#btn-new-period-reset")
+        btn.click()
+    else:
+        raise AssertionError("never reached the final slot")
+
+    # Final slot: single end affordance — Next says "End Match", the bar is hidden.
+    expect(page.locator("#btn-next")).to_have_text("End Match")
+    expect(page.locator("#end-match-bar")).to_be_hidden()
+
+    # Open the summary: Next now says "Confirm ▶" and the bar is still hidden.
+    page.click("#btn-next")
+    expect(page.locator("#btn-next")).to_have_text("Confirm ▶")
+    expect(page.locator("#end-match-bar")).to_be_hidden()
+
+
 # ── Overlays: default-hidden, and hidden while the pitch is up ─────────────────
 
 @pytest.mark.parametrize("flow", ["season", "tournament"])

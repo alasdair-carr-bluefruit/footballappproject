@@ -3,7 +3,7 @@ import { state, refreshShirtNumbers, displayPos } from "./state.js";
 import { loadHome } from "./season.js";
 import { loadTournamentLobby } from "./tournament.js";
 import { showToast, withSaveToast } from "./toast.js";
-import { BRAND, chalkAlpha } from "./brand.js";
+import { BRAND, chalkAlpha, matchdayAlpha } from "./brand.js";
 
 // NOTE on circular imports: pitch.js needs to navigate back into season.js
 // (loadHome) and tournament.js (loadTournamentLobby) after a match ends or
@@ -612,13 +612,16 @@ function render() {
   } else {
     // Live mode (in_progress or completed)
     startMatchBar.hidden = true;
-    endMatchBar.hidden = isCompleted;
+    // "End early" bar shows on live, non-final slots. On the final slot the Next
+    // button itself becomes "End Match", so hide the bar there to avoid two
+    // buttons both labelled "End Match".
+    endMatchBar.hidden = isCompleted || isLastSlot;
     liveBadge.hidden = isCompleted;
     // "Return to plan review" only while the match hasn't progressed past period 1
     document.getElementById("btn-return-plan").hidden = state.liveSlot !== 0 || isCompleted;
     btnPrev.disabled = state.currentSlot === 0 || state.editMode;
     btnNext.disabled = state.editMode || (isCompleted && isLastSlot);
-    btnNext.textContent = isLastSlot ? "Match Report ▶" : "Next ▶";
+    btnNext.textContent = isLastSlot ? "End Match" : "Next ▶";
 
     // Already-played periods are frozen (can't rewrite history); the live period and
     // any future period the coach is previewing stay tinkerable.
@@ -703,16 +706,20 @@ function renderReport() {
   document.getElementById("btn-prev").disabled = false;
   if (state.matchStarted) {
     document.getElementById("btn-next").disabled = false;
-    document.getElementById("btn-next").textContent = "End Match";
+    // The final-slot Next already reads "End Match" and brings the coach to this
+    // summary; the confirm here finalises and opens Full Time.
+    document.getElementById("btn-next").textContent = "Confirm ▶";
   } else {
     document.getElementById("btn-next").disabled = true;
     document.getElementById("btn-next").textContent = "Next ▶";
   }
   document.getElementById("btn-adjust").hidden = true;
   document.getElementById("btn-recalc-following").hidden = true;
-  // End Match bar: visible in live mode on report view
+  // End Match bar: hidden on the report. The report's own "End Match" (btn-next)
+  // is the primary end action here; the bar's button is the live-pitch "end early"
+  // affordance and would otherwise show a second, redundant End Match button.
   const endBar = document.getElementById("end-match-bar");
-  if (endBar) endBar.hidden = !state.matchStarted || state.matchData.match.status === "completed";
+  if (endBar) endBar.hidden = true;
   document.getElementById("start-match-bar").hidden = true;
   document.getElementById("manual-assign-bar").hidden = true;
 }
@@ -1508,13 +1515,20 @@ async function showFulltime() {
   document.getElementById("ft-our-score").textContent = isHome ? ourGoals : oppGoals;
   document.getElementById("ft-their-score").textContent = isHome ? oppGoals : ourGoals;
 
-  // Team logo
-  const logoEl = document.getElementById("ft-home-logo");
-  if (isHome && state.teamInfo.team_logo) {
-    logoEl.innerHTML = `<img src="${state.teamInfo.team_logo}" alt="${ourName}" class="ft-logo-img" />`;
-  } else {
-    logoEl.textContent = isHome ? ourName.slice(0, 2).toUpperCase() : oppName.slice(0, 2).toUpperCase();
-  }
+  // Team logo — our badge sits next to our team's name, whichever side we're on
+  // (home block when home, away block when away). The opponent side shows initials.
+  const homeTeam = isHome ? ourName : oppName;
+  const awayTeam = isHome ? oppName : ourName;
+  const setLogo = (el, ourSide, teamName) => {
+    if (ourSide && state.teamInfo.team_logo) {
+      el.innerHTML = `<img src="${state.teamInfo.team_logo}" alt="${ourName}" class="ft-logo-img" />`;
+    } else {
+      el.innerHTML = "";
+      el.textContent = teamName.slice(0, 2).toUpperCase();
+    }
+  };
+  setLogo(document.getElementById("ft-home-logo"), isHome, homeTeam);
+  setLogo(document.getElementById("ft-away-logo"), !isHome, awayTeam);
 
   // Date + venue
   const date = new Date(match.date + "T12:00:00");
@@ -1565,145 +1579,229 @@ document.getElementById("btn-ft-done").addEventListener("click", async () => {
 });
 
 // ── Share result (canvas image) ───────────────────────────────────────────────
-function buildResultBlob() {
+// Renders a shareable PNG that mirrors the on-screen Full Time card (same dark
+// gradient, Signal-Lime "Full Time" badge + scorer pills, Space Mono scoreline,
+// our badge on our side). Fonts are the page's already-loaded web fonts, so no
+// network fetch happens at share time.
+const _FONT_BODY = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+const _FONT_MONO = "'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+function _loadLogo(src) {
+  if (!src) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function _roundRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, rr); return; }
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+async function buildResultBlob() {
+  // Ensure the web fonts (Space Mono / Inter) are ready so canvas text matches
+  // the Full Time card rather than falling back to a system font.
+  if (document.fonts?.ready) { try { await document.fonts.ready; } catch (_) { /* draw anyway */ } }
+
   const match = state.matchData.match;
   const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0);
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   const isHome = (match.home_away || "home") === "home";
-  const homeTeam = isHome ? (state.teamInfo.team_name || "My Team") : (match.opponent || "Opponent");
-  const awayTeam = isHome ? (match.opponent || "Opponent") : (state.teamInfo.team_name || "My Team");
+  const ourName = state.teamInfo.team_name || "My Team";
+  const oppName = match.opponent || "Opponent";
+  const homeTeam = isHome ? ourName : oppName;
+  const awayTeam = isHome ? oppName : ourName;
   const homeGoals = isHome ? ourGoals : oppGoals;
   const awayGoals = isHome ? oppGoals : ourGoals;
 
   const date = new Date(match.date + "T12:00:00");
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const venue = isHome ? "Home" : "Away";
   const scorers = Object.entries(state.goalCounts).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
 
-  function draw(logoImg) {
-    // Logical dimensions (2× canvas for HiDPI sharpness)
-    const W = 600;
-    const H = 270 + (scorers.length > 0 ? 28 + scorers.length * 40 : 0);
-    const SCALE = 2;
-    const canvas = document.createElement("canvas");
-    canvas.width = W * SCALE;
-    canvas.height = H * SCALE;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(SCALE, SCALE);
+  const logoImg = await _loadLogo(state.teamInfo.team_logo);
 
-    // Background — Pitch Deep
-    ctx.fillStyle = BRAND.pitchDeep;
-    ctx.fillRect(0, 0, W, H);
+  // Layout (logical px, 1:1 with the .ft-card CSS; canvas drawn at 2× for HiDPI).
+  const SCALE = 2;
+  const W = 540;
+  const margin = 24;                 // backdrop around the card
+  const padX = 22, padTop = 28, padBottom = 24;
+  const cardX = margin, cardW = W - margin * 2;
+  const contentX = cardX + padX, contentW = cardW - padX * 2;
+  const centerX = W / 2;
 
-    // Subtle centre-line texture
-    ctx.strokeStyle = "rgba(255,255,255,0.04)";
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+  // Measure the scorer pills up front (needs a ctx) so we can size the canvas.
+  const meas = document.createElement("canvas").getContext("2d");
+  meas.font = "600 13px " + _FONT_BODY;
+  const pillH = 26, pillGapX = 6, pillGapY = 8, pillPadX = 12;
+  const pillItems = scorers.map(([name, n]) => {
+    const label = n > 1 ? `${name} ×${n}` : name;
+    return { label, w: Math.min(meas.measureText(label).width + pillPadX * 2, contentW) };
+  });
+  const pillRows = [];
+  let row = [], rowW = 0;
+  for (const it of pillItems) {
+    const add = (row.length ? pillGapX : 0) + it.w;
+    if (row.length && rowW + add > contentW) { pillRows.push({ items: row, w: rowW }); row = []; rowW = 0; }
+    row.push(it); rowW += (row.length > 1 ? pillGapX : 0) + it.w;
+  }
+  if (row.length) pillRows.push({ items: row, w: rowW });
+  const pillsH = pillRows.length ? pillRows.length * pillH + (pillRows.length - 1) * pillGapY : 0;
 
-    // Top accent bar — Pitch green
-    ctx.fillStyle = BRAND.pitch;
-    ctx.fillRect(0, 0, W, 6);
+  // Section heights and total card height.
+  const badgeH = 22, teamsH = 76, metaH = 18, titleH = 16;
+  const scorersBlock = scorers.length ? 16 + titleH + 10 + pillsH : 0;
+  const cardH = padTop + badgeH + 16 + teamsH + 14 + metaH + scorersBlock + padBottom;
+  const H = cardH + margin * 2;
 
-    // "FULL TIME" amber pill
-    ctx.font = "bold 13px system-ui, sans-serif";
-    const pillPad = 20;
-    const pillTW = ctx.measureText("FULL TIME").width;
-    const pillW = pillTW + pillPad * 2;
-    const pillH = 30;
-    const pillX = W / 2 - pillW / 2;
-    const pillY = 22;
-    ctx.fillStyle = BRAND.amber;
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(pillX, pillY, pillW, pillH, 15);
-    } else {
-      ctx.rect(pillX, pillY, pillW, pillH);
-    }
-    ctx.fill();
-    ctx.fillStyle = BRAND.slate;
-    ctx.textAlign = "center";
-    ctx.fillText("FULL TIME", W / 2, pillY + 20);
+  const canvas = document.createElement("canvas");
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
 
-    // Date
-    ctx.fillStyle = chalkAlpha(0.4);
-    ctx.font = "14px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(dateStr, W / 2, 76);
+  // Backdrop (page bg) + card (gradient, rounded, soft shadow).
+  ctx.fillStyle = BRAND.pitchDeep;
+  ctx.fillRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(cardX, margin, cardX + cardW, margin + cardH);
+  grad.addColorStop(0, BRAND.pitchDeep);
+  grad.addColorStop(1, BRAND.pitch);
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = 32;
+  ctx.shadowOffsetY = 8;
+  ctx.fillStyle = grad;
+  _roundRect(ctx, cardX, margin, cardW, cardH, 18);
+  ctx.fill();
+  ctx.restore();
 
-    // Divider
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(40, 92); ctx.lineTo(W - 40, 92); ctx.stroke();
+  const trunc = (text, font, maxW) => {
+    ctx.font = font;
+    if (ctx.measureText(text).width <= maxW) return text;
+    while (text.length > 1 && ctx.measureText(text + "…").width > maxW) text = text.slice(0, -1);
+    return text + "…";
+  };
 
-    // Helper: truncate to maxWidth
-    function trunc(text, maxW) {
-      if (ctx.measureText(text).width <= maxW) return text;
-      while (text.length > 1 && ctx.measureText(text + "…").width > maxW) text = text.slice(0, -1);
-      return text + "…";
-    }
+  let y = margin + padTop;
 
-    // Logo badge (circular clip, top-left of home team name area)
-    const logoSize = 36;
-    const logoX = 40;
-    const logoY = 104;
-    if (logoImg) {
+  // "FULL TIME" badge — Signal-Lime text on a translucent lime pill.
+  ctx.font = "700 11px " + _FONT_BODY;
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "1.3px";
+  const badgeLabel = "FULL TIME";
+  const badgeTW = ctx.measureText(badgeLabel).width;
+  const badgeW = badgeTW + 24, badgeYH = 22;
+  ctx.fillStyle = matchdayAlpha(0.15);
+  _roundRect(ctx, centerX - badgeW / 2, y, badgeW, badgeYH, 11);
+  ctx.fill();
+  ctx.fillStyle = BRAND.matchday;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(badgeLabel, centerX, y + badgeYH / 2 + 0.5);
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+  y += badgeH + 16;
+
+  // Teams row: [logo+name] [score] [logo+name], vertically centred.
+  const rowTop = y;
+  const logoR = 24;
+  const logoCY = rowTop + logoR;
+  const nameCY = rowTop + logoR * 2 + 8 + 8;
+  const scoreCY = rowTop + teamsH / 2 - 6;
+  const sideW = contentW * 0.34;
+  const leftCX = contentX + sideW / 2;
+  const rightCX = contentX + contentW - sideW / 2;
+
+  const drawTeam = (cx, ourSide, teamName) => {
+    if (ourSide && logoImg) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+      ctx.arc(cx, logoCY, logoR, 0, Math.PI * 2);
       ctx.clip();
-      ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+      ctx.drawImage(logoImg, cx - logoR, logoCY - logoR, logoR * 2, logoR * 2);
       ctx.restore();
-    }
-
-    // Team names — offset right if logo present
-    const nameOffsetX = logoImg ? logoX + logoSize + 8 : logoX;
-    const nameMax = W / 2 - nameOffsetX - 10;
-    ctx.font = "bold 21px system-ui, sans-serif";
-    ctx.fillStyle = chalkAlpha(0.9);
-    ctx.textAlign = "left";
-    ctx.fillText(trunc(homeTeam, nameMax), nameOffsetX, 128);
-    ctx.textAlign = "right";
-    ctx.fillText(trunc(awayTeam, W / 2 - 60), W - 40, 128);
-
-    // Score — large, centered
-    ctx.fillStyle = BRAND.chalk;
-    ctx.font = "bold 72px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(`${homeGoals} – ${awayGoals}`, W / 2, 210);
-
-    // Scorers section
-    if (scorers.length > 0) {
-      ctx.strokeStyle = "rgba(255,255,255,0.08)";
-      ctx.beginPath(); ctx.moveTo(40, 228); ctx.lineTo(W - 40, 228); ctx.stroke();
-
-      ctx.fillStyle = chalkAlpha(0.6);
-      ctx.font = "17px system-ui, sans-serif";
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.1)";
+      ctx.beginPath();
+      ctx.arc(cx, logoCY, logoR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = BRAND.chalk;
+      ctx.font = "700 13px " + _FONT_BODY;
       ctx.textAlign = "center";
-      let y = 258;
-      scorers.forEach(([pName, n]) => {
-        ctx.fillText(`${pName}${n > 1 ? `  \xD7${n}` : ""}`, W / 2, y);
-        y += 40;
-      });
+      ctx.textBaseline = "middle";
+      ctx.fillText(teamName.slice(0, 2).toUpperCase(), cx, logoCY);
     }
-
-    // Level wordmark watermark
-    ctx.fillStyle = chalkAlpha(0.2);
-    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillStyle = BRAND.chalk;
     ctx.textAlign = "center";
-    ctx.fillText("Level", W / 2, H - 12);
+    ctx.textBaseline = "middle";
+    ctx.fillText(trunc(teamName, "600 13px " + _FONT_BODY, sideW), cx, nameCY);
+  };
 
-    return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  drawTeam(leftCX, isHome, homeTeam);
+  drawTeam(rightCX, !isHome, awayTeam);
+
+  // Scoreline — Space Mono, big numbers + a lighter separator.
+  const numFont = "700 46px " + _FONT_MONO;
+  const sepFont = "400 34px " + _FONT_MONO;
+  ctx.font = numFont;
+  const hw = ctx.measureText(String(homeGoals)).width;
+  const aw = ctx.measureText(String(awayGoals)).width;
+  ctx.font = sepFont;
+  const sw = ctx.measureText("–").width;
+  const g = 10;
+  let sx = centerX - (hw + g + sw + g + aw) / 2;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.font = numFont; ctx.fillStyle = BRAND.chalk; ctx.fillText(String(homeGoals), sx, scoreCY); sx += hw + g;
+  ctx.font = sepFont; ctx.fillStyle = chalkAlpha(0.4); ctx.fillText("–", sx, scoreCY); sx += sw + g;
+  ctx.font = numFont; ctx.fillStyle = BRAND.chalk; ctx.fillText(String(awayGoals), sx, scoreCY);
+
+  y = rowTop + teamsH + 14;
+
+  // Meta — date · venue.
+  ctx.font = "400 12px " + _FONT_BODY;
+  ctx.fillStyle = chalkAlpha(0.55);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`${dateStr}  ·  ${venue}`, centerX, y + metaH / 2);
+  y += metaH;
+
+  // Scorers — dim title + Signal-Lime pills, wrapped and centred.
+  if (scorers.length) {
+    y += 16;
+    ctx.font = "600 12px " + _FONT_BODY;
+    ctx.fillStyle = chalkAlpha(0.55);
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0.6px";
+    ctx.fillText("⚽ GOAL SCORERS", centerX, y + titleH / 2);
+    if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    y += titleH + 10;
+
+    ctx.font = "600 13px " + _FONT_BODY;
+    for (const r of pillRows) {
+      let px = centerX - r.w / 2;
+      for (const it of r.items) {
+        ctx.fillStyle = matchdayAlpha(0.15);
+        _roundRect(ctx, px, y, it.w, pillH, pillH / 2);
+        ctx.fill();
+        ctx.fillStyle = BRAND.matchday;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(it.label, px + it.w / 2, y + pillH / 2 + 0.5);
+        px += it.w + pillGapX;
+      }
+      y += pillH + pillGapY;
+    }
   }
 
-  // Load team logo if available, then draw
-  if (state.teamInfo.team_logo) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => draw(img).then(resolve);
-      img.onerror = () => draw(null).then(resolve);
-      img.src = state.teamInfo.team_logo;
-    });
-  }
-  return draw(null);
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
 function downloadBlob(blob, filename) {
@@ -1716,6 +1814,7 @@ function downloadBlob(blob, filename) {
 
 document.getElementById("btn-ft-share").addEventListener("click", async () => {
   const blob = await buildResultBlob();
+  if (!blob) { showToast("Couldn't build the result image."); return; }
   const match = state.matchData.match;
   const isHome = (match.home_away || "home") === "home";
   const home = isHome ? (state.teamInfo.team_name || "My Team") : (match.opponent || "Opponent");
@@ -1724,19 +1823,26 @@ document.getElementById("btn-ft-share").addEventListener("click", async () => {
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   const hg = isHome ? ourGoals : oppGoals;
   const ag = isHome ? oppGoals : ourGoals;
-  const file = new File([blob], "result.png", { type: "image/png" });
+  const filename = `FT-${match.date}.png`;
+  const file = new File([blob], filename, { type: "image/png" });
   const title = `FT: ${home} ${hg}–${ag} ${away}`;
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title }).catch(() => {});
-  } else if (navigator.share) {
-    await navigator.share({ title, text: `FULL TIME\n${home} ${hg}–${ag} ${away}` }).catch(() => {});
+  // Prefer the native share sheet WITH the image. If files can't be shared
+  // (most desktop browsers), fall back to a download so the image is always
+  // delivered — the old text-only share path silently dropped the picture.
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title });
+    } catch (e) {
+      if (e.name !== "AbortError") downloadBlob(blob, filename);
+    }
   } else {
-    downloadBlob(blob, `FT-${match.date}.png`);
+    downloadBlob(blob, filename);
   }
 });
 
 document.getElementById("btn-ft-save").addEventListener("click", async () => {
   const blob = await buildResultBlob();
+  if (!blob) { showToast("Couldn't build the result image."); return; }
   downloadBlob(blob, `FT-${state.matchData.match.date}.png`);
 });
 

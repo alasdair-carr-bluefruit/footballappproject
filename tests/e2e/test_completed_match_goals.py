@@ -48,16 +48,22 @@ def test_completed_match_goals_restore_and_are_guarded(seeded_squad, page: Page)
     _long_press(page, page.locator("#pitch .player-circle").first)
     expect(page.locator("#pitch .player-circle").first.locator(".goal-badge")).to_contain_text("1")
 
-    # Play to the report and end the match → goals persist, status=completed.
+    # Play to the summary and end the match → goals persist, status=completed.
     # Next only browses now, so commit each period at its boundary to progress.
+    # Final slot: Next reads "End Match" (opens summary); summary: Next reads
+    # "Confirm ▶" (finalises to Full Time).
     btn = page.locator("#btn-next")
     for _ in range(40):
-        if "End Match" in (btn.text_content() or ""):
+        txt = btn.text_content() or ""
+        if "Confirm" in txt:
             break
+        if "End Match" in txt:
+            btn.click()
+            continue
         if page.locator("#new-period-hint").is_visible():
             page.click("#btn-new-period-reset")
         btn.click()
-    page.click("#btn-end-match")
+    page.click("#btn-next")  # summary's "Confirm ▶" -> full time
     expect(page.locator("#screen-fulltime")).to_be_visible()
     page.click("#btn-ft-done")
     expect(page.locator("#screen-home")).to_be_visible()

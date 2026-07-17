@@ -1,17 +1,18 @@
 // Shared brand colours for <canvas> rendering.
 //
 // CSS custom properties (:root in style.css) can't be read from a canvas 2D
-// context, so the share-card in pitch.js used to hardcode ~9 brand hexes,
-// duplicating the CSS token values. This module is the single JS-side source
-// of those values — keep it in sync with the matching :root tokens in
-// style.css. Phase 3 will have both sides read from tokens.json.
+// context, so the share-card in pitch.js renders with these JS-side copies.
+// Keep them in sync with the matching :root tokens in style.css — the share
+// card is meant to mirror the on-screen Full Time card exactly.
 export const BRAND = {
-  pitchDeep: "#0E3A29", // --pitch-deep : share-card background
-  pitch:     "#1A5C42", // --pitch      : top accent bar
-  amber:     "#F5B544", // --amber      : "FULL TIME" pill
-  slate:     "#1A1F1C", // --slate      : text on the amber pill
-  chalk:     "#F2F4EE", // --chalk      : scoreline
+  pitchDeep: "#0B1210", // --pitch-deep : page bg + top of the card gradient
+  pitch:     "#0A2619", // --pitch      : bottom of the card gradient
+  matchday:  "#A4CC46", // --matchday   : Signal Lime — badge + scorer pills
+  amber:     "#F5B544", // --amber
+  slate:     "#1A1F1C", // --slate
+  chalk:     "#F2F4EE", // --chalk      : primary text / scoreline
 };
 
-// Chalk (off-white) at an arbitrary opacity — for canvas text tints.
+// Token colours at an arbitrary opacity — for canvas fills/tints.
 export const chalkAlpha = (a) => `rgba(242, 244, 238, ${a})`;
+export const matchdayAlpha = (a) => `rgba(164, 204, 70, ${a})`;
