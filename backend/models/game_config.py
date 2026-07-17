@@ -6,7 +6,7 @@ that the algorithm pipeline consumes.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 _DEF_KEYS: dict[int, list[str]] = {
@@ -205,6 +205,43 @@ def build_tournament_config(
         periods=periods,
         period_length_mins=period_length_mins,
         mid_period_subs=mid_period_subs,
+        break_subs=break_subs,
+        period_label=period_label,
+    )
+
+
+def season_config(
+    team_size: int, formation: str, quarters: int, quarter_length_mins: float,
+) -> GameConfig:
+    """Build a GameConfig for a season match, honouring the stored period structure.
+
+    The single source of truth for a season match's period count: both rotation
+    *generation* (via ``match_db_to_domain``) and the API *response* metadata
+    (via ``build_match_config``) resolve through here, so ``total_slots`` and
+    ``period_label`` never disagree. ``quarters`` is the coach's chosen period
+    count (2 = halves, 4 = quarters), which may differ from the size's preset.
+    """
+    try:
+        preset = get_config(team_size, formation)
+    except KeyError:
+        preset = None
+
+    if preset and quarters == preset.periods:
+        # Preset period count — reuse it, but reflect the coach's chosen length.
+        if quarter_length_mins == preset.period_length_mins:
+            return preset
+        return replace(preset, period_length_mins=quarter_length_mins)
+
+    # Build a custom config with the user's chosen period count
+    period_label = "Half" if quarters == 2 else "Quarter"
+    break_subs = None if quarters == 2 else (preset.break_subs if preset else 5)
+    mid_subs = preset.mid_period_subs if preset else 2
+    return GameConfig(
+        team_size=team_size,
+        formation=Formation.parse(formation),
+        periods=quarters,
+        period_length_mins=quarter_length_mins,
+        mid_period_subs=mid_subs,
         break_subs=break_subs,
         period_label=period_label,
     )

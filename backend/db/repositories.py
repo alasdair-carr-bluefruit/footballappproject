@@ -18,7 +18,7 @@ from backend.db.models import (
     SquadDB,
     TournamentDB,
 )
-from backend.models.game_config import build_tournament_config, get_config
+from backend.models.game_config import build_tournament_config, season_config
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier, Player
 from backend.models.rotation import RotationPlan
@@ -60,9 +60,14 @@ def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squa
         except (ValueError, KeyError):
             config = None
     else:
+        # Honour the coach's chosen period count (halves vs quarters) — the same
+        # source of truth the API response uses, so generation and metadata agree
+        # on total_slots / period_label.
         try:
-            config = get_config(m.team_size, m.formation)
-        except KeyError:
+            config = season_config(
+                m.team_size, m.formation, m.quarters, m.quarter_length_mins
+            )
+        except (KeyError, ValueError):
             config = None
     match = Match(
         date=date_type.fromisoformat(m.date),

@@ -9,8 +9,6 @@ reconstructing a single match's rotation.
 """
 from __future__ import annotations
 
-from dataclasses import replace
-
 from sqlmodel import Session
 
 from backend.algorithm.rotation_engine import adjust_rotation, generate_rotation
@@ -24,45 +22,20 @@ from backend.db.repositories import (
     set_available_ids,
 )
 from backend.models.game_config import (
-    Formation,
     GameConfig,
     build_tournament_config,
-    get_config,
+    season_config,
 )
 from backend.models.match import Match, Squad
 from backend.models.rotation import Position, RotationPlan, SlotAssignment
 
 
 # ── Game config ────────────────────────────────────────────────────────────────
-
-def season_config(
-    team_size: int, formation: str, quarters: int, quarter_length_mins: float,
-) -> GameConfig:
-    """Build a GameConfig for a season match, honouring the stored period structure."""
-    try:
-        preset = get_config(team_size, formation)
-    except KeyError:
-        preset = None
-
-    if preset and quarters == preset.periods:
-        # Preset period count — reuse it, but reflect the coach's chosen length.
-        if quarter_length_mins == preset.period_length_mins:
-            return preset
-        return replace(preset, period_length_mins=quarter_length_mins)
-
-    # Build a custom config with the user's chosen period count
-    period_label = "Half" if quarters == 2 else "Quarter"
-    break_subs = None if quarters == 2 else (preset.break_subs if preset else 5)
-    mid_subs = preset.mid_period_subs if preset else 2
-    return GameConfig(
-        team_size=team_size,
-        formation=Formation.parse(formation),
-        periods=quarters,
-        period_length_mins=quarter_length_mins,
-        mid_period_subs=mid_subs,
-        break_subs=break_subs,
-        period_label=period_label,
-    )
+#
+# ``season_config`` / ``build_tournament_config`` live in ``models.game_config`` so
+# both this service and ``db.repositories.match_db_to_domain`` resolve a match's
+# period structure through the same code (the generation path and the response
+# path must never disagree on ``total_slots``/``period_label``).
 
 
 def build_match_config(m: MatchDB) -> GameConfig:

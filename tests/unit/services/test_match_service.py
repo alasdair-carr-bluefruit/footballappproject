@@ -7,6 +7,7 @@ reconstruct_plan, adjust_and_save) stay covered by the integration suite.
 from __future__ import annotations
 
 from backend.db.models import MatchDB
+from backend.db.repositories import match_db_to_domain
 from backend.services import match_service
 
 
@@ -59,3 +60,35 @@ class TestBuildMatchConfig:
         cfg = match_service.build_match_config(m)
         assert cfg.periods == 2
         assert cfg.period_label == "Half"
+
+
+class TestConfigPathsAgree:
+    """Regression: the *generation* config (``match_db_to_domain``) must match the
+    *metadata* config (``build_match_config``) on period count. They used to
+    diverge — generation ignored the coach's chosen periods and used the size's
+    preset, so a 7v7 with "2 Halves" generated 8 slots but was labelled "Half"
+    (and showed "Start Half 2" mid-way through the plan)."""
+
+    def _match(self, **kw) -> MatchDB:
+        base = dict(squad_id=1, date="2026-03-25", team_size=7, formation="2-3-1",
+                    quarters=4, quarter_length_mins=12.5)
+        base.update(kw)
+        return MatchDB(**base)
+
+    def test_halves_on_quarters_preset_generates_four_slots(self):
+        # 7v7's preset is 4 quarters; the coach picked 2 halves.
+        m = self._match(quarters=2, quarter_length_mins=30)
+        gen_cfg, _ = match_db_to_domain(m, [])
+        meta_cfg = match_service.build_match_config(m)
+        assert gen_cfg.game_config.total_slots == 4
+        assert gen_cfg.game_config.total_slots == meta_cfg.total_slots
+        assert gen_cfg.game_config.period_label == meta_cfg.period_label == "Half"
+
+    def test_quarters_on_halves_preset_generates_eight_slots(self):
+        # 9v9's preset is 2 halves; the coach picked 4 quarters.
+        m = self._match(team_size=9, formation="3-3-2", quarters=4, quarter_length_mins=10)
+        gen_cfg, _ = match_db_to_domain(m, [])
+        meta_cfg = match_service.build_match_config(m)
+        assert gen_cfg.game_config.total_slots == 8
+        assert gen_cfg.game_config.total_slots == meta_cfg.total_slots
+        assert gen_cfg.game_config.period_label == meta_cfg.period_label == "Quarter"
