@@ -62,6 +62,7 @@ class MatchDB(SQLModel, table=True):
     rotation_intensity: int = 50  # 0 = specialist, 100 = all-rounder
     home_away: str = "home"  # "home" or "away"
     opponent_goals: int = 0
+    hide_score: int = 0  # 0=show scoreline, 1=mask as "X - X" (FA sub-U12 guidance)
     status: str = "planned"  # "planned" | "in_progress" | "completed"
     current_slot: int = 0  # furthest slot reached during live match
     tournament_id: int | None = None  # if set, this match belongs to a tournament

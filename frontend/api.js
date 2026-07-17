@@ -37,7 +37,7 @@ export const api = {
   removePlayer:      (id, playerId, fromSlot) => request(`/matches/${id}/remove-player`, { method: "POST", body: { player_id: playerId, from_slot: fromSlot } }),
   reinstatePlayer:   (id, playerId) => request(`/matches/${id}/reinstate-player`, { method: "POST", body: { player_id: playerId } }),
   deleteMatch:       (id) => request(`/matches/${id}`,          { method: "DELETE" }),
-  saveGoals:         (id, goals, opponentGoals) => request(`/matches/${id}/goals`, { method: "POST", body: { goals, opponent_goals: opponentGoals || 0 } }),
+  saveGoals:         (id, goals, opponentGoals, hideScore) => request(`/matches/${id}/goals`, { method: "POST", body: { goals, opponent_goals: opponentGoals || 0, ...(hideScore == null ? {} : { hide_score: hideScore ? 1 : 0 }) } }),
   getSeasonStats:    ()   => request("/matches/stats/season"),
   getPlayerHistory:  (id) => request(`/matches/stats/player/${id}`),
 

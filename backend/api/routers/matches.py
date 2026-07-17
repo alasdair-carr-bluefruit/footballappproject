@@ -61,6 +61,7 @@ class MatchRead(BaseModel):
     rotation_intensity: int
     home_away: str = "home"
     opponent_goals: int = 0
+    hide_score: int = 0
     status: str = "planned"
     current_slot: int = 0
     our_goals: int = 0  # sum of all player goals (for match list display)
@@ -82,6 +83,7 @@ def _match_read(m: MatchDB, has_rotation: bool, our_goals: int = 0) -> MatchRead
         rotation_intensity=m.rotation_intensity,
         home_away=m.home_away,
         opponent_goals=m.opponent_goals,
+        hide_score=m.hide_score,
         status=m.status,
         current_slot=m.current_slot,
         our_goals=our_goals,
@@ -106,6 +108,7 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "period_label": period_label,
             "home_away": m.home_away,
             "opponent_goals": m.opponent_goals,
+            "hide_score": m.hide_score,
             "status": m.status,
             "current_slot": m.current_slot,
             "show_timer": m.show_timer,
@@ -376,6 +379,7 @@ def adjust_match_rotation(
 class GoalsSave(BaseModel):
     goals: dict[str, int]  # {player_name: goal_count}
     opponent_goals: int = 0
+    hide_score: int | None = None  # None = leave unchanged; 0/1 = set FA score-mask flag
 
 
 @router.post("/{match_id}/goals")
@@ -401,6 +405,8 @@ def save_match_goals(
 
     # Save opponent goals on the match
     db_match.opponent_goals = body.opponent_goals
+    if body.hide_score is not None:
+        db_match.hide_score = 1 if body.hide_score else 0
     session.add(db_match)
     session.commit()
     return {"status": "saved"}

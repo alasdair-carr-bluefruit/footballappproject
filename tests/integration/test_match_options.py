@@ -83,3 +83,30 @@ def test_export_minutes_reflect_period_length(client: TestClient) -> None:
     for r in played:
         # 12.5-min quarters → one slot = 6.25 min; minutes column rounds the sum.
         assert r[3] == round(r[2] * 6.25)
+
+
+def test_goals_save_persists_hide_score(client: TestClient) -> None:
+    """The FA sub-U12 'hide score' flag round-trips via the goals save + reads."""
+    _seed(client)
+    mid = client.post("/api/matches/", json={"date": "2026-03-25", "opponent": "Rovers"}).json()["id"]
+    assert client.post(f"/api/matches/{mid}/rotation").status_code == 200
+
+    # Defaults off on both the get-match payload and the list read.
+    assert client.get(f"/api/matches/{mid}").json()["match"]["hide_score"] == 0
+    listed = next(m for m in client.get("/api/matches/").json() if m["id"] == mid)
+    assert listed["hide_score"] == 0
+
+    # Saving goals with hide_score=1 sets and persists it.
+    r = client.post(f"/api/matches/{mid}/goals", json={"goals": {}, "opponent_goals": 2, "hide_score": 1})
+    assert r.status_code == 200
+    assert client.get(f"/api/matches/{mid}").json()["match"]["hide_score"] == 1
+    listed = next(m for m in client.get("/api/matches/").json() if m["id"] == mid)
+    assert listed["hide_score"] == 1
+
+    # Omitting hide_score leaves the stored flag unchanged (None = no-op).
+    client.post(f"/api/matches/{mid}/goals", json={"goals": {}, "opponent_goals": 3})
+    assert client.get(f"/api/matches/{mid}").json()["match"]["hide_score"] == 1
+
+    # Explicit 0 clears it again.
+    client.post(f"/api/matches/{mid}/goals", json={"goals": {}, "opponent_goals": 3, "hide_score": 0})
+    assert client.get(f"/api/matches/{mid}").json()["match"]["hide_score"] == 0

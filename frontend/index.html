@@ -606,6 +606,7 @@
             <span class="slot-skill" id="slot-skill" hidden></span>
             <button class="jump-live-btn" id="btn-jump-live" hidden>● Back to live</button>
             <button class="jump-live-btn btn-review-plan" id="btn-review-plan" hidden>◀ Plan</button>
+            <button class="jump-live-btn btn-review-plan" id="btn-fulltime-pill" hidden>◀ Full Time</button>
           </div>
         </div>
         <div class="match-timer" id="match-timer" hidden>
@@ -776,6 +777,8 @@
           </div>
         </div>
 
+        <div class="ft-hidden-note" id="ft-hidden-note" hidden>Score hidden · FA guidelines</div>
+
         <div class="ft-meta" id="ft-meta"></div>
 
         <div class="ft-scorers-section" id="ft-scorers-section" hidden>
@@ -791,9 +794,18 @@
         </label>
       </div>
 
+      <label class="switch-row ft-hide-row">
+        <span>Hide score <small>(FA guidance for U11 and below)</small></span>
+        <span class="switch">
+          <input type="checkbox" id="ft-hide-score" />
+          <span class="switch-slider"></span>
+        </span>
+      </label>
+
       <div class="ft-actions">
         <button class="btn btn-primary btn-full" id="btn-ft-share">Share Result</button>
         <button class="btn btn-secondary btn-full" id="btn-ft-save">Save Image</button>
+        <button class="btn btn-secondary btn-full" id="btn-ft-pitch">View on pitch</button>
         <button class="btn btn-secondary btn-full" id="btn-ft-done">Done</button>
       </div>
     </div>

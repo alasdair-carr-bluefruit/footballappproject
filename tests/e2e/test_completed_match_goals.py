@@ -68,10 +68,14 @@ def test_completed_match_goals_restore_and_are_guarded(seeded_squad, page: Page)
     page.click("#btn-ft-done")
     expect(page.locator("#screen-home")).to_be_visible()
 
-    # Reopen the (now completed) match by its unique opponent name.
+    # Reopen the (now completed) match by its unique opponent name — a finished
+    # match now lands on its Full Time result card (shareable summary), from which
+    # "View on pitch" browses the slots.
     page.locator("#match-list .match-item", has_text=OPPONENT).first.locator(
         ".match-item-main"
     ).click()
+    expect(page.locator("#screen-fulltime")).to_be_visible()
+    page.click("#btn-ft-pitch")
     expect(page.locator("#screen-pitch")).to_be_visible()
     _rewind_to_slot_0(page)
 

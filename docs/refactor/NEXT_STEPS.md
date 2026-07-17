@@ -324,6 +324,24 @@ auto-track main.)
   label reads "per half"/"per quarter" correctly; and the redundant **match-list
   CSV export** on the season landing page was **removed**. Tests in
   `test_match_options.py` (integration + e2e). SW cache v9→v10.
+- **Finished-match review + hide-score (local, not pushed).** Closes the
+  [[project_finished_match_review]] TODO. Reopening a **completed** match now
+  lands on its **Full Time result card** (the shareable summary) instead of the
+  live pitch — `openMatch` routes `completed → enterFulltimeView`; a **"View on
+  pitch"** button browses the slots and a **"◀ Full Time"** pill returns.
+  Also fixes the inconsistent-Prev bug: a finished match now starts browsing from
+  slot 0 (`loadMatchData` no longer anchors `currentSlot` to the frozen
+  `current_slot` for completed matches), so Prev/Next always walk the whole match.
+  New **"Hide score"** slider on the Full Time card (FA sub-U12 guidance): masks
+  the scoreline to `X – X` + a "Score hidden · FA guidelines" caption (scorers
+  stay), mirrored in the Share-image PNG (`buildResultBlob`); persisted per match
+  via a `hide_score` int column (Alembic `c3f8b1a2e5d4`, guarded add-column),
+  saved through the `/goals` endpoint (`GoalsSave.hide_score`, None = no-op).
+  Parity: both flows share the FT card + `openMatch`; e2e
+  `tests/e2e/test_fulltime_reopen.py` parametrizes `["season","tournament"]`
+  (reopen→FT, View-on-pitch from slot 0, hide-score mask+persist); the completed-
+  goals e2e was re-pointed through the FT-card landing. Integration
+  `test_goals_save_persists_hide_score`. SW cache v30→v31. **269 non-e2e + 47 e2e green.**
 - **Future — "End a season" archive:** owner wants a way to archive all
   matches+tournaments (retrievable but hidden) for a clean new season. Captured in
   [[project_end_season_archive]]; not built.

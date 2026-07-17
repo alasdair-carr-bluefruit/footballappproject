@@ -598,6 +598,10 @@ function render() {
   // plan on the pitch (hidden during tinkering and once the match is live).
   document.getElementById("btn-review-plan").hidden = state.matchStarted || state.editMode;
 
+  // "◀ Full Time" pill: on a finished match the coach browses the slots on the
+  // pitch; this returns them to the shareable Full Time card.
+  document.getElementById("btn-fulltime-pill").hidden = !isCompleted;
+
   if (!state.matchStarted) {
     // Review mode: coach browses the plan before starting
     startMatchBar.hidden = state.editMode;
@@ -676,6 +680,7 @@ function render() {
 function renderReport() {
   document.getElementById("btn-jump-live").hidden = true;
   document.getElementById("btn-review-plan").hidden = true;
+  document.getElementById("btn-fulltime-pill").hidden = true;
 
   const match = state.matchData.match;
   const date = new Date(match.date + "T12:00:00");
@@ -749,14 +754,20 @@ function loadMatchData(data) {
   Object.keys(state.goalCounts).forEach(k => delete state.goalCounts[k]);
   Object.assign(state.goalCounts, data.goals || {});
   state.reportEditUnlocked = false;
+  // FA sub-U12 scoreline masking — persisted per match, drives the Full Time card
+  // + share image (see showFulltime / buildResultBlob).
+  state.hideScore = !!(data.match?.hide_score);
 
   // Determine match state
   const status = data.match?.status || "planned";
   state.matchStarted = status !== "planned";
   // liveSlot = the period in play (persisted as current_slot); currentSlot is the
-  // viewed slot, which starts on the live one but is then free to browse.
+  // viewed slot, which starts on the live one but is then free to browse. A
+  // completed match has no live period, so browsing starts from the first slot
+  // (not wherever current_slot was frozen at End Match) so Prev/Next always walk
+  // the whole match reliably.
   state.liveSlot = data.match?.current_slot || 0;
-  state.currentSlot = state.matchStarted ? state.liveSlot : 0;
+  state.currentSlot = (state.matchStarted && status !== "completed") ? state.liveSlot : 0;
   return status;
 }
 
@@ -802,6 +813,15 @@ function enterReviewView(data) {
   state.reviewMode = "single";
   showScreen("screen-review");
   renderReview();
+}
+
+// Landing for a reopened FINISHED match: the Full Time result card. loadMatchData
+// restores the stored goals + hide_score flag; showFulltime renders the scoreline,
+// scorers and share/export actions. "View on pitch" then browses the slots.
+function enterFulltimeView(data) {
+  loadMatchData(data);
+  stopTimerTicker();
+  showFulltime();
 }
 
 function renderReview() {
@@ -884,10 +904,15 @@ async function openMatch(matchId, backContext = "season") {
     if (!data) return;
   }
 
-  // A not-yet-started plan lands on the review screen; an in-progress/completed
-  // match goes straight to the pitch (live controls / report).
-  if ((data.match?.status || "planned") === "planned") {
+  // A not-yet-started plan lands on the review screen; an in-progress match goes
+  // to the live pitch; a finished match lands on its Full Time result card (the
+  // shareable summary — coaches reopen finished matches mainly to share the
+  // result), with "View on pitch" to browse the slots.
+  const status = data.match?.status || "planned";
+  if (status === "planned") {
     enterReviewView(data);
+  } else if (status === "completed") {
+    enterFulltimeView(data);
   } else {
     enterPitchView(data);
   }
@@ -934,6 +959,11 @@ document.getElementById("btn-review-back").addEventListener("click", () => {
 // "◀ Plan" pill on the pitch — jump back to the review grid (pre-start only).
 document.getElementById("btn-review-plan").addEventListener("click", () => {
   enterReviewView(state.matchData);
+});
+
+// "◀ Full Time" pill on the pitch — back to the finished match's result card.
+document.getElementById("btn-fulltime-pill").addEventListener("click", () => {
+  showFulltime();
 });
 
 // ── Pitch controls ────────────────────────────────────────────────────────────
@@ -1029,7 +1059,7 @@ async function doEndMatch() {
   // Save goals and mark match completed, then show Full Time screen
   if (state.matchData?.match.id) {
     const oppGoals = state.matchData.match.opponent_goals || 0;
-    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals));
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore));
     await withSaveToast(() => api.updateProgress(state.matchData.match.id, state.currentSlot, "completed"));
     state.matchData.match.status = "completed";
   }
@@ -1500,6 +1530,20 @@ document.getElementById("btn-pitch-back").addEventListener("click", async () => 
 });
 
 // ── Full time screen ───────────────────────────────────────────────────────────
+// Paint the Full Time scoreline from the current goal tallies, honouring the
+// FA "hide score" toggle: when on, both numbers show "X" (→ "X – X") and an
+// explanatory caption appears; the scorer list is unaffected. Reads opponent
+// goals live from the input so it stays in sync as the coach edits.
+function renderFulltimeScoreline() {
+  const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0);
+  const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
+  const isHome = (state.matchData?.match.home_away || "home") === "home";
+  const hidden = !!state.hideScore;
+  document.getElementById("ft-our-score").textContent = hidden ? "X" : (isHome ? ourGoals : oppGoals);
+  document.getElementById("ft-their-score").textContent = hidden ? "X" : (isHome ? oppGoals : ourGoals);
+  document.getElementById("ft-hidden-note").hidden = !hidden;
+}
+
 async function showFulltime() {
   const match = state.matchData.match;
   const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0);
@@ -1512,8 +1556,9 @@ async function showFulltime() {
   // Populate team blocks depending on home/away
   document.getElementById("ft-home-name").textContent = isHome ? ourName : oppName;
   document.getElementById("ft-away-name").textContent = isHome ? oppName : ourName;
-  document.getElementById("ft-our-score").textContent = isHome ? ourGoals : oppGoals;
-  document.getElementById("ft-their-score").textContent = isHome ? oppGoals : ourGoals;
+  document.getElementById("ft-opp-input").value = oppGoals;
+  document.getElementById("ft-hide-score").checked = !!state.hideScore;
+  renderFulltimeScoreline();
 
   // Team logo — our badge sits next to our team's name, whichever side we're on
   // (home block when home, away block when away). The opponent side shows initials.
@@ -1536,9 +1581,6 @@ async function showFulltime() {
   const venue = isHome ? "Home" : "Away";
   document.getElementById("ft-meta").textContent = `${dateStr}  ·  ${venue}`;
 
-  // Opponent goals input
-  document.getElementById("ft-opp-input").value = oppGoals;
-
   // Goal scorers
   const scorers = Object.entries(state.goalCounts).filter(([, n]) => n > 0);
   const scorersSection = document.getElementById("ft-scorers-section");
@@ -1557,19 +1599,32 @@ async function showFulltime() {
 }
 
 // Update score display live as opponent goals change
-document.getElementById("ft-opp-input").addEventListener("input", e => {
-  const oppGoals = Math.max(0, parseInt(e.target.value) || 0);
-  const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0);
-  const isHome = (state.matchData?.match.home_away || "home") === "home";
-  document.getElementById("ft-our-score").textContent = isHome ? ourGoals : oppGoals;
-  document.getElementById("ft-their-score").textContent = isHome ? oppGoals : ourGoals;
+document.getElementById("ft-opp-input").addEventListener("input", () => {
+  renderFulltimeScoreline();
 });
 
+// "Hide score" toggle — FA guidance disallows publishing scores for U11 and
+// below. Masks the scoreline (scorers stay) and persists per match so reopening
+// to share keeps it hidden.
+document.getElementById("ft-hide-score").addEventListener("change", async e => {
+  state.hideScore = e.target.checked;
+  renderFulltimeScoreline();
+  if (state.matchData?.match.id) {
+    state.matchData.match.hide_score = state.hideScore ? 1 : 0;
+    const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore));
+  }
+});
+
+document.getElementById("btn-ft-pitch").addEventListener("click", () => {
+  // Browse the finished match's slots on the pitch; the "◀ Full Time" pill returns.
+  enterPitchView(state.matchData);
+});
 
 document.getElementById("btn-ft-done").addEventListener("click", async () => {
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   if (state.matchData?.match.id) {
-    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals));
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore));
   }
   if (state.pitchBackContext === "tournament" && state.activeTournamentId) {
     loadTournamentLobby(state.activeTournamentId);
@@ -1748,30 +1803,35 @@ async function buildResultBlob() {
   drawTeam(leftCX, isHome, homeTeam);
   drawTeam(rightCX, !isHome, awayTeam);
 
-  // Scoreline — Space Mono, big numbers + a lighter separator.
+  // Scoreline — Space Mono, big numbers + a lighter separator. When the FA "hide
+  // score" flag is set the numbers mask to "X" (→ "X – X"); scorers still print.
+  const hideScore = !!state.hideScore;
+  const homeStr = hideScore ? "X" : String(homeGoals);
+  const awayStr = hideScore ? "X" : String(awayGoals);
   const numFont = "700 46px " + _FONT_MONO;
   const sepFont = "400 34px " + _FONT_MONO;
   ctx.font = numFont;
-  const hw = ctx.measureText(String(homeGoals)).width;
-  const aw = ctx.measureText(String(awayGoals)).width;
+  const hw = ctx.measureText(homeStr).width;
+  const aw = ctx.measureText(awayStr).width;
   ctx.font = sepFont;
   const sw = ctx.measureText("–").width;
   const g = 10;
   let sx = centerX - (hw + g + sw + g + aw) / 2;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.font = numFont; ctx.fillStyle = BRAND.chalk; ctx.fillText(String(homeGoals), sx, scoreCY); sx += hw + g;
+  ctx.font = numFont; ctx.fillStyle = BRAND.chalk; ctx.fillText(homeStr, sx, scoreCY); sx += hw + g;
   ctx.font = sepFont; ctx.fillStyle = chalkAlpha(0.4); ctx.fillText("–", sx, scoreCY); sx += sw + g;
-  ctx.font = numFont; ctx.fillStyle = BRAND.chalk; ctx.fillText(String(awayGoals), sx, scoreCY);
+  ctx.font = numFont; ctx.fillStyle = BRAND.chalk; ctx.fillText(awayStr, sx, scoreCY);
 
   y = rowTop + teamsH + 14;
 
-  // Meta — date · venue.
+  // Meta — date · venue (+ FA note when the score is masked).
   ctx.font = "400 12px " + _FONT_BODY;
   ctx.fillStyle = chalkAlpha(0.55);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(`${dateStr}  ·  ${venue}`, centerX, y + metaH / 2);
+  const metaText = hideScore ? `${dateStr}  ·  ${venue}  ·  Score hidden (FA guidelines)` : `${dateStr}  ·  ${venue}`;
+  ctx.fillText(metaText, centerX, y + metaH / 2);
   y += metaH;
 
   // Scorers — dim title + Signal-Lime pills, wrapped and centred.
