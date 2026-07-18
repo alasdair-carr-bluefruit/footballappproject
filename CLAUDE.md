@@ -21,23 +21,24 @@ A mobile-first Progressive Web App for grassroots youth football coaches to mana
 
 ## Current Phase
 
-**Refactor Phase (pre-v1.0) — COMPLETE.** C.1–C.7 all done & on `main`. C.1
-app.js → ES modules; C.2 Playwright e2e smoke suite; C.3 CSS/HTML visibility
-tests; C.4 mutation testing (all five algorithm modules hardened to a documented
-equivalent-mutant tail); C.5 service layer (`backend/services/match_service`,
-`tournament_service`); C.6 relational schema; C.7 backend tidy-ups
-(`services/analytics.py`, `sw.js` cache-list fix, `frontend/toast.js`
-toast/retry helper). A **post-refactor bug-squash** (2026-07-14) then fixed the
-coach's logged bugs — finished-match goal guard + reload, live browse/"Start
-period" model (Next no longer auto-advances), pause-button CSS, and a
-connection-lost banner in **both** season & tournament (new season⇄tournament
-parity rule below). **Now in Phase D — v1.0 "Plan Review" UX. D.1 done
-(committed locally, not yet pushed):** a "Review the plan" screen is the landing
-after generating a plan (season *and* tournament) — a per-player rotation grid,
-an under-slotted-player warning (folds in bug #3), and Tinker / Start / Back;
-tournament also gets a combined "Review all plans" page. D.2 (tinker undo/redo)
-and D.3 (export revisit) remain. **Live tracker:
-`docs/refactor/NEXT_STEPS.md`.** See DEVELOPMENT_PLAN.md for the full roadmap.
+**Multi-user (v1.1) — SHIPPED & LIVE on `feat/multi-user`.** Magic-link auth (no
+PIN), invite-only onboarding, `AccountDB`/`InviteDB`/`LoginTokenDB`, the `deps.py`
+isolation seam (`get_current_account`/`get_current_squad` + `owned_*` IDOR guards),
+early-access capture + Resend email, and a separate static marketing site
+(`marketing/`, Cloudflare Pages, `keepthingslevel.com`) with the app on
+`app.keepthingslevel.com`. **Scope note:** the shipped model is **1 account ↔ 1
+squad** (`AccountDB.squad_id`) — the `SquadMembershipDB` join + roles were deferred,
+so **multi-team and co-coach both depend on adding that membership layer next.**
+
+Earlier: the **Refactor Phase (C.1–C.7)** and **Phase D.1 "Review the plan" screen**
+are done; D.2 (tinker undo/redo) + D.3 (export revisit) remain (now tracked as
+Forward Roadmap **T3.3**).
+
+**Next up = Forward Roadmap Tier 1** (see DEVELOPMENT_PLAN.md, reprioritised
+2026-07-18): **T1.1 multi-team** (real user demand), T1.2 signed-out→marketing link,
+T1.3 settings + update-email + invite-a-friend, T1.4 clear-squad-&-data. The roadmap
+is now ordered by value × effort × demand (Tiers 1–4), not by dependency phases.
+**Live refactor tracker: `docs/refactor/NEXT_STEPS.md`.**
 
 Completed phases:
 - v0.1: Core rotation algorithm (Python only)
@@ -50,7 +51,9 @@ Completed phases:
 - v0.8: Tournament mode — tournament entity, cross-match cumulative fairness (`prior_slots`), guest players, manual rotation mode, tournament stats (shipped 2026-05-24 onwards). Not built: 8-a-side preset, knockout bracket structure.
 - v0.9: Consecutive sit-out constraint, match timer (count-up, persistent), fairness impact on removal/reinstatement, in-app bug reporting, All-rounder default rotation, inspection-based DB migrations (shipped 2026-07-10)
 
-Next significant work: Phase D in progress — D.1 Plan Review screen shipped (the first feature on the new module structure; see DEVELOPMENT_PLAN.md Part 3 / Phase D); D.2 tinker undo/redo + D.3 export revisit remain, then v1.1 multi-user with email + magic link (see V1_MULTIUSER_PLAN.md + DEVELOPMENT_PLAN.md).
+- v1.1: Multi-user — magic-link auth, invite-only, per-account squad isolation, marketing site + early-access (shipped on `feat/multi-user`; 1 account ↔ 1 squad).
+
+Next significant work: **Forward Roadmap Tier 1** (DEVELOPMENT_PLAN.md, reprioritised 2026-07-18) — T1.1 multi-team, T1.2 signed-out→marketing link, T1.3 settings/email/invite, T1.4 clear-squad-&-data.
 
 ---
 

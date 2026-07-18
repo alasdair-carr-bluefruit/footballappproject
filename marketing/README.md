@@ -21,10 +21,8 @@ marketing/
 ## SEO / AIO
 - `index.html` + `about.html` carry canonical, OG and Twitter-card tags; the
   homepage also has `Organization` + `SoftwareApplication` JSON-LD.
-- **Share image:** interim `og:image` is `assets/brand/icon-app.png` (opaque, works
-  today). For a richer 1200×630 card, export `assets/brand/og-image.svg` to
-  `assets/brand/og-image.png` and update the `og:image` / `twitter:image` lines in
-  both HTML files.
+- **Share image:** `assets/brand/og-image.png` (1200×630). Source is
+  `assets/brand/og-image.svg` — re-export to PNG if you edit the source.
 - After deploy, submit `https://keepthingslevel.com/sitemap.xml` to Google Search
   Console and Bing Webmaster Tools.
 - Blog posts (see roadmap Phase I) go in `marketing/blog/` as plain HTML — remember
