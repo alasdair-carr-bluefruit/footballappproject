@@ -1291,6 +1291,7 @@ html, body {
 .mode-svg { width: 30px; height: 30px; display: block; }
 
 .mode-title {
+  font-family: var(--font-display);
   font-size: 17px;
   font-weight: 700;
   color: var(--white);
@@ -1755,7 +1756,7 @@ html, body {
   gap: 12px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
-.header-sub h2 { font-size: 18px; font-weight: 700; }
+.header-sub h2 { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
 
 /* Export button in a sub-header (Season Stats) — pushed to the right. */
 .btn-export-stats {
