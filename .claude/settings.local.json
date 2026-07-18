@@ -324,7 +324,8 @@
       "Bash(curl -s -o /dev/null -w \"about.html: %{http_code}\\\\n\" http://localhost:8901/about.html)",
       "Bash(curl -s -o /dev/null -w \"rainreplan.png: %{http_code}\\\\n\" http://localhost:8901/assets/brand/rainreplan.png)",
       "Bash(curl -s -o /dev/null -w \"style.css: %{http_code}\\\\n\" http://localhost:8901/style.css)",
-      "Skill(claude-in-chrome)"
+      "Skill(claude-in-chrome)",
+      "Bash(sips -g pixelWidth -g pixelHeight assets/brand/rainreplan.png)"
     ]
   }
 }
