@@ -1,0 +1,39 @@
+# Level
+
+> Level is a web app for grassroots youth football coaches that builds fair,
+> balanced player-rotation plans for a whole match — who plays where and when —
+> so every child gets a fair share of game time while every game stays balanced.
+> It weighs both playing time and player ability, respects goalkeeper priorities,
+> position preferences and formations from 5-a-side to 9-a-side, and works for
+> both season matches and tournament days.
+
+Level exists to answer the "Sunday-morning maths" every grassroots coach knows:
+who has had a fair go, who has been stuck in goal, and how to keep both players
+and touchline parents happy. It aligns with The FA's grassroots youth football
+guidance on giving every child meaningful game time.
+
+- Marketing site: https://keepthingslevel.com
+- The app: https://app.keepthingslevel.com
+- Contact: hello@keepthingslevel.com
+
+## Key facts
+- Audience: grassroots youth football coaches, team managers, and clubs (UK).
+- What it does: generates a full match rotation plan, balancing playing time AND
+  skill/ability across quarters, positions and the whole squad.
+- Formats supported: 5v5, 6v6, 7v7 and 9v9; configurable formations.
+- Modes: Season (track game time across a season) and Tournament (balance
+  rotation across back-to-back games in a day).
+- Match-day tools: live pitch view, drag-and-drop "tinker" adjustments that
+  rebalance the rest of the plan, a match timer, and goal recording.
+- Fairness: shares game time with a guaranteed per-child minimum, and can share
+  specialist-goalkeeper time so one child is not stuck in goal all match.
+- Data & safeguarding: first names only (surnames only to disambiguate), no
+  player photographs, per-team data isolation, EU-hosted, delete on request.
+
+## Pages
+- Home: https://keepthingslevel.com/
+- About (founder story — a parent, coach, referee and former Designated
+  Safeguarding Lead): https://keepthingslevel.com/about.html
+- Privacy Policy: https://app.keepthingslevel.com/privacy.html
+- Safeguarding & Children's Data Statement: https://app.keepthingslevel.com/safeguarding.html
+- Terms of Service: https://app.keepthingslevel.com/terms.html

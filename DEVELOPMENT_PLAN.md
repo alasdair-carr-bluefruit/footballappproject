@@ -315,7 +315,43 @@ rest are independent.
    (`keepthingslevel.com`) — e.g. a header/landing link on the login screen. Small,
    but important for the signed-out experience.
 
-### Phase I — Later / decision points
+### Phase I — Content, SEO & AIO / reach (marketing site)
+Growth work on the marketing site (`marketing/`, static Cloudflare Pages). Aimed at
+both classic search and AI answer engines (AIO/GEO — being cited by ChatGPT, Claude,
+Perplexity, Google AI Overviews).
+1. ✅ **DONE** Technical foundations: `robots.txt`, `sitemap.xml`, `llms.txt`,
+   JSON-LD (`Organization` + `SoftwareApplication`) on the homepage, canonical +
+   completed OG/Twitter tags on `index.html` and `about.html`, and a designed
+   `assets/brand/og-image.svg` source. **Remaining manual step:** export
+   `og-image.svg` → `og-image.png` (1200×630) and point the `og:image`/`twitter:image`
+   tags at it (interim uses `icon-app.png`); submit the sitemap to Google Search
+   Console + Bing Webmaster Tools.
+2. **Blog** (`marketing/blog/`, plain HTML to start — no build step, per the marketing
+   README). Cornerstone + cluster, written answer-first with `FAQPage`/`Article`
+   JSON-LD:
+   - "What the FA's 2026/27 youth football changes mean for your team" (timely anchor —
+     30–40 min recommended game time, 3v3 U7 no-subs, etc.).
+   - "Why equal playing time matters (and what the FA actually recommends)" — links to
+     the FA grassroots youth guides.
+   - "A fair rotation without the spreadsheet" (problem→product).
+   - "How much game time should kids get, by age group?" (FAQ-schema bait).
+   - "Sharing keeper time so one kid isn't stuck in goal" (maps to `share_gk`).
+   Add each post to `sitemap.xml`.
+3. **AIO/GEO practices:** answer-first copy, question-shaped H2s, concrete citable
+   facts, outbound links to authoritative sources (The FA) for E-E-A-T.
+4. **Reach / off-site (highest leverage — backlinks + trusted audiences):**
+   - Outreach to aligned grassroots coaching creators (e.g. Kev Weir / *Just Play
+     Sports*, Saul Isaksson-Hurst / *My Personal Football Coach*, The Coaching Manual,
+     360TFT) — offer free access + a genuine feedback ask. **Cite/link their public
+     work freely; never imply endorsement or partnership without explicit consent.**
+   - Get listed as a coaching resource by County FAs.
+   - Participate genuinely in grassroots communities (Facebook groups, r/grassrootsfootball).
+   - Product-led loop: ensure the share-image / MotM export (Phase G) carries a subtle
+     "made with Level" + URL so every WhatsApp share is a soft ad.
+   - Lean on the founder's safeguarding credibility (parent/coach/ref/former DSL) in
+     content and any podcast/press outreach.
+
+### Phase J — Later / decision points
 - Open self-serve signup (drop invite gate) — only after magic link + rate limiting
   proven.
 - 8-a-side preset; knockout bracket structure.

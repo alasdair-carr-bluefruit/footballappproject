@@ -9,10 +9,26 @@ marketing/
 ├── about.html        ← founder / about page
 ├── style.css         ← Level brand styles
 ├── main.js           ← early-access form submit + explainer-video swap
+├── robots.txt        ← allows all crawlers; points to the sitemap
+├── sitemap.xml       ← add each new page/blog post here
+├── llms.txt          ← summary for AI answer engines (AIO/GEO)
 └── assets/
     ├── brand/        ← logo/lockup (copied from ../assets/brand)
+    │   └── og-image.svg ← social-share card SOURCE (export → og-image.png, see SEO below)
     └── explainer.mp4 ← ⬅ DROP YOUR VIDEO HERE (see below)
 ```
+
+## SEO / AIO
+- `index.html` + `about.html` carry canonical, OG and Twitter-card tags; the
+  homepage also has `Organization` + `SoftwareApplication` JSON-LD.
+- **Share image:** interim `og:image` is `assets/brand/icon-app.png` (opaque, works
+  today). For a richer 1200×630 card, export `assets/brand/og-image.svg` to
+  `assets/brand/og-image.png` and update the `og:image` / `twitter:image` lines in
+  both HTML files.
+- After deploy, submit `https://keepthingslevel.com/sitemap.xml` to Google Search
+  Console and Bing Webmaster Tools.
+- Blog posts (see roadmap Phase I) go in `marketing/blog/` as plain HTML — remember
+  to add each to `sitemap.xml`.
 
 ## The explainer video
 Embedded from YouTube (not hosted in the repo — avoids Pages' file-size cap and
