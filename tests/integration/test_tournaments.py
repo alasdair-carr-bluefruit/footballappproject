@@ -388,3 +388,48 @@ def test_specialist_keeper_gets_fair_share_across_tournament(
         assert not (a == 0 and b == 0), (
             f"keeper sat out two consecutive matches: {played_per_match}"
         )
+
+
+# ── Editing tournament settings regenerates planned matches (halftime bug) ─────
+
+def test_editing_halftime_regenerates_planned_matches(
+    client: TestClient, squad_ids: list[int]
+) -> None:
+    """Toggling half-time on an existing tournament must actually change its
+    planned matches. Regression: the edit saved on the tournament but the matches
+    kept their old slot count ("it said updating but didn't")."""
+    created = client.post(
+        "/api/tournaments/", json={**TOURNAMENT_BASE, "has_halftime": True}
+    )
+    assert created.status_code == 201
+    t = created.json()
+
+    _add_match(client, t["id"], squad_ids)
+    match_id = client.get(f"/api/tournaments/{t['id']}").json()["matches"][0]["id"]
+
+    # With half-time: 2 periods → 4 slots.
+    assert len(client.get(f"/api/matches/{match_id}").json()["slots"]) == 4
+
+    # Turn half-time OFF → the planned match regenerates to a single period.
+    resp = client.put(f"/api/tournaments/{t['id']}", json={"has_halftime": False})
+    assert resp.status_code == 200
+    assert resp.json()["has_halftime"] is False
+    assert len(client.get(f"/api/matches/{match_id}").json()["slots"]) == 2
+
+
+def test_editing_unrelated_field_does_not_regenerate(
+    client: TestClient, squad_ids: list[int]
+) -> None:
+    """Editing a non-structural field (name) leaves the matches' rotations alone."""
+    created = client.post(
+        "/api/tournaments/", json={**TOURNAMENT_BASE, "has_halftime": False}
+    )
+    t = created.json()
+    _add_match(client, t["id"], squad_ids)
+    match_id = client.get(f"/api/tournaments/{t['id']}").json()["matches"][0]["id"]
+    before = client.get(f"/api/matches/{match_id}").json()["slots"]
+
+    resp = client.put(f"/api/tournaments/{t['id']}", json={"name": "Renamed Cup"})
+    assert resp.status_code == 200
+    after = client.get(f"/api/matches/{match_id}").json()["slots"]
+    assert len(after) == len(before) == 2
