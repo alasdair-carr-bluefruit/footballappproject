@@ -10,12 +10,19 @@ from backend.api.routers import (
     auth_router,
     feedback_router,
     match_router,
+    public_router,
     squad_router,
     tournament_router,
 )
 from backend.auth.session import set_session_cookie, verify_session
 from backend.db.database import create_db_and_tables
-from backend.settings import SESSION_COOKIE, auth_enabled, frontend_origin, validate_config
+from backend.settings import (
+    SESSION_COOKIE,
+    auth_enabled,
+    frontend_origin,
+    marketing_origins,
+    validate_config,
+)
 
 
 @asynccontextmanager
@@ -33,9 +40,12 @@ app = FastAPI(title="Level", lifespan=lifespan)
 # only needed for a split deploy — set FRONTEND_ORIGIN then.
 _origin = frontend_origin()
 if auth_enabled():
+    # The app origin (credentialed) plus the apex marketing origins, which POST the
+    # public early-access form cross-origin (no cookies, but still need an allow-list).
+    allowed = ([_origin] if _origin else []) + marketing_origins()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[_origin] if _origin else [],
+        allow_origins=allowed,
         allow_methods=["*"],
         allow_headers=["*"],
         allow_credentials=True,
@@ -74,6 +84,7 @@ app.include_router(squad_router, prefix="/api/squad", tags=["squad"])
 app.include_router(match_router, prefix="/api/matches", tags=["matches"])
 app.include_router(tournament_router, prefix="/api/tournaments", tags=["tournaments"])
 app.include_router(feedback_router, prefix="/api/feedback", tags=["feedback"])
+app.include_router(public_router, prefix="/api", tags=["public"])
 
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

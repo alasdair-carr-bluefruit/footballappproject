@@ -61,6 +61,21 @@ def email_from() -> str:
     return os.getenv("EMAIL_FROM", "Level <onboarding@resend.dev>")
 
 
+def early_access_to() -> str:
+    """Where early-access requests from the marketing site are emailed."""
+    return os.getenv("EARLY_ACCESS_EMAIL", "alasdair.carr@gmail.com")
+
+
+def marketing_origins() -> list[str]:
+    """Origins allowed to POST the public early-access form (the apex marketing
+    site, which is a separate host from the app subdomain). Override with a
+    comma-separated MARKETING_ORIGINS if the apex/host ever changes."""
+    override = os.getenv("MARKETING_ORIGINS")
+    if override:
+        return [o.strip() for o in override.split(",") if o.strip()]
+    return ["https://keepthingslevel.com", "https://www.keepthingslevel.com"]
+
+
 def cookie_secure() -> bool:
     """Set the Secure flag on the session cookie.
 

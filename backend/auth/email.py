@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 
-from backend.settings import app_base_url, email_from, resend_api_key
+from backend.settings import app_base_url, early_access_to, email_from, resend_api_key
 
 logger = logging.getLogger("level.auth.email")
 
@@ -196,3 +196,49 @@ def send_login_link(to_email: str, link: str, *, is_invite: bool = False) -> Non
         # Log and swallow: the endpoint always responds 200 (no account enumeration),
         # and a failed send simply means the coach can request another link.
         logger.exception("Failed to send login email to %s", to_email)
+
+
+def send_early_access_email(submitter_email: str, name: str, message: str) -> None:
+    """Notify the founder of an early-access request from the marketing site.
+
+    Unlike the login path this does NOT swallow errors — a lost waitlist signup is
+    worse than a retry prompt, so the caller surfaces failures to the form. Reply-to
+    is set to the submitter so a reply goes straight back to them.
+    """
+    subject = f"Early access request — {submitter_email}"
+    text = (
+        "New early-access request from the Level marketing site.\n\n"
+        f"Email:   {submitter_email}\n"
+        f"Name:    {name or '—'}\n\n"
+        f"Message:\n{message or '—'}\n"
+    )
+    html = (
+        f'<div style="font-family:{_FONT_STACK};font-size:15px;line-height:1.6;color:{_STUDIO_GREEN};">'
+        f'<h2 style="font-family:{_MONO_STACK};color:{_STUDIO_GREEN};">New early-access request</h2>'
+        f"<p><strong>Email:</strong> {submitter_email}<br>"
+        f"<strong>Name:</strong> {name or '—'}</p>"
+        f"<p><strong>Message:</strong><br>{(message or '—')}</p>"
+        "</div>"
+    )
+    key = resend_api_key()
+    if not key:
+        logger.info(
+            "EARLY ACCESS (dev-stub, not emailed): %s <%s> — %s", name, submitter_email, message
+        )
+        return
+    import httpx
+
+    resp = httpx.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {key}"},
+        json={
+            "from": email_from(),
+            "to": [early_access_to()],
+            "subject": subject,
+            "html": html,
+            "text": text,
+            "reply_to": submitter_email,
+        },
+        timeout=10.0,
+    )
+    resp.raise_for_status()
