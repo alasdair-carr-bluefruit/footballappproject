@@ -97,13 +97,12 @@ never masks a real change.
 ```
 football-app-project/
 ├── CLAUDE.md
-├── BRAND.md              ← Brand guidelines (v1.4) — Gaffer identity, Tinkering mode spec
+├── BRAND.md              ← Brand guidelines (v1.4) — Level identity, Tinkering mode spec
 ├── requirements.md
 ├── DEVELOPMENT_PLAN.md   ← Forward roadmap (refactor → v1.0 → v1.1)
 ├── docs/
 │   ├── refactor/NEXT_STEPS.md ← Live refactor-phase (C.4) tracker
-│   ├── adr/              ← Architecture decision records
-│   └── archive/PHASES.md ← Historical phase log (deprecated; not authoritative)
+│   └── adr/              ← Architecture decision records
 ├── pyproject.toml
 ├── main.py               ← FastAPI app entry point
 │
@@ -111,7 +110,7 @@ football-app-project/
 │   ├── tokens.json       ← Design tokens (Level palette, typography, tinker spec) — mirrors style.css :root
 │   ├── icon-app.svg / icon-app.png     ← App icon (spirit-level mark)
 │   ├── LevelLinesTransparent.png       ← Wide spirit-level lockup (landing screen)
-│   └── wordmark.svg / LevelWordmark*.png ← Wordmark art (app renders live Space Mono text)
+│   └── wordmark.svg     ← Wordmark vector (app renders live Space Mono text; raster wordmarks removed)
 │
 ├── backend/
 │   ├── models/
@@ -205,6 +204,18 @@ football-app-project/
 2. `preferred` — GK is best_position
 3. `can_play` — GK checked among other positions
 4. `emergency_only` — GK not checked
+
+### Specialist-GK time sharing (`share_gk`, per match/tournament)
+- A specialist never plays outfield, so in a small squad they'd otherwise be in
+  goal every slot and play ~2× everyone else. The `share_gk` flag (setup-form
+  switch "Share goalkeeper time", **default on**) controls this:
+  - **on** — the keeper splits goal duty (plays alternate periods, rests the
+    rest while a backup covers) so their total time matches the squad.
+  - **off** — keeper stays in goal all match (traditional; plays more).
+  - Forced **off** automatically when `squad_size <= players_per_slot` (no bench
+    to cover goal). Domain default `None` = legacy "share only at 10+ players"
+    heuristic, kept so bare `Match()` unit tests are unaffected.
+- Threads through the same layers as `rotation_intensity`; mirror both flows.
 
 ### Substitution rules (configurable per team size via GameConfig)
 - Mid-period: `config.mid_period_subs` (2 for 5/6v5, 3 for 7v7, 4 for 9v9)

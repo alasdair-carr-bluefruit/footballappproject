@@ -8,7 +8,7 @@
 > Use this guide only to stand up or maintain a fallback single-coach instance;
 > existing instances stay as-is until their coaches migrate to the shared deployment.
 
-This guide covers setting up a fresh hosted instance of Gaffer using **Neon** (free PostgreSQL database) and **Render** (free web hosting). Both have free tiers that are fine for a single coach.
+This guide covers setting up a fresh hosted instance of Level using **Neon** (free PostgreSQL database) and **Render** (free web hosting). Both have free tiers that are fine for a single coach.
 
 ---
 

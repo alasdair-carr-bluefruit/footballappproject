@@ -1,4 +1,4 @@
-# Gaffer — Squad Rotation Manager
+# Level — Squad Rotation Manager
 
 A mobile-first PWA for grassroots youth football coaches: generates a full, fair
 rotation plan (who plays where, when) for 5v5–9v9 matches and tournament days,
@@ -31,9 +31,9 @@ ruff check .
 | `V1_MULTIUSER_PLAN.md` | Multi-user/auth implementation plan (magic-link-first) |
 | `docs/adr/` | Architecture decision records |
 | `docs/feedback/` | Captured user feedback |
-| `docs/archive/` | Deprecated docs kept for history (e.g. `PHASES.md`) — not authoritative |
-| `BRAND.md` | Gaffer brand guidelines |
-| `Deploy Guide.md` | Legacy per-coach single-user deployment (Render + Neon) |
+| `BRAND.md` | Level brand guidelines |
+| `DEPLOY.md` | Multi-user deployment (Railway + Neon + Resend) |
+| `docs/Deploy Guide.md` | Legacy per-coach single-user deployment (Render + Neon) |
 
 ## Reporting bugs
 

@@ -1,4 +1,4 @@
-# Gaffer — Codebase Analysis & Forward Development Plan
+# Level — Codebase Analysis & Forward Development Plan
 
 > Produced 2026-07-10 from a full audit of the codebase, git history, all requirements
 > documents, and the latest user feedback. This document consolidates the findings and

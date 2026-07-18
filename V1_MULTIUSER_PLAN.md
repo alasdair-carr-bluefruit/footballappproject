@@ -1,6 +1,6 @@
-# Gaffer v1.0 — Multi-User Plan (PIN-first, magic-link-ready)
+# Level v1.0 — Multi-User Plan (PIN-first, magic-link-ready)
 
-> Working plan for converting Gaffer from single-global-squad to multi-tenant.
+> Working plan for converting Level from single-global-squad to multi-tenant.
 > Built to be picked up task-by-task in development. Robust and additive.
 
 > [!IMPORTANT]

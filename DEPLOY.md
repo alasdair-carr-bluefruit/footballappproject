@@ -2,7 +2,9 @@
 
 How to stand up the always-on, multi-tenant deployment of Level on **Railway
 Hobby** with a fresh **Neon** Postgres and **Resend** for magic-link email.
-Domain: **keepthingslevel.com**.
+Domain: the app runs at **app.keepthingslevel.com**; the apex
+**keepthingslevel.com** is reserved for the marketing / how-to site (a separate
+static host — not this Railway service).
 
 > This deploy is fully isolated from the existing single-user Render instances.
 > It's a **new app** on a **new, empty database**. Nothing here touches or
@@ -85,8 +87,8 @@ is why a stray `main` redeploy anywhere else is behaviourally identical.
 | `DATABASE_URL` | *(Neon pooled URL, §1)* | `postgresql://…?sslmode=require` |
 | `RESEND_API_KEY` | *(from §2)* | Absent → links are only logged, not emailed. |
 | `EMAIL_FROM` | `Level <noreply@keepthingslevel.com>` | Omit to use the `resend.dev` test sender. |
-| `APP_BASE_URL` | `https://keepthingslevel.com` | Used to build magic-link / invite URLs in emails. Must match the domain coaches click from. |
-| `FRONTEND_ORIGIN` | `https://keepthingslevel.com` | CORS allow-origin. Same-origin deploy → can be left unset, but set it to be explicit. |
+| `APP_BASE_URL` | `https://app.keepthingslevel.com` | Used to build magic-link / invite URLs in emails. Must match the domain coaches click from. |
+| `FRONTEND_ORIGIN` | `https://app.keepthingslevel.com` | CORS allow-origin. Same-origin deploy → can be left unset, but set it to be explicit. |
 | `COOKIE_SECURE` | *(leave unset)* | Defaults to secure-on whenever auth is enabled (prod is https). Only set `false` for an http staging box. |
 
 Generate the secrets:
@@ -101,34 +103,58 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"   # ADMIN_KEY
 
 ---
 
-## 5. Domain — keepthingslevel.com
+## 5. Domain — app.keepthingslevel.com
+
+The app lives on the **`app.` subdomain**; the apex `keepthingslevel.com` (and
+`www.`) is left for the separate marketing / how-to site. A subdomain CNAME is
+also the easy case for DNS — no apex ALIAS/flattening needed.
 
 1. In Railway → the service → **Settings → Networking → Custom Domain** → add
-   `keepthingslevel.com` (and optionally `www.`).
-2. Railway shows a CNAME (or A/ALIAS for the apex) target. At your DNS registrar:
-   - Apex `keepthingslevel.com` → the ALIAS/CNAME target Railway gives (use the
-     registrar's ALIAS/ANAME/flattening if it's a bare CNAME at the apex).
-   - `www` → CNAME to the same target (optional).
-3. Wait for DNS + Railway's automatic TLS cert to go green.
-4. Confirm `APP_BASE_URL` / `FRONTEND_ORIGIN` are set to `https://keepthingslevel.com`
+   `app.keepthingslevel.com`.
+2. Railway needs **TWO** DNS records — click **"Show DNS records"** on the domain
+   row to see both (adding only the CNAME is the classic mistake):
+   - **CNAME** `app` → the target Railway gives (e.g. `xxxx.up.railway.app`).
+   - **TXT** `_railway-verify.app` → `railway-verify=…` (ownership check). Copy the
+     **full** value — a truncated TXT never verifies.
+   > Miss the TXT and the edge serves a fallback 404 (`x-railway-fallback: true`)
+   > with the `*.up.railway.app` wildcard cert → browser shows
+   > `ERR_CERT_COMMON_NAME_INVALID`. It's not a propagation wait; it's unverified.
+3. **Cloudflare specifics** (our DNS): Railway offers a **"Connect"** one-click that
+   adds both records via the Cloudflare API — easiest path. Proxying (orange cloud)
+   is fine and works; if proxied, set Cloudflare **SSL/TLS → Full (strict)** (Flexible
+   causes redirect loops because the app forces https). Grey-cloud (DNS only) also
+   works and lets Railway terminate TLS directly.
+4. Leave the apex `keepthingslevel.com` / `www` pointing at wherever the info
+   site is hosted (or unset for now) — **do not** point them at this Railway
+   service.
+5. Wait for DNS + Railway's automatic TLS cert to go green.
+6. Confirm `APP_BASE_URL` / `FRONTEND_ORIGIN` are set to `https://app.keepthingslevel.com`
    (§4). Redeploy if you changed them.
+7. Verify from a dev machine: `curl -sI https://app.keepthingslevel.com` should be
+   `HTTP/2 200` with a Let's Encrypt cert for the domain — **not** `x-railway-fallback: true`.
+
+> **Info site (apex).** `keepthingslevel.com` is intended to be a static
+> marketing / how-to-video / about page — host it anywhere (Railway static,
+> Netlify, GitHub Pages, Cloudflare Pages). It never needs to touch this app or
+> its database; link its "Open the app" / "Sign in" buttons to
+> `https://app.keepthingslevel.com`. Not built yet.
 
 ---
 
 ## 6. Smoke test (auth ON)
 
-Against `https://keepthingslevel.com`:
+Against `https://app.keepthingslevel.com`:
 
 1. **Boot gate.** Load the site → you should land on the login/join screen (not
    straight into the app), because `GET /api/auth/me` returns 401 when signed out.
 2. **Mint an invite** (admin, from your machine):
    ```bash
-   curl -X POST https://keepthingslevel.com/api/admin/invites \
+   curl -X POST https://app.keepthingslevel.com/api/admin/invites \
      -H "X-Admin-Key: $ADMIN_KEY" \
      -H "Content-Type: application/json" \
      -d '{"note":"me — smoke test"}'
    ```
-   Response includes `"link": "https://keepthingslevel.com/?invite=…"`.
+   Response includes `"link": "https://app.keepthingslevel.com/?invite=…"`.
 3. **Redeem it.** Open that link → set your team up → you should receive (or, if
    still on the dev-stub with no `RESEND_API_KEY`, see logged) a sign-in link,
    verify, and land in the app with an empty squad.
@@ -140,9 +166,9 @@ Against `https://keepthingslevel.com`:
 
 Admin support tooling (all `X-Admin-Key`-gated) if you need it:
 ```bash
-curl https://keepthingslevel.com/api/admin/accounts            -H "X-Admin-Key: $ADMIN_KEY"
-curl https://keepthingslevel.com/api/admin/accounts/1/dump     -H "X-Admin-Key: $ADMIN_KEY"   # read-only
-curl -X POST https://keepthingslevel.com/api/admin/accounts/1/impersonate -H "X-Admin-Key: $ADMIN_KEY"
+curl https://app.keepthingslevel.com/api/admin/accounts            -H "X-Admin-Key: $ADMIN_KEY"
+curl https://app.keepthingslevel.com/api/admin/accounts/1/dump     -H "X-Admin-Key: $ADMIN_KEY"   # read-only
+curl -X POST https://app.keepthingslevel.com/api/admin/accounts/1/impersonate -H "X-Admin-Key: $ADMIN_KEY"
 ```
 
 ---
