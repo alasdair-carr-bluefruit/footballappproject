@@ -62,6 +62,57 @@ def test_generate_rotation_too_few_players(client: TestClient) -> None:
     assert client.post(f"/api/matches/{match_id}/rotation").status_code == 400
 
 
+def _slot_counts(slots: list) -> dict:
+    counts: dict = {}
+    for slot in slots:
+        for player in slot["lineup"].values():
+            name = player["name"] if isinstance(player, dict) else player
+            counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
+@pytest.fixture()
+def squad_9_specialist(client: TestClient) -> None:
+    """1 specialist keeper + 8 outfield-only players (no backup GK)."""
+    client.post("/api/squad/players", json={
+        "name": "Keeper", "gk_status": "specialist", "def_restricted": False, "skill_rating": 3,
+    })
+    for i in range(8):
+        client.post("/api/squad/players", json={
+            "name": f"Out{i}", "gk_status": "emergency_only", "def_restricted": False, "skill_rating": 3,
+        })
+
+
+def test_share_gk_default_keeps_specialist_time_fair(
+    client: TestClient, squad_9_specialist: None,
+) -> None:
+    """Default (share_gk=1): a specialist keeper in a 9-player squad rotates out
+    and does not play markedly more than the outfielders."""
+    match_id = client.post(
+        "/api/matches/", json={"date": "2026-03-25", "opponent": "Rovers FC"}
+    ).json()["id"]
+    slots = client.post(f"/api/matches/{match_id}/rotation").json()["slots"]
+    counts = _slot_counts(slots)
+    others = [v for k, v in counts.items() if k != "Keeper"]
+    # Keeper no longer plays double; within one slot of the busiest outfielder.
+    assert counts["Keeper"] <= max(others)
+
+
+def test_share_gk_off_keeps_specialist_in_goal_all_match(
+    client: TestClient, squad_9_specialist: None,
+) -> None:
+    """share_gk=0: a specialist keeper stays in goal every slot (traditional)."""
+    created = client.post(
+        "/api/matches/",
+        json={"date": "2026-03-25", "opponent": "Rovers FC", "share_gk": 0},
+    ).json()
+    assert created["share_gk"] == 0  # persisted + returned
+    match_id = created["id"]
+    slots = client.post(f"/api/matches/{match_id}/rotation").json()["slots"]
+    counts = _slot_counts(slots)
+    assert counts["Keeper"] == len(slots)  # in goal for every slot
+
+
 def test_rotation_persists(client: TestClient, squad_10: None) -> None:
     match_id = client.post(
         "/api/matches/", json={"date": "2026-03-25", "opponent": "Rovers FC"}

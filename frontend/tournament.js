@@ -71,6 +71,7 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   document.getElementById("tournament-duration").value = "10";
   document.getElementById("tournament-halftime").checked = false;
   document.getElementById("tournament-show-timer").checked = true;
+  document.getElementById("tournament-share-gk").checked = true;
   document.getElementById("tournament-fairness-slider").value = 0;
   updateFairnessLabel(0, "tournament-fairness-value", "tournament-fairness-warning");
   const defaultRotRadio = document.querySelector('input[name="tournament-rotation"][value="100"]');
@@ -100,6 +101,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
   const showTimer = document.getElementById("tournament-show-timer").checked;
   const fairnessValue = parseInt(document.getElementById("tournament-fairness-slider").value);
   const rotationIntensity = getRotationValue("tournament");
+  const shareGk = document.getElementById("tournament-share-gk").checked ? 1 : 0;
   state.pendingNumMatches = Math.max(1, parseInt(document.getElementById("tournament-num-matches").value) || 1);
 
   if (!name) {
@@ -121,6 +123,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     show_timer: showTimer ? 1 : 0,
     fairness_value: fairnessValue,
     rotation_intensity: rotationIntensity,
+    share_gk: shareGk,
   };
 
   if (state.editingTournamentId) {
@@ -426,6 +429,7 @@ document.getElementById("btn-edit-tournament").addEventListener("click", async (
   document.getElementById("tournament-duration").value = t.match_duration_mins || 10;
   document.getElementById("tournament-halftime").checked = t.has_halftime || false;
   document.getElementById("tournament-show-timer").checked = t.show_timer !== 0;
+  document.getElementById("tournament-share-gk").checked = t.share_gk !== 0;
   const tFairness = t.fairness_value ?? 0;
   document.getElementById("tournament-fairness-slider").value = tFairness;
   updateFairnessLabel(tFairness, "tournament-fairness-value", "tournament-fairness-warning");

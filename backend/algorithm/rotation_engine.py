@@ -68,6 +68,7 @@ def generate_rotation(
     # Step 1: Determine GK per slot (same GK for both sub-periods of a period)
     gk_assignments, warnings = select_gk_for_slots(
         players, num_slots, squad_size=n, players_per_slot=config.players_per_slot,
+        share_gk=match.share_gk,
     )
 
     # Identify non-specialist players who will cover GK slots (ordered, de-duped by identity)
@@ -211,6 +212,7 @@ def adjust_rotation(
     gk_assignments_orig, _ = select_gk_for_slots(
         players, num_slots, squad_size=len(players),
         players_per_slot=config.players_per_slot,
+        share_gk=match.share_gk,
     )
     non_specialist_gk = []
     seen: set = set()

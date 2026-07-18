@@ -53,6 +53,7 @@ class TournamentCreate(BaseModel):
     show_timer: int = 1  # 0=hide the match clock, 1=show
     fairness_value: int = 50  # 0=equal, 100=start strong
     rotation_intensity: int = 50
+    share_gk: int = 1  # 1=specialist keeper rotates for equal time, 0=in goal all match
 
 
 class TournamentRead(BaseModel):
@@ -66,6 +67,7 @@ class TournamentRead(BaseModel):
     show_timer: int = 1
     fairness_value: int
     rotation_intensity: int
+    share_gk: int = 1
     status: str
     match_count: int = 0
 
@@ -101,6 +103,7 @@ def _tournament_read(t: TournamentDB, match_count: int = 0) -> TournamentRead:
         show_timer=t.show_timer,
         fairness_value=t.fairness_value,
         rotation_intensity=t.rotation_intensity,
+        share_gk=t.share_gk,
         status=t.status,
         match_count=match_count,
     )
@@ -130,6 +133,7 @@ def _match_response(
             "fairness": m.fairness,
             "fairness_value": m.fairness_value,
             "rotation_intensity": m.rotation_intensity,
+            "share_gk": m.share_gk,
             "period_label": period_label,
             "home_away": m.home_away,
             "opponent_goals": m.opponent_goals,
@@ -190,6 +194,7 @@ def create_tournament(
         show_timer=body.show_timer,
         fairness_value=body.fairness_value,
         rotation_intensity=body.rotation_intensity,
+        share_gk=body.share_gk,
     )
     session.add(t)
     session.commit()
@@ -331,6 +336,7 @@ class TournamentUpdate(BaseModel):
     show_timer: int | None = None
     fairness_value: int | None = None
     rotation_intensity: int | None = None
+    share_gk: int | None = None
 
 
 @router.put("/{tournament_id}", response_model=TournamentRead)
@@ -359,6 +365,8 @@ def update_tournament(
         t.fairness_value = body.fairness_value
     if body.rotation_intensity is not None:
         t.rotation_intensity = body.rotation_intensity
+    if body.share_gk is not None:
+        t.share_gk = body.share_gk
     session.add(t)
     session.commit()
     session.refresh(t)
@@ -573,6 +581,7 @@ def add_tournament_match(
         fairness=fairness,
         fairness_value=fv,
         rotation_intensity=t.rotation_intensity,
+        share_gk=t.share_gk,
         home_away="home",
         tournament_id=tournament_id,
         tournament_stage=body.stage,

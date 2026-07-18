@@ -27,10 +27,22 @@ def select_gk_for_slots(
     num_slots: int,
     squad_size: int,
     players_per_slot: int = 5,
+    share_gk: bool | None = None,
 ) -> tuple:
     """Return a list of GK assignments (one per slot) and any warnings.
 
     GK assignments are made per-period (same GK for both sub-periods).
+
+    ``share_gk`` controls how a *specialist* keeper's time is handled:
+      * True  — the keeper splits goal duty (plays alternate periods, rests the
+        others while a backup covers) so their total pitch time matches the rest
+        of the squad. This is the fair-time default set by the setup form.
+      * False — the keeper stays in goal every period (traditional; they play
+        more total time than outfielders).
+      * None  — legacy heuristic used by bare callers/tests: share only when the
+        squad has 10+ players.
+    Sharing needs at least one spare player to cover goal while the keeper rests,
+    so it is forced off when ``squad_size <= players_per_slot`` (no bench).
 
     Returns:
         gk_assignments: list of length num_slots
@@ -47,7 +59,14 @@ def select_gk_for_slots(
     specialist = next((p for p in players if p.gk_status == GKTier.SPECIALIST), None)
 
     if specialist is not None:
-        if squad_size < 10:
+        if share_gk is None:
+            share = squad_size >= 10  # legacy default
+        else:
+            share = share_gk
+        # Can only rest the keeper if a spare player exists to cover goal.
+        if squad_size <= players_per_slot:
+            share = False
+        if not share:
             # Specialist plays every quarter
             gk_per_quarter = [specialist] * num_quarters
         else:

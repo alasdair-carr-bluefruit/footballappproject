@@ -43,6 +43,7 @@ class MatchCreate(BaseModel):
     fairness: str = "equal"
     fairness_value: int = 0
     rotation_intensity: int = 50
+    share_gk: int = 1  # 1=specialist keeper rotates for equal time, 0=in goal all match
     home_away: str = "home"
     show_timer: int = 1  # 0=hide the match clock, 1=show
 
@@ -59,6 +60,7 @@ class MatchRead(BaseModel):
     fairness: str
     fairness_value: int
     rotation_intensity: int
+    share_gk: int = 1
     home_away: str = "home"
     opponent_goals: int = 0
     hide_score: int = 0
@@ -81,6 +83,7 @@ def _match_read(m: MatchDB, has_rotation: bool, our_goals: int = 0) -> MatchRead
         fairness=m.fairness,
         fairness_value=m.fairness_value,
         rotation_intensity=m.rotation_intensity,
+        share_gk=m.share_gk,
         home_away=m.home_away,
         opponent_goals=m.opponent_goals,
         hide_score=m.hide_score,
@@ -105,6 +108,7 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "formation": m.formation,
             "fairness": m.fairness,
             "rotation_intensity": m.rotation_intensity,
+            "share_gk": m.share_gk,
             "period_label": period_label,
             "home_away": m.home_away,
             "opponent_goals": m.opponent_goals,
@@ -177,6 +181,7 @@ class MatchUpdate(BaseModel):
     fairness: str | None = None
     fairness_value: int | None = None
     rotation_intensity: int | None = None
+    share_gk: int | None = None
     home_away: str | None = None
     show_timer: int | None = None
 

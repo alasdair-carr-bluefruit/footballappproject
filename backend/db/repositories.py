@@ -78,6 +78,7 @@ def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squa
         fairness=m.fairness,
         fairness_value=m.fairness_value,
         rotation_intensity=m.rotation_intensity,
+        share_gk=bool(m.share_gk),
     )
     squad = Squad(players=[player_db_to_domain(p) for p in players])
     return match, squad
