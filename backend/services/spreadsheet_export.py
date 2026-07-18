@@ -26,7 +26,7 @@ _HEADERS = ["Player", "Matches", "Slots", "Minutes", "Goals", "GK", "DEF", "MID"
 def _sanitize(name: str) -> str:
     """Filesystem-safe filename fragment (letters/digits/space/-/_)."""
     keep = "".join(c if (c.isalnum() or c in " -_") else " " for c in name)
-    return " ".join(keep.split()) or "Gaffer"
+    return " ".join(keep.split()) or "Level"
 
 
 def _row_from_stat(s: dict[str, Any]) -> list[Any]:
