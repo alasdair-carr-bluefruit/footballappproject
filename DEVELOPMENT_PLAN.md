@@ -278,9 +278,9 @@ for any schema change.
 ### 🔴 Tier 1 — Now
 
 **T1.1 Multi-team (one coach, several squads).** *Real user demand — a live coach has
-already asked.* Today it's 1 account ↔ 1 squad (`AccountDB.squad_id`). Because the
-isolation seam is a single function (`get_current_squad` in `deps.py`), this is additive,
-not a rewrite:
+already asked.* **Full design: `MULTI_TEAM_PLAN.md`.** Today it's 1 account ↔ 1 squad
+(`AccountDB.squad_id`). Because the isolation seam is a single function
+(`get_current_squad` in `deps.py`), this is additive, not a rewrite:
 - **Data:** introduce ownership/membership — either add `owner_account_id` to `SquadDB`
   (simplest), or a `SquadMembershipDB(account_id, squad_id, role)` join (**preferred** —
   it also unblocks co-coach, T3.2). Migrate each existing account → one owned squad.
