@@ -137,6 +137,13 @@
         </button>
       </div>
       <button type="button" class="bug-report" id="btn-bug-report">Report a bug</button>
+      <div class="landing-legal-links">
+        <a href="/terms.html">Terms</a>
+        <span aria-hidden="true">·</span>
+        <a href="/privacy.html">Privacy Policy</a>
+        <span aria-hidden="true">·</span>
+        <a href="/safeguarding.html">Safeguarding</a>
+      </div>
     </div>
   </div>
 
@@ -564,9 +571,10 @@
     <form class="form-card" id="bug-report-form">
       <h3>Report a bug</h3>
       <p class="form-hint">Describe what happened and what you expected. Your report goes straight to the developer.</p>
+      <p class="form-hint form-hint-warning">Please don't include children's names — describe players by shirt number or position instead (e.g. "number 7" or "the striker").</p>
       <label>
         What went wrong?
-        <textarea id="bug-report-description" rows="5" maxlength="5000" required placeholder="e.g. After I subbed Kobe off in the second quarter, the bench showed him twice"></textarea>
+        <textarea id="bug-report-description" rows="5" maxlength="5000" required placeholder="e.g. After I subbed number 7 off in the second quarter, the bench showed them twice"></textarea>
       </label>
       <div class="form-actions">
         <button class="btn btn-secondary" type="button" id="btn-bug-report-cancel">Cancel</button>
