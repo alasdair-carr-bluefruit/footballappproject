@@ -347,6 +347,16 @@ colourblind variant must keep GK/incoming/danger/goal states distinguishable wit
 relying on hue alone (design against BRAND.md; verify contrast). Accessibility + fits the
 inclusive brand. *(was H4)*
 
+**T2.4 Configurable max subs on tournament creation.** Tournaments usually have no
+half-time, so the coach wants direct control over substitutions per match: a picker for
+**1–4 subs at 5v5**, scaling up for larger sizes. The engine already has per-size sub
+limits (`GameConfig.mid_period_subs` / `break_subs`, enforced by `validator.py`) — this
+exposes them to the coach instead of using the fixed defaults. Work: a `max_subs` field on
+`TournamentDB` (additive migration) threaded into the match's `GameConfig`, a
+size-aware selector on the tournament create/edit form (bounds scale with team size),
+and validator wiring. Mirror the season⇄tournament setup form where shared. *(user
+request 2026-07-19)*
+
 ### 🟡 Tier 3 — Bigger bets, later
 
 **T3.1 Match-day engine features.**
