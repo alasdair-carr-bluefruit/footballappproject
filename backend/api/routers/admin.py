@@ -12,11 +12,12 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from backend.auth.email import send_login_link
 from backend.auth.session import set_session_cookie
 from backend.auth.tokens import hash_token, iso_in, new_token, now_iso
 from backend.db.database import get_session
 from backend.db.models import AccountDB, InviteDB, MatchDB, PlayerDB, SquadDB, TournamentDB
-from backend.settings import INVITE_TTL_DAYS, admin_key, app_base_url
+from backend.settings import INVITE_TTL_DAYS, admin_key, app_base_url, resend_api_key
 
 router = APIRouter()
 
@@ -29,26 +30,40 @@ def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
 
 class InviteCreate(BaseModel):
     note: str = ""
+    email: str = ""  # if set, email the invite link to this coach (invite variant)
 
 
 @router.post("/invites", dependencies=[Depends(require_admin)])
 def create_invite(body: InviteCreate, session: Session = Depends(get_session)) -> dict:
-    """Mint a one-time invite link (raw token shown once; only its hash is stored)."""
+    """Mint a one-time invite link (raw token shown once; only its hash is stored).
+
+    If `email` is supplied, also send the coach the invite link via the invite
+    email variant. The raw `link` is always returned so you can copy/share it
+    manually — important when no email provider is configured (`email_configured`
+    is False), since the send is then only a dev-stub log.
+    """
     raw = new_token()
+    email = body.email.strip()
     invite = InviteDB(
         token_hash=hash_token(raw),
         created_at=now_iso(),
         expires_at=iso_in(days=INVITE_TTL_DAYS),
-        note=body.note.strip(),
+        note=body.note.strip() or (f"invited {email}" if email else ""),
     )
     session.add(invite)
     session.commit()
     session.refresh(invite)
+    link = f"{app_base_url()}/?invite={raw}"
+    email_configured = bool(resend_api_key())
+    if email:
+        send_login_link(email, link, is_invite=True)
     return {
         "id": invite.id,
-        "link": f"{app_base_url()}/?invite={raw}",
+        "link": link,
         "note": invite.note,
         "expires_at": invite.expires_at,
+        "emailed_to": email or None,
+        "email_configured": email_configured,
     }
 
 

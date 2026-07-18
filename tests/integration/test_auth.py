@@ -77,6 +77,39 @@ def test_admin_invites_gated_by_key(clients):
     assert ok.status_code == 200 and "invite=" in ok.json()["link"]
 
 
+def test_invite_can_be_emailed(clients, monkeypatch):
+    """Supplying an email mints the invite AND sends the invite-variant email."""
+    import backend.api.routers.admin as admin_mod
+
+    sent: list[tuple] = []
+    monkeypatch.setattr(
+        admin_mod, "send_login_link",
+        lambda to, link, *, is_invite=False: sent.append((to, link, is_invite)),
+    )
+    c = clients()
+    resp = c.post("/api/admin/invites", headers={"X-Admin-Key": ADMIN},
+                  json={"email": "coach@example.com"})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["emailed_to"] == "coach@example.com"
+    assert "invite=" in body["link"]
+    # Emailed once, as the invite variant, with the same link that was returned.
+    assert sent == [("coach@example.com", body["link"], True)]
+
+
+def test_invite_without_email_does_not_send(clients, monkeypatch):
+    import backend.api.routers.admin as admin_mod
+
+    sent: list = []
+    monkeypatch.setattr(admin_mod, "send_login_link",
+                        lambda *a, **k: sent.append(a))
+    c = clients()
+    resp = c.post("/api/admin/invites", headers={"X-Admin-Key": ADMIN}, json={"note": "no email"})
+    assert resp.status_code == 200
+    assert resp.json()["emailed_to"] is None
+    assert sent == []
+
+
 def test_redeem_creates_account_and_logs_in(clients):
     c = clients()
     _redeem(c, "coach@example.com")

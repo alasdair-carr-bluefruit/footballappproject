@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Level — Admin</title>
+  <style>
+    :root {
+      --studio-green: #0A2619; --deep-ink: #0B1210; --signal-lime: #A4CC46;
+      --chalk: #F2F4EE; --muted: #9DB3A6; --hairline: #1C3B2C; --danger: #E4572E;
+      --mono: 'Space Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--studio-green); color: var(--chalk);
+           font-family: var(--sans); line-height: 1.5; padding: 24px 16px; }
+    .wrap { max-width: 620px; margin: 0 auto; }
+    h1 { font-family: var(--mono); font-size: 22px; letter-spacing: 2px; color: var(--signal-lime); margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+    .card { background: var(--deep-ink); border: 1px solid var(--hairline);
+            border-radius: 14px; padding: 20px; margin-bottom: 18px; }
+    .card h2 { font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 1px;
+               color: var(--signal-lime); margin: 0 0 14px; text-transform: uppercase; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+    input { width: 100%; padding: 11px 12px; margin-bottom: 14px; background: #0f1a15;
+            border: 1px solid var(--hairline); border-radius: 9px; color: var(--chalk);
+            font-family: var(--sans); font-size: 15px; }
+    input:focus { outline: none; border-color: var(--signal-lime); }
+    .btn { display: inline-block; padding: 11px 20px; border: 0; border-radius: 9px;
+           font-family: var(--sans); font-size: 15px; font-weight: 700; cursor: pointer; }
+    .btn-primary { background: var(--signal-lime); color: var(--studio-green); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--hairline); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .msg { font-size: 13px; margin: 10px 0 0; padding: 10px 12px; border-radius: 8px; display: none; }
+    .msg.ok { background: rgba(164,204,70,.12); color: var(--signal-lime); display: block; }
+    .msg.warn { background: rgba(228,87,46,.14); color: #f6a488; display: block; }
+    .linkbox { font-family: var(--mono); font-size: 12px; word-break: break-all;
+               background: #0f1a15; border: 1px dashed var(--hairline); border-radius: 8px;
+               padding: 10px; margin-top: 10px; color: var(--chalk); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--hairline); }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+    .pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-family: var(--mono); }
+    .pill.redeemed { background: rgba(164,204,70,.15); color: var(--signal-lime); }
+    .pill.pending { background: rgba(157,179,166,.15); color: var(--muted); }
+    .keystate { font-size: 12px; color: var(--muted); }
+    .hide { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>LEVEL · ADMIN</h1>
+    <p class="sub">Mint invites and email them to coaches. Everything here is gated by your <code>ADMIN_KEY</code>.</p>
+
+    <!-- Admin key -->
+    <div class="card">
+      <h2>Admin key</h2>
+      <div id="key-setup">
+        <label for="admin-key">Paste your ADMIN_KEY (stored in this browser only)</label>
+        <input type="password" id="admin-key" autocomplete="off" placeholder="ADMIN_KEY" />
+        <button class="btn btn-primary" id="btn-save-key">Save key</button>
+      </div>
+      <div id="key-saved" class="hide row">
+        <span class="keystate">✓ Key saved in this browser.</span>
+        <button class="btn btn-ghost" id="btn-forget-key">Forget key</button>
+      </div>
+    </div>
+
+    <!-- Create invite -->
+    <div class="card">
+      <h2>New invite</h2>
+      <label for="coach-email">Coach's email (optional — leave blank to just get a link to share)</label>
+      <input type="email" id="coach-email" autocomplete="off" placeholder="coach@example.com" />
+      <label for="invite-note">Note (optional — who's this for?)</label>
+      <input type="text" id="invite-note" autocomplete="off" placeholder="e.g. Dave — U9s" />
+      <div class="row">
+        <button class="btn btn-primary" id="btn-create">Create invite</button>
+        <span class="keystate" id="create-hint">Enter an email to send it; blank to copy a link.</span>
+      </div>
+      <div class="msg" id="create-msg"></div>
+      <div class="linkbox hide" id="create-link"></div>
+    </div>
+
+    <!-- Outstanding invites -->
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <h2 style="margin:0;">Invites</h2>
+        <button class="btn btn-ghost" id="btn-refresh">Refresh</button>
+      </div>
+      <div class="msg" id="list-msg"></div>
+      <table id="invite-table" class="hide">
+        <thead><tr><th>Note</th><th>Created</th><th>Expires</th><th>Status</th></tr></thead>
+        <tbody id="invite-rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const KEY_STORE = "level_admin_key";
+    const $ = (id) => document.getElementById(id);
+
+    function adminKey() { return localStorage.getItem(KEY_STORE) || ""; }
+
+    function renderKeyState() {
+      const has = !!adminKey();
+      $("key-setup").classList.toggle("hide", has);
+      $("key-saved").classList.toggle("hide", !has);
+      if (has) loadInvites();
+    }
+
+    $("btn-save-key").addEventListener("click", () => {
+      const v = $("admin-key").value.trim();
+      if (!v) return;
+      localStorage.setItem(KEY_STORE, v);
+      $("admin-key").value = "";
+      renderKeyState();
+    });
+    $("btn-forget-key").addEventListener("click", () => {
+      localStorage.removeItem(KEY_STORE);
+      renderKeyState();
+    });
+
+    async function apiPost(path, body) {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-Key": adminKey() },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 403) throw new Error("Admin key rejected — check it and re-save.");
+      if (!res.ok) throw new Error("Request failed (" + res.status + ").");
+      return res.json();
+    }
+    async function apiGet(path) {
+      const res = await fetch(path, { headers: { "X-Admin-Key": adminKey() } });
+      if (res.status === 403) throw new Error("Admin key rejected — check it and re-save.");
+      if (!res.ok) throw new Error("Request failed (" + res.status + ").");
+      return res.json();
+    }
+
+    function fmt(iso) { return iso ? String(iso).slice(0, 10) : "—"; }
+
+    $("btn-create").addEventListener("click", async () => {
+      const email = $("coach-email").value.trim();
+      const note = $("invite-note").value.trim();
+      const msg = $("create-msg"), linkbox = $("create-link"), btn = $("btn-create");
+      msg.className = "msg"; msg.textContent = ""; linkbox.classList.add("hide");
+      btn.disabled = true;
+      try {
+        const r = await apiPost("/api/admin/invites", { email, note });
+        linkbox.textContent = r.link;
+        linkbox.classList.remove("hide");
+        if (email && r.email_configured) {
+          msg.className = "msg ok";
+          msg.textContent = "Invite emailed to " + email + ". Link is also shown below as a backup.";
+        } else if (email && !r.email_configured) {
+          msg.className = "msg warn";
+          msg.textContent = "No email provider configured, so nothing was sent. Copy the link below and send it manually.";
+        } else {
+          msg.className = "msg ok";
+          msg.textContent = "Invite created. Copy the link below and send it to the coach.";
+        }
+        $("coach-email").value = ""; $("invite-note").value = "";
+        loadInvites();
+      } catch (e) {
+        msg.className = "msg warn";
+        msg.textContent = e.message || "Something went wrong.";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Click the link box to copy.
+    $("create-link").addEventListener("click", () => {
+      navigator.clipboard.writeText($("create-link").textContent).then(() => {
+        const m = $("create-msg"); m.className = "msg ok"; m.textContent = "Link copied to clipboard.";
+      });
+    });
+
+    async function loadInvites() { $("btn-refresh").click(); }
+    $("btn-refresh").addEventListener("click", async () => {
+      const listMsg = $("list-msg"), table = $("invite-table"), rows = $("invite-rows");
+      listMsg.className = "msg"; listMsg.textContent = "";
+      try {
+        const invites = await apiGet("/api/admin/invites");
+        rows.innerHTML = "";
+        if (!invites.length) {
+          table.classList.add("hide");
+          listMsg.className = "msg"; listMsg.style.display = "block";
+          listMsg.textContent = "No invites yet.";
+          return;
+        }
+        for (const inv of invites) {
+          const tr = document.createElement("tr");
+          const status = inv.redeemed
+            ? '<span class="pill redeemed">redeemed</span>'
+            : '<span class="pill pending">pending</span>';
+          tr.innerHTML = "<td>" + (inv.note || "—") + "</td><td>" + fmt(inv.created_at) +
+                         "</td><td>" + fmt(inv.expires_at) + "</td><td>" + status + "</td>";
+          rows.appendChild(tr);
+        }
+        table.classList.remove("hide");
+      } catch (e) {
+        listMsg.className = "msg warn"; listMsg.textContent = e.message || "Couldn't load invites.";
+      }
+    });
+
+    renderKeyState();
+  </script>
+</body>
+</html>
