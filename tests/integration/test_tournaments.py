@@ -351,3 +351,40 @@ def test_adjust_flags_consecutive_sit_out(
     assert any("Consecutive sit-out" in w and target_name in w for w in warnings), (
         f"expected a consecutive sit-out violation for {target_name}, got: {warnings}"
     )
+
+
+# ── Specialist keeper cross-match fairness (Titans bug) ───────────────────────
+
+def test_specialist_keeper_gets_fair_share_across_tournament(
+    client: TestClient, tournament: dict, squad_ids: list[int]
+) -> None:
+    """A specialist keeper (Kai) must play only in goal but get ~a fair share of
+    slots across a no-halftime tournament — not every match. Regression for the
+    Titans report: 10 players, 6 no-halftime matches, keeper was in goal for all
+    12 slots. Fair share = 6*2*5 / 10 = 6 goal slots (~half the matches)."""
+    kai_goal = 0
+    kai_outfield = 0
+    played_per_match: list[int] = []
+
+    for _ in range(6):
+        match = _add_match(client, tournament["id"], squad_ids)
+        played = 0
+        for slot in match["slots"]:
+            for pos_key, player in slot["lineup"].items():
+                if player["name"] == "Kai":
+                    played += 1
+                    if pos_key == "GK":
+                        kai_goal += 1
+                    else:
+                        kai_outfield += 1
+        played_per_match.append(played)
+
+    assert kai_outfield == 0, "a specialist keeper must never be played outfield"
+    assert kai_goal > 0, "the keeper should still keep goal sometimes"
+    # Fair share is 6; allow the coach's "maybe 2 more" tolerance, never all 12.
+    assert 6 <= kai_goal <= 8, f"keeper goal slots {kai_goal} not near fair share (6)"
+    # Never sit out two whole matches in a row.
+    for a, b in zip(played_per_match, played_per_match[1:], strict=False):
+        assert not (a == 0 and b == 0), (
+            f"keeper sat out two consecutive matches: {played_per_match}"
+        )

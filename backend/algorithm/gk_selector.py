@@ -27,10 +27,20 @@ def select_gk_for_slots(
     num_slots: int,
     squad_size: int,
     players_per_slot: int = 5,
+    specialist_max_slots: int | None = None,
 ) -> tuple:
     """Return a list of GK assignments (one per slot) and any warnings.
 
     GK assignments are made per-period (same GK for both sub-periods).
+
+    ``specialist_max_slots`` caps how many GK slots a *specialist* keeper may take
+    in this match. It's used for tournaments to spread a specialist's total goal
+    time across the whole day so they don't play every match (their fair share
+    minus what they've already played — see ``match_service``). Once the budget is
+    spent, a backup keeper covers and the specialist rests (a specialist never
+    plays outfield). ``None`` = no cross-match budget (season / single match): the
+    legacy per-match behaviour below is used unchanged. If no backup keeper exists,
+    the specialist still covers goal regardless of budget (goal must be filled).
 
     Returns:
         gk_assignments: list of length num_slots
@@ -47,7 +57,28 @@ def select_gk_for_slots(
     specialist = next((p for p in players if p.gk_status == GKTier.SPECIALIST), None)
 
     if specialist is not None:
-        if squad_size < 10:
+        if specialist_max_slots is not None:
+            # Tournament: the specialist keeps goal only up to their cross-match
+            # fair-share budget; a backup covers once it's spent (specialist rests).
+            spec_quarter_budget = specialist_max_slots // 2  # 2 slots per GK quarter
+            other_players = [p for p in players if p is not specialist]
+            backup_pool = _ranked_gk_pool(other_players, warnings)
+            q_counts: dict = {}
+            gk_per_quarter = []
+            spec_used = 0
+            for _ in range(num_quarters):
+                if spec_used < spec_quarter_budget:
+                    gk_per_quarter.append(specialist)
+                    spec_used += 1
+                elif backup_pool:
+                    gk = _pick_gk_for_quarter(backup_pool, q_counts, max_gk_quarters)
+                    gk_per_quarter.append(gk)
+                    q_counts[id(gk)] = q_counts.get(id(gk), 0) + 1
+                else:
+                    # No backup keeper available — the specialist must cover goal.
+                    gk_per_quarter.append(specialist)
+                    spec_used += 1
+        elif squad_size < 10:
             # Specialist plays every quarter
             gk_per_quarter = [specialist] * num_quarters
         else:
@@ -55,7 +86,7 @@ def select_gk_for_slots(
             # Non-specialist GKs cover Q2 and Q4 — spreads GK experience more evenly.
             other_players = [p for p in players if p is not specialist]
             gk_pool = _ranked_gk_pool(other_players, warnings)
-            q_counts: dict = {}
+            q_counts = {}
             gk_per_quarter = []
             for q in range(num_quarters):
                 if q % 2 == 0:  # Q1, Q3

@@ -27,8 +27,8 @@ from backend.models.game_config import (
     season_config,
 )
 from backend.models.match import Match, Squad
+from backend.models.player import GKTier
 from backend.models.rotation import Position, RotationPlan, SlotAssignment
-
 
 # ── Game config ────────────────────────────────────────────────────────────────
 #
@@ -76,6 +76,43 @@ def _must_play(
     )
 
 
+def _specialist_gk_max_slots(
+    m: MatchDB, squad: Squad, prior_slots: dict | None, this_match_player_slots: int,
+) -> int | None:
+    """Cross-match goal-slot budget for a specialist keeper (tournament only).
+
+    A specialist never plays outfield, so without a cap they'd be in goal for
+    every match of the day and pile up far more time than the rest of the squad.
+    This spreads their goal time so their running total tracks everyone's fair
+    share: at each match we top the keeper up to the squad's fair share *so far*
+    (slots played by everyone through this match ÷ squad size). A partial deficit
+    rounds up to one full goal period (goal is assigned in 2-slot periods), so the
+    keeper always gets at least their share and never sits two matches running.
+    The GK selector spends this budget, then a backup covers and the keeper rests.
+
+    Returns ``None`` when this isn't a tournament match or there's no specialist.
+    Reactive (looks only at matches already played), so it's correct even though
+    tournament matches are generated one at a time as they're added.
+    """
+    if not m.tournament_id:
+        return None
+    specialist = next(
+        (p for p in squad.available if p.gk_status == GKTier.SPECIALIST), None
+    )
+    if specialist is None:
+        return None
+    num_players = len(squad.available)
+    if num_players == 0:
+        return None
+    prior_total = int(sum(prior_slots.values())) if prior_slots else 0
+    fair_share_so_far = (prior_total + this_match_player_slots) // num_players
+    spec_prior = int(prior_slots.get(specialist, 0)) if prior_slots else 0
+    deficit = max(0, fair_share_so_far - spec_prior)
+    # Goal is assigned in 2-slot periods; round a partial deficit up to a full one.
+    spec_periods = (deficit + 1) // 2
+    return spec_periods * 2
+
+
 # ── Rotation generation / adjustment ─────────────────────────────────────────────
 
 def generate_and_save_rotation(
@@ -90,14 +127,20 @@ def generate_and_save_rotation(
 
     prior_slots = None
     must_play = None
+    specialist_gk_max = None
     if m.tournament_id:
         prior_slots = _prior_slots_map(session, m, players_db, squad)
         must_play = _must_play(session, m, players_db, squad)
+        cfg = build_match_config(m)
+        specialist_gk_max = _specialist_gk_max_slots(
+            m, squad, prior_slots, cfg.total_slots * cfg.players_per_slot,
+        )
 
     plan = generate_rotation(
         squad, match,
         prior_slots=prior_slots,
         previous_match_zero_slot_players=must_play,
+        specialist_gk_max_slots=specialist_gk_max,
     )
     save_rotation(session, m.id, plan, players_db)
     set_available_ids(session, m.id, [p.id for p in players_db])

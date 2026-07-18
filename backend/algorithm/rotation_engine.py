@@ -38,6 +38,7 @@ def generate_rotation(
     match: Match,
     prior_slots: dict | None = None,
     previous_match_zero_slot_players: set | None = None,
+    specialist_gk_max_slots: int | None = None,
 ) -> RotationPlan:
     """Generate a full rotation plan for the match.
 
@@ -49,6 +50,10 @@ def generate_rotation(
         previous_match_zero_slot_players: optional set of Players who sat out the
             entire immediately preceding tournament match. They are guaranteed at
             least 1 slot this match (consecutive sit-out hard constraint).
+        specialist_gk_max_slots: optional cap on how many goal slots a specialist
+            keeper may take this match — used by tournaments to spread the
+            specialist's total goal time across the day (their fair share minus
+            slots already played). ``None`` = no cap (season / single match).
 
     Raises:
         ValueError: if the squad is too small to fill a lineup
@@ -68,6 +73,7 @@ def generate_rotation(
     # Step 1: Determine GK per slot (same GK for both sub-periods of a period)
     gk_assignments, warnings = select_gk_for_slots(
         players, num_slots, squad_size=n, players_per_slot=config.players_per_slot,
+        specialist_max_slots=specialist_gk_max_slots,
     )
 
     # Identify non-specialist players who will cover GK slots (ordered, de-duped by identity)
