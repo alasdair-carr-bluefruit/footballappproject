@@ -43,21 +43,3 @@ if (form) {
     }
   });
 }
-
-// ── Explainer video: show it only once the file actually exists ─────
-// Avoids a broken player before the mp4 is uploaded to assets/explainer.mp4.
-(async () => {
-  const video = document.getElementById("explainer");
-  const placeholder = document.getElementById("video-placeholder");
-  if (!video || !placeholder) return;
-  try {
-    const res = await fetch("assets/explainer.mp4", { method: "HEAD" });
-    if (res.ok) {
-      video.style.display = "block";
-      video.preload = "metadata";
-      placeholder.style.display = "none";
-    }
-  } catch (_) {
-    /* keep the placeholder */
-  }
-})();

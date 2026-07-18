@@ -15,11 +15,10 @@ marketing/
 ```
 
 ## The explainer video
-Add music to your video, export as **`explainer.mp4`** (H.264/AAC, 16:9), and
-save it to `marketing/assets/explainer.mp4`. `main.js` does a HEAD check on load
-and only swaps in the player once the file exists — until then the page shows a
-tidy "coming soon" placeholder, so it's safe to deploy now and add the video later.
-Keep it reasonably small (ideally < 20–30 MB) for fast load.
+Embedded from YouTube (not hosted in the repo — avoids Pages' file-size cap and
+git bloat). It's a vertical **Short** in a 9:16 frame, loaded privacy-friendly via
+`youtube-nocookie.com`. To swap the video, change the ID in the `.video-embed`
+iframe `src` in `index.html` (currently `qyheTaqOjlc`).
 
 ## The early-access form
 Posts to **`https://app.keepthingslevel.com/api/early-access`** (the app), which
