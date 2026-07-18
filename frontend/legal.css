@@ -1,0 +1,98 @@
+/* Static legal/policy pages — Level brand, document-friendly layout. */
+
+:root {
+  --pitch-deep: #0B1210;
+  --matchday:   #A4CC46;
+  --chalk:      #F2F4EE;
+  --slate:      #1A1F1C;
+  --font-body:    Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--pitch-deep);
+  color: var(--chalk);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.legal {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+.legal-back {
+  display: inline-block;
+  color: var(--matchday);
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+.legal-back:hover { text-decoration: underline; }
+
+.legal-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.legal-logo span {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1.25;
+  margin: 0 0 4px;
+}
+
+.legal-updated {
+  color: rgba(242, 244, 238, 0.6);
+  font-size: 14px;
+  margin: 0 0 28px;
+}
+
+h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  margin: 36px 0 12px;
+  color: var(--matchday);
+}
+
+h3 {
+  font-size: 16px;
+  margin: 24px 0 8px;
+}
+
+p, li {
+  color: rgba(242, 244, 238, 0.92);
+}
+
+ul {
+  padding-left: 22px;
+}
+li { margin-bottom: 6px; }
+
+a {
+  color: var(--matchday);
+}
+
+.legal-callout {
+  background: rgba(164, 204, 70, 0.1);
+  border: 1px solid rgba(164, 204, 70, 0.35);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin: 0 0 28px;
+  font-size: 15px;
+}

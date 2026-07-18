@@ -1333,6 +1333,22 @@ html, body {
 
 .bug-report:active { color: var(--text-light); }
 
+.landing-legal-links {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  position: relative;
+  z-index: 1;
+}
+.landing-legal-links a {
+  color: var(--text-dim);
+  text-decoration: underline;
+}
+.landing-legal-links a:active { color: var(--text-light); }
+
 /* ── Player availability panel ────────────────────────────────────── */
 
 .avail-title {
@@ -2920,6 +2936,11 @@ html, body {
   font-size: 13px;
   color: var(--text-dim);
   margin: -4px 0 4px;
+}
+
+.form-hint-warning {
+  color: var(--amber);
+  margin-top: 4px;
 }
 
 .inline-pair {
