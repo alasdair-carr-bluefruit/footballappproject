@@ -86,3 +86,54 @@ class TestGkTimeBudget:
         assert assignments[2] is not specialist
         assert assignments[6] is not specialist
         assert assignments[2] is not assignments[6]
+
+
+class TestSpecialistBudget:
+    """Cross-match goal-slot budget for a specialist (tournament fairness).
+
+    When GK sharing is on, ``specialist_max_slots`` caps how many goal slots the
+    specialist takes this match; a backup covers the rest so a specialist keeper
+    doesn't play every match of a tournament. Ignored when sharing is off.
+    """
+
+    def test_budget_zero_rests_specialist_backup_covers(self):
+        spec = make_player("Kai", GKTier.SPECIALIST)
+        backup = make_player("Bo", GKTier.PREFERRED)
+        others = [make_player(f"P{i}") for i in range(8)]
+        assignments, _ = select_gk_for_slots(
+            [spec, backup] + others, num_slots=2, squad_size=10,
+            players_per_slot=5, share_gk=True, specialist_max_slots=0,
+        )
+        assert all(a is backup for a in assignments)
+        assert spec not in assignments
+
+    def test_budget_covers_period_keeps_specialist(self):
+        spec = make_player("Kai", GKTier.SPECIALIST)
+        backup = make_player("Bo", GKTier.PREFERRED)
+        others = [make_player(f"P{i}") for i in range(8)]
+        assignments, _ = select_gk_for_slots(
+            [spec, backup] + others, num_slots=2, squad_size=10,
+            players_per_slot=5, share_gk=True, specialist_max_slots=2,
+        )
+        assert all(a is spec for a in assignments)
+
+    def test_zero_budget_but_no_backup_specialist_still_covers(self):
+        spec = make_player("Kai", GKTier.SPECIALIST)
+        outfield = [make_player(f"P{i}") for i in range(9)]
+        assignments, _ = select_gk_for_slots(
+            [spec] + outfield, num_slots=2, squad_size=10,
+            players_per_slot=5, share_gk=True, specialist_max_slots=0,
+        )
+        assert all(a is not None for a in assignments)
+
+    def test_share_off_ignores_budget_keeper_plays_all(self):
+        # Coach explicitly turned sharing off → keeper stays in goal every period,
+        # regardless of the budget.
+        spec = make_player("Kai", GKTier.SPECIALIST)
+        backup = make_player("Bo", GKTier.PREFERRED)
+        others = [make_player(f"P{i}") for i in range(8)]
+        assignments, _ = select_gk_for_slots(
+            [spec, backup] + others, num_slots=2, squad_size=10,
+            players_per_slot=5, share_gk=False, specialist_max_slots=0,
+        )
+        assert all(a is spec for a in assignments)

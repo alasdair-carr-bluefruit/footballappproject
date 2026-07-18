@@ -351,3 +351,80 @@ def test_adjust_flags_consecutive_sit_out(
     assert any("Consecutive sit-out" in w and target_name in w for w in warnings), (
         f"expected a consecutive sit-out violation for {target_name}, got: {warnings}"
     )
+
+
+# ── Specialist keeper cross-match fairness (Titans bug, ported to multi-user) ──
+
+def test_specialist_keeper_gets_fair_share_across_tournament(
+    client: TestClient, tournament: dict, squad_ids: list[int]
+) -> None:
+    """A specialist keeper (Kai) must play only in goal but get ~a fair share of
+    slots across a no-halftime tournament, not every match. 10 players, 6
+    no-halftime matches → fair share = 6*2*5 / 10 = 6 goal slots. GK sharing is
+    on by default, so the cross-match budget applies."""
+    kai_goal = 0
+    kai_outfield = 0
+    played_per_match: list[int] = []
+
+    for _ in range(6):
+        match = _add_match(client, tournament["id"], squad_ids)
+        played = 0
+        for slot in match["slots"]:
+            for pos_key, player in slot["lineup"].items():
+                if player["name"] == "Kai":
+                    played += 1
+                    if pos_key == "GK":
+                        kai_goal += 1
+                    else:
+                        kai_outfield += 1
+        played_per_match.append(played)
+
+    assert kai_outfield == 0, "a specialist keeper must never be played outfield"
+    assert kai_goal > 0, "the keeper should still keep goal sometimes"
+    assert 6 <= kai_goal <= 8, f"keeper goal slots {kai_goal} not near fair share (6)"
+    for a, b in zip(played_per_match, played_per_match[1:], strict=False):
+        assert not (a == 0 and b == 0), (
+            f"keeper sat out two consecutive matches: {played_per_match}"
+        )
+
+
+# ── Editing tournament settings regenerates planned matches (halftime bug) ─────
+
+def test_editing_halftime_regenerates_planned_matches(
+    client: TestClient, squad_ids: list[int]
+) -> None:
+    """Toggling half-time on an existing tournament must actually change its
+    planned matches (regression: the edit saved but matches kept their old slots)."""
+    created = client.post(
+        "/api/tournaments/", json={**TOURNAMENT_BASE, "has_halftime": True}
+    )
+    assert created.status_code == 201
+    t = created.json()
+
+    _add_match(client, t["id"], squad_ids)
+    match_id = client.get(f"/api/tournaments/{t['id']}").json()["matches"][0]["id"]
+
+    assert len(client.get(f"/api/matches/{match_id}").json()["slots"]) == 4
+
+    resp = client.put(f"/api/tournaments/{t['id']}", json={"has_halftime": False})
+    assert resp.status_code == 200
+    assert resp.json()["has_halftime"] is False
+    assert len(client.get(f"/api/matches/{match_id}").json()["slots"]) == 2
+
+
+def test_editing_unrelated_field_does_not_regenerate(
+    client: TestClient, squad_ids: list[int]
+) -> None:
+    """Editing a non-structural field (name) leaves the matches' rotations alone."""
+    created = client.post(
+        "/api/tournaments/", json={**TOURNAMENT_BASE, "has_halftime": False}
+    )
+    t = created.json()
+    _add_match(client, t["id"], squad_ids)
+    match_id = client.get(f"/api/tournaments/{t['id']}").json()["matches"][0]["id"]
+    before = client.get(f"/api/matches/{match_id}").json()["slots"]
+
+    resp = client.put(f"/api/tournaments/{t['id']}", json={"name": "Renamed Cup"})
+    assert resp.status_code == 200
+    after = client.get(f"/api/matches/{match_id}").json()["slots"]
+    assert len(after) == len(before) == 2

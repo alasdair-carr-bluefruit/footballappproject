@@ -339,6 +339,58 @@ class TournamentUpdate(BaseModel):
     share_gk: int | None = None
 
 
+def _regenerate_planned_matches(session: Session, t: TournamentDB, squad: SquadDB) -> int:
+    """Re-apply the tournament's settings to every *planned* match and regenerate
+    its rotation, so a settings change (e.g. toggling half-time, the match length,
+    or GK sharing) actually takes effect. Mirrors how ``add_tournament_match``
+    builds a match. In-progress and completed matches are left untouched, as is any
+    match without enough available players to re-fill.
+    """
+    all_players = get_players(session, squad.id)
+    quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
+    position_overrides = get_position_overrides(t)
+    planned = list(session.exec(
+        select(MatchDB).where(
+            MatchDB.tournament_id == t.id,
+            MatchDB.status == "planned",
+        ).order_by(MatchDB.match_number)  # type: ignore[arg-type]
+    ).all())
+
+    regenerated = 0
+    for m in planned:
+        players_db = [p for p in all_players if p.id in set(get_available_ids(session, m.id))]
+        if position_overrides:
+            players_db = tournament_service.apply_position_overrides(players_db, position_overrides)
+        try:
+            config = build_tournament_config(
+                t.team_size, t.formation, quarters * quarter_length_mins, bool(t.has_halftime)
+            )
+        except (ValueError, KeyError):
+            continue  # unresolvable config — leave this match as-is
+        if len(players_db) < config.players_per_slot:
+            continue  # not enough available players — leave this match intact
+
+        fv, fairness = tournament_service.resolve_fairness(t, m.tournament_stage, None)
+        m.quarters = quarters
+        m.quarter_length_mins = quarter_length_mins
+        m.team_size = t.team_size
+        m.formation = t.formation
+        m.show_timer = t.show_timer
+        m.rotation_intensity = t.rotation_intensity
+        m.share_gk = t.share_gk
+        m.fairness = fairness
+        m.fairness_value = fv
+        session.add(m)
+        session.commit()
+        session.refresh(m)
+
+        delete_rotation(session, m.id)
+        session.commit()
+        match_service.generate_and_save_rotation(session, m, players_db)
+        regenerated += 1
+    return regenerated
+
+
 @router.put("/{tournament_id}", response_model=TournamentRead)
 def update_tournament(
     tournament_id: int,
@@ -347,6 +399,12 @@ def update_tournament(
     squad: SquadDB = Depends(get_current_squad),
 ) -> TournamentRead:
     t = owned_tournament(tournament_id, squad, session)
+    # Snapshot the fields that change a match's structure / rotation so we know
+    # whether the already-created planned matches need regenerating afterwards.
+    before = (
+        t.match_duration_mins, t.has_halftime, t.team_size, t.formation,
+        t.rotation_intensity, t.fairness_value, t.share_gk,
+    )
     if body.name is not None:
         t.name = body.name
     if body.date is not None:
@@ -370,6 +428,14 @@ def update_tournament(
     session.add(t)
     session.commit()
     session.refresh(t)
+
+    after = (
+        t.match_duration_mins, t.has_halftime, t.team_size, t.formation,
+        t.rotation_intensity, t.fairness_value, t.share_gk,
+    )
+    if before != after:
+        _regenerate_planned_matches(session, t, squad)
+
     count = len(list(session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()))
     return _tournament_read(t, count)
 
