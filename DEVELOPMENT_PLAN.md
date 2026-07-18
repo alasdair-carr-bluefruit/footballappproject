@@ -263,7 +263,59 @@ the head coach for review before it goes live:
 - This is intentionally a Phase F feature — it requires individual identity (E),
   relational slot storage (C), and the Plan Review UI (D) to all exist first.
 
-### Phase G — Later / decision points
+### Phase G — v1.x Match-day experience
+Standalone match-day features, mostly on the existing single-user structure (none
+strictly require multi-user, so they can land before or alongside Phase E). **All
+must honour the season ⇄ tournament parity rule** (CLAUDE.md) — mirror each in both
+flows in the same change — and any storage change is an additive migration.
+1. **Adjust formation mid-match.** Today `MatchDB.formation` is fixed at creation.
+   Allow changing it live: keep played/locked slots intact, re-derive positions for
+   remaining unlocked slots against the new formation (reuse the tinkering "locked
+   slot" model + `config.formation.outfield_positions()`). Guard the team-size
+   invariant — a formation must match the current players-per-slot.
+2. **Record assists.** When a goal is recorded, pop up "Who assisted?" with the
+   on-pitch players + an **N/A** option. Store like goals (per-player, keyed by id —
+   either an `assists` column on `GoalRecordDB` or a sibling table); surface in season
+   /tournament stats and the export. Assist must be a player who was on the pitch for
+   that slot (and not the scorer).
+3. **Goal celebration.** Confetti / fireworks burst when a goal is recorded
+   (`pitch.js` goal flow). Pure frontend polish — must respect
+   `prefers-reduced-motion` (no animation for users who opt out) and not block the
+   goal/assist recording interaction.
+4. **Man of the Match on the results export.** Add `motm_player_id` (nullable) to
+   `MatchDB`; at full-time let the coach pick from players who actually played that
+   match (`available_player_ids`). Render on the share image / export alongside the
+   scoreline.
+5. **Add an extra player mid-match (power play).** For power-play situations a coach
+   may need to field an extra outfield player. The rotation engine currently assumes a
+   fixed `team_size` — this needs a per-slot size override (or a temporary lineup
+   addition) so remaining slots recalc with the larger lineup without corrupting
+   fairness accounting. Trickiest item here; scope carefully and pin behaviour with
+   BDD before touching the engine.
+
+### Phase H — v1.x Settings & account
+A proper settings area. Items 1–2 depend on Phase E (accounts/invite infra); the
+rest are independent.
+1. **Settings screen.** New screen reachable from the landing/account menu.
+2. **Update email address** (depends on Phase E `AccountDB.email` + a re-verify step
+   so an email change can't silently hijack the login handle).
+3. **Invite a friend** (reuses the Phase E invite flow — generate a one-time invite
+   link the coach can share).
+4. **Colourway switcher**, including a **colourblind-friendly** palette. The brand
+   lives in CSS custom properties (`:root` in `style.css`, mirroring
+   `assets/brand/tokens.json`), so a theme = an alternate token set; the colourblind
+   variant needs a palette that keeps GK/incoming/danger/goal states distinguishable
+   without relying on hue alone (design against BRAND.md; verify contrast).
+5. **Clear squad & data** (destructive). Deletes the coach's squad, players, matches
+   and tournaments. Must require **at least one extra explicit confirmation** ("Are
+   you sure? This data cannot be recovered") beyond the initial tap — ideally a
+   type-to-confirm — and can't be reachable by accident.
+6. **Signed-out → marketing site.** On `app.keepthingslevel.com`, an unauthenticated
+   visitor should have an obvious way back to the marketing site
+   (`keepthingslevel.com`) — e.g. a header/landing link on the login screen. Small,
+   but important for the signed-out experience.
+
+### Phase I — Later / decision points
 - Open self-serve signup (drop invite gate) — only after magic link + rate limiting
   proven.
 - 8-a-side preset; knockout bracket structure.
