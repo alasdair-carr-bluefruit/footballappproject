@@ -32,7 +32,7 @@ marketing/
 Embedded from YouTube (not hosted in the repo — avoids Pages' file-size cap and
 git bloat). It's a vertical **Short** in a 9:16 frame, loaded privacy-friendly via
 `youtube-nocookie.com`. To swap the video, change the ID in the `.video-embed`
-iframe `src` in `index.html` (currently `qyheTaqOjlc`).
+iframe `src` in `index.html` (currently `-lPhWvHGhkU`).
 
 ## The early-access form
 Posts to **`https://app.keepthingslevel.com/api/early-access`** (the app), which
