@@ -261,23 +261,7 @@
     </header>
 
     <div class="settings-wrap">
-      <!-- Account -->
-      <section class="settings-section">
-        <h3 class="settings-heading">Account</h3>
-        <p class="settings-label">Signed in as</p>
-        <p class="settings-value" id="settings-email">—</p>
-
-        <form id="email-change-form" class="settings-inline-form">
-          <label class="settings-field-label" for="settings-new-email">Change email address</label>
-          <input type="email" id="settings-new-email" class="auth-input" placeholder="new@example.com" autocomplete="email" required />
-          <button type="submit" class="btn btn-secondary btn-full" id="btn-email-change-send">Send confirmation link</button>
-        </form>
-        <p class="settings-msg" id="email-change-msg" hidden></p>
-        <a class="auth-devlink" id="email-change-devlink" hidden href="#"></a>
-        <p class="settings-hint">We'll email a confirmation link to the new address. Your current email keeps working until you tap it.</p>
-      </section>
-
-      <!-- Teams (multi-team teaser) -->
+      <!-- Teams (multi-team teaser) — pinned to the top, always expanded -->
       <section class="settings-section">
         <h3 class="settings-heading">Teams</h3>
         <p class="settings-label">Current team</p>
@@ -288,37 +272,61 @@
         </div>
       </section>
 
-      <!-- Appearance (colour theme) -->
-      <section class="settings-section">
-        <h3 class="settings-heading">Appearance</h3>
-        <p class="settings-label">Colour theme</p>
-        <div class="settings-radio-group" role="radiogroup" aria-label="Colour theme">
-          <label class="settings-radio">
-            <input type="radio" name="theme-choice" value="default" />
-            <span><strong>Level</strong><small>The standard colours</small></span>
-          </label>
-          <label class="settings-radio">
-            <input type="radio" name="theme-choice" value="colourblind" />
-            <span><strong>Colourblind-friendly</strong><small>Higher-separation palette for red/green colour vision</small></span>
-          </label>
+      <!-- Account -->
+      <details class="settings-section settings-collapsible">
+        <summary class="settings-heading">Account</summary>
+        <div class="settings-body">
+          <p class="settings-label">Signed in as</p>
+          <p class="settings-value" id="settings-email">—</p>
+
+          <form id="email-change-form" class="settings-inline-form">
+            <label class="settings-field-label" for="settings-new-email">Change email address</label>
+            <input type="email" id="settings-new-email" class="auth-input" placeholder="new@example.com" autocomplete="email" required />
+            <button type="submit" class="btn btn-secondary btn-full" id="btn-email-change-send">Send confirmation link</button>
+          </form>
+          <p class="settings-msg" id="email-change-msg" hidden></p>
+          <a class="auth-devlink" id="email-change-devlink" hidden href="#"></a>
+          <p class="settings-hint">We'll email a confirmation link to the new address. Your current email keeps working until you tap it.</p>
         </div>
-        <p class="settings-hint">Changes player, position and status colours across the app. Applies on this device.</p>
-      </section>
+      </details>
+
+      <!-- Appearance (colour theme) -->
+      <details class="settings-section settings-collapsible">
+        <summary class="settings-heading">Appearance</summary>
+        <div class="settings-body">
+          <p class="settings-label">Colour theme</p>
+          <div class="settings-radio-group" role="radiogroup" aria-label="Colour theme">
+            <label class="settings-radio">
+              <input type="radio" name="theme-choice" value="default" />
+              <span><strong>Level</strong><small>The standard colours</small></span>
+            </label>
+            <label class="settings-radio">
+              <input type="radio" name="theme-choice" value="colourblind" />
+              <span><strong>Colourblind-friendly</strong><small>Higher-separation palette for red/green colour vision</small></span>
+            </label>
+          </div>
+          <p class="settings-hint">Changes player, position and status colours across the app. Applies on this device.</p>
+        </div>
+      </details>
 
       <!-- App / updates -->
-      <section class="settings-section">
-        <h3 class="settings-heading">App</h3>
-        <p class="settings-hint">On the installed app and something looks out of date? This clears the cache and reloads the latest version.</p>
-        <button type="button" class="btn btn-secondary btn-full" id="btn-check-updates">Check for updates</button>
-        <p class="settings-msg" id="check-updates-msg" hidden></p>
-      </section>
+      <details class="settings-section settings-collapsible">
+        <summary class="settings-heading">App</summary>
+        <div class="settings-body">
+          <p class="settings-hint">On the installed app and something looks out of date? This clears the cache and reloads the latest version.</p>
+          <button type="button" class="btn btn-secondary btn-full" id="btn-check-updates">Check for updates</button>
+          <p class="settings-msg" id="check-updates-msg" hidden></p>
+        </div>
+      </details>
 
       <!-- Danger zone -->
-      <section class="settings-section settings-danger">
-        <h3 class="settings-heading">Clear squad &amp; data</h3>
-        <p class="settings-hint">Permanently deletes all your players, matches and tournaments. Your account and login stay, but the football data cannot be recovered.</p>
-        <button type="button" class="btn btn-danger btn-full" id="btn-clear-data">Clear squad &amp; data…</button>
-      </section>
+      <details class="settings-section settings-collapsible settings-danger">
+        <summary class="settings-heading">Clear squad &amp; data</summary>
+        <div class="settings-body">
+          <p class="settings-hint">Permanently deletes all your players, matches and tournaments. Your account and login stay, but the football data cannot be recovered.</p>
+          <button type="button" class="btn btn-danger btn-full" id="btn-clear-data">Clear squad &amp; data…</button>
+        </div>
+      </details>
 
       <button type="button" class="btn btn-secondary btn-full" id="btn-settings-signout">Sign out</button>
     </div>
