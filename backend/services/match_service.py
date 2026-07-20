@@ -46,7 +46,9 @@ def build_match_config(m: MatchDB) -> GameConfig:
     """
     if m.tournament_id:
         total_duration = m.quarters * m.quarter_length_mins
-        return build_tournament_config(m.team_size, m.formation, total_duration, m.quarters > 1)
+        return build_tournament_config(
+            m.team_size, m.formation, total_duration, m.quarters > 1, m.max_subs,
+        )
     return season_config(m.team_size, m.formation, m.quarters, m.quarter_length_mins)
 
 

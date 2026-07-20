@@ -64,11 +64,11 @@ Next significant work: **Forward Roadmap Tier 1** (DEVELOPMENT_PLAN.md, repriori
 |---|---|
 | Backend | Python 3.12, FastAPI |
 | Algorithm | Pure Python, no I/O dependencies |
-| Database | SQLite via SQLModel (PostgreSQL planned for v1.0 multi-user) |
+| Database | SQLModel — SQLite locally/tests, **Neon PostgreSQL in production** (Alembic migrations) |
 | Frontend | Vanilla JS (ES modules), Pico.css, PWA/Service Worker |
 | Testing | pytest + pytest-bdd (Gherkin), pytest-asyncio |
 | Linting | ruff, mypy |
-| Hosting | Render + Neon (single-user instances); DECIDED for v1.0 multi-user: Railway Hobby + fresh Neon Postgres (V1_MULTIUSER_PLAN.md §8) |
+| Hosting | **Live: Railway + Neon Postgres + Cloudflare** (app.keepthingslevel.com), single shared multi-user instance. Old Render single-user clones retained as fallback until each coach is migrated. |
 
 ---
 
@@ -76,7 +76,7 @@ Next significant work: **Forward Roadmap Tier 1** (DEVELOPMENT_PLAN.md, repriori
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # all tests (~115)
+pytest                    # all tests (~316)
 pytest -m unit            # fast, no DB/server
 pytest -m bdd             # Gherkin BDD scenarios
 pytest -m integration     # DB + HTTP tests
@@ -283,8 +283,8 @@ GameConfig
 - Period labels: "Quarter" for 5/6/7v7, "Half" for 9v9
 - Position codes vary by formation — always use `config.formation.outfield_positions()`
 - `normalize_position()` converts DEF2→"DEF", MID3→"MID", etc.
-- Goal counts stored keyed by `str(player_id)` in `goals_json`; the frontend sends names which the API converts to ids (duplicate names rejected at creation)
-- DB migrations: additive only via `ALTER TABLE ... ADD COLUMN` in `create_db_and_tables()`; wrap in try/except for idempotency
+- Goal counts keyed by `str(player_id)`, now in the relational `GoalRecordDB` table (JSON blobs `goals_json`/`slots_json`/`removed_players_json`/`available_player_ids_json` were normalised into `GoalRecordDB`/`SlotDB`/`SlotAssignmentDB`/`MatchAvailabilityDB` in Phase C.6); the frontend sends names which the API converts to ids (duplicate names rejected at creation)
+- DB migrations: **Alembic** is the tool for schema changes since Phase C.6 (`backend/db/migrations/`). The legacy additive `ALTER TABLE ... ADD COLUMN` bridge (wrapped in try/except) still exists for older columns; new tables/columns go through an Alembic revision.
 - **Season ⇄ tournament parity (important):** the two flows must not drift. They
   share the setup form, pitch renderer, tinkering, goals and full-time by design;
   but `season.js` and `tournament.js` still hold separate list/load entry points and

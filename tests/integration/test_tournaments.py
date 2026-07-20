@@ -428,3 +428,48 @@ def test_editing_unrelated_field_does_not_regenerate(
     assert resp.status_code == 200
     after = client.get(f"/api/matches/{match_id}").json()["slots"]
     assert len(after) == len(before) == 2
+
+
+# ── Configurable max subs (T2.4) ──────────────────────────────────────────────
+
+def test_create_echoes_max_subs(client: TestClient) -> None:
+    t = client.post("/api/tournaments/", json={**TOURNAMENT_BASE, "max_subs": 3}).json()
+    assert t["max_subs"] == 3
+    fetched = client.get(f"/api/tournaments/{t['id']}").json()["tournament"]
+    assert fetched["max_subs"] == 3
+
+
+def test_max_subs_defaults_to_null(client: TestClient) -> None:
+    """Omitting max_subs stores NULL — the engine falls back to the preset cap."""
+    t = client.post("/api/tournaments/", json=TOURNAMENT_BASE).json()
+    assert t["max_subs"] is None
+
+
+def test_max_subs_generation_stays_valid(client: TestClient, squad_ids: list[int]) -> None:
+    """A custom max_subs must thread through generation without breaking it: a
+    no-halftime match still yields 2 fully-filled slots. (The cap is a soft upper
+    bound subordinate to fair playing time — it never leaves a position empty.)"""
+    t = client.post("/api/tournaments/", json={**TOURNAMENT_BASE, "max_subs": 2}).json()
+    resp = _add_match(client, t["id"], squad_ids)
+    slots = resp["slots"]
+    assert len(slots) == 2
+    # Every slot fields a full lineup (GK + outfield).
+    for s in slots:
+        assert len(s["lineup"]) == 5
+
+
+def test_editing_max_subs_is_structural(
+    client: TestClient, squad_ids: list[int]
+) -> None:
+    """max_subs is a rotation-affecting field: editing it persists and regenerates
+    planned matches (matches remain valid afterwards)."""
+    t = client.post("/api/tournaments/", json={**TOURNAMENT_BASE, "max_subs": 4}).json()
+    _add_match(client, t["id"], squad_ids)
+    match_id = client.get(f"/api/tournaments/{t['id']}").json()["matches"][0]["id"]
+
+    resp = client.put(f"/api/tournaments/{t['id']}", json={"max_subs": 1})
+    assert resp.status_code == 200
+    assert resp.json()["max_subs"] == 1
+    # Persisted on the tournament and the regenerated match still has its 2 slots.
+    assert client.get(f"/api/tournaments/{t['id']}").json()["tournament"]["max_subs"] == 1
+    assert len(client.get(f"/api/matches/{match_id}").json()["slots"]) == 2

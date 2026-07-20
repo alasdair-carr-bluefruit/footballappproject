@@ -174,19 +174,22 @@ def build_tournament_config(
     formation: str,
     match_duration_mins: int,
     has_halftime: bool,
+    max_subs: int | None = None,
 ) -> GameConfig:
     """Build a GameConfig for a tournament match with custom period structure.
 
     Tournament matches use 1 period (no halftime) or 2 periods (with halftime),
-    giving 2 or 4 total slots respectively. Sub limits are inherited from the
-    nearest season preset for the given team size.
+    giving 2 or 4 total slots respectively. Sub limits default to the nearest
+    season preset for the given team size, but a coach-set ``max_subs`` overrides
+    the mid-period cap (tournaments usually have no half-time, so the mid-period
+    transition is the only substitution point the coach controls).
     """
     formation_obj = Formation.parse(formation)
     preset_configs = PRESET_CONFIGS.get(team_size, {})
     default_f = DEFAULT_FORMATIONS.get(team_size, formation)
     base = preset_configs.get(formation) or preset_configs.get(default_f)
 
-    mid_period_subs = base.mid_period_subs if base else 2
+    mid_period_subs = max_subs if max_subs is not None else (base.mid_period_subs if base else 2)
 
     if has_halftime:
         periods = 2

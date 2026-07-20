@@ -6,7 +6,7 @@ from backend.models.game_config import (
     DEFAULT_FORMATIONS,
     PRESET_CONFIGS,
     Formation,
-    GameConfig,
+    build_tournament_config,
     get_config,
 )
 
@@ -92,6 +92,36 @@ class TestGameConfig:
         assert cfg.total_slots == 8
         assert cfg.mid_period_subs == 3
         assert cfg.break_subs == 4
+
+
+class TestBuildTournamentConfig:
+    def test_no_halftime_single_period(self):
+        cfg = build_tournament_config(5, "1-2-1", 20, has_halftime=False)
+        assert cfg.periods == 1
+        assert cfg.total_slots == 2
+        assert cfg.break_subs is None
+
+    def test_halftime_two_periods(self):
+        cfg = build_tournament_config(5, "1-2-1", 20, has_halftime=True)
+        assert cfg.periods == 2
+        assert cfg.total_slots == 4
+
+    def test_sub_cap_defaults_to_preset_when_unset(self):
+        # 5v5 preset mid-period cap is 2; 7v7 is 3.
+        assert build_tournament_config(5, "1-2-1", 20, False).mid_period_subs == 2
+        assert build_tournament_config(7, "2-3-1", 25, False).mid_period_subs == 3
+
+    def test_max_subs_overrides_preset(self):
+        cfg = build_tournament_config(5, "1-2-1", 20, False, max_subs=4)
+        assert cfg.mid_period_subs == 4
+
+    def test_max_subs_can_lower_the_cap(self):
+        cfg = build_tournament_config(7, "2-3-1", 25, False, max_subs=1)
+        assert cfg.mid_period_subs == 1
+
+    def test_max_subs_none_keeps_preset(self):
+        cfg = build_tournament_config(9, "3-3-2", 30, True, max_subs=None)
+        assert cfg.mid_period_subs == 4
 
 
 class TestPresets:

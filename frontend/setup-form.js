@@ -131,11 +131,38 @@ document.getElementById("size-picker").addEventListener("click", e => {
   if (btn) selectSize(parseInt(btn.dataset.size));
 });
 
-// ── Tournament: size drives formation options only (no period picker) ──
-function tournamentSelectSize(size) {
+// Per-size preset mid-period sub cap (fallback if game-configs aren't cached yet).
+const PRESET_MAX_SUBS = { 5: 2, 6: 2, 7: 3, 9: 4 };
+
+// Populate the tournament max-subs picker. Bounds scale with team size (1 up to
+// the outfield count = size − 1); the default is the size's preset mid_period_subs.
+// A caller-supplied `selected` (or the current value, on a size change) is kept if
+// it still fits the new size's range.
+function buildMaxSubsOptions(size, selected) {
+  const select = document.getElementById("tournament-max-subs");
+  if (!select) return;
+  const outfieldMax = Math.max(1, size - 1);
+  const cfg = state.gameConfigs && state.gameConfigs[String(size)];
+  const preset = cfg?.mid_period_subs ?? PRESET_MAX_SUBS[size] ?? Math.min(2, outfieldMax);
+  const prev = selected != null ? Number(selected) : Number(select.value);
+  const keep = Number.isFinite(prev) && prev >= 1 && prev <= outfieldMax ? prev : null;
+  const chosen = keep ?? Math.min(preset, outfieldMax);
+  select.innerHTML = "";
+  for (let n = 1; n <= outfieldMax; n++) {
+    const opt = document.createElement("option");
+    opt.value = String(n);
+    opt.textContent = n === preset ? `${n} (default)` : String(n);
+    if (n === chosen) opt.selected = true;
+    select.appendChild(opt);
+  }
+}
+
+// ── Tournament: size drives formation + max-subs options (no period picker) ──
+function tournamentSelectSize(size, maxSubs) {
   state.tournamentSelectedSize = size;
   highlightActiveSize("#tournament-size-picker", size);
   buildFormationOptions("tournament-formation-select", size);
+  buildMaxSubsOptions(size, maxSubs);
 }
 
 document.getElementById("tournament-size-picker").addEventListener("click", e => {
@@ -147,4 +174,4 @@ document.getElementById("tournament-fairness-slider").addEventListener("input", 
   updateFairnessLabel(e.target.value, "tournament-fairness-value", "tournament-fairness-warning");
 });
 
-export { updateFairnessLabel, getRotationValue, selectSize, selectPeriods, tournamentSelectSize };
+export { updateFairnessLabel, getRotationValue, selectSize, selectPeriods, tournamentSelectSize, buildMaxSubsOptions };

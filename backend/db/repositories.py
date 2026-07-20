@@ -56,7 +56,7 @@ def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squa
         total_duration = m.quarters * m.quarter_length_mins
         has_halftime = m.quarters > 1
         try:
-            config = build_tournament_config(m.team_size, m.formation, total_duration, has_halftime)
+            config = build_tournament_config(m.team_size, m.formation, total_duration, has_halftime, m.max_subs)
         except (ValueError, KeyError):
             config = None
     else:

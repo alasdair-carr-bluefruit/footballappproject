@@ -77,6 +77,7 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   const defaultRotRadio = document.querySelector('input[name="tournament-rotation"][value="100"]');
   if (defaultRotRadio) defaultRotRadio.checked = true;
   document.getElementById("tournament-num-matches").value = "4";
+  document.getElementById("tournament-max-subs").innerHTML = "";  // drop any stale value so the size default is used
   tournamentSelectSize(5);
   showScreen("screen-new-tournament");
 });
@@ -98,6 +99,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
   const formation = document.getElementById("tournament-formation-select").value;
   const duration = parseFloat(document.getElementById("tournament-duration").value) || 10;
   const hasHalftime = document.getElementById("tournament-halftime").checked;
+  const maxSubs = parseInt(document.getElementById("tournament-max-subs").value) || null;
   const showTimer = document.getElementById("tournament-show-timer").checked;
   const fairnessValue = parseInt(document.getElementById("tournament-fairness-slider").value);
   const rotationIntensity = getRotationValue("tournament");
@@ -120,6 +122,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     formation,
     match_duration_mins: duration,
     has_halftime: hasHalftime,
+    max_subs: maxSubs,
     show_timer: showTimer ? 1 : 0,
     fairness_value: fairnessValue,
     rotation_intensity: rotationIntensity,
@@ -443,7 +446,7 @@ document.getElementById("btn-edit-tournament").addEventListener("click", async (
   document.getElementById("tournament-num-matches").closest("label").hidden = false;
   document.getElementById("btn-new-tournament-back").textContent = "◀ Back";
   document.getElementById("btn-create-tournament").textContent = "Next: Select Players →";
-  tournamentSelectSize(t.team_size || 5);
+  tournamentSelectSize(t.team_size || 5, t.max_subs);
   // Select the saved formation once options are populated
   const formationSelect = document.getElementById("tournament-formation-select");
   if (t.formation) formationSelect.value = t.formation;

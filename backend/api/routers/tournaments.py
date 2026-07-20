@@ -50,6 +50,7 @@ class TournamentCreate(BaseModel):
     formation: str = "1-2-1"
     match_duration_mins: int = 10
     has_halftime: bool = False
+    max_subs: int | None = None  # mid-period sub cap; None = per-size preset default
     show_timer: int = 1  # 0=hide the match clock, 1=show
     fairness_value: int = 50  # 0=equal, 100=start strong
     rotation_intensity: int = 50
@@ -64,6 +65,7 @@ class TournamentRead(BaseModel):
     formation: str
     match_duration_mins: int
     has_halftime: bool
+    max_subs: int | None = None
     show_timer: int = 1
     fairness_value: int
     rotation_intensity: int
@@ -100,6 +102,7 @@ def _tournament_read(t: TournamentDB, match_count: int = 0) -> TournamentRead:
         formation=t.formation,
         match_duration_mins=t.match_duration_mins,
         has_halftime=bool(t.has_halftime),
+        max_subs=t.max_subs,
         show_timer=t.show_timer,
         fairness_value=t.fairness_value,
         rotation_intensity=t.rotation_intensity,
@@ -118,7 +121,9 @@ def _match_response(
     """Build the rotation response dict for a tournament match."""
     try:
         total_duration = m.quarters * m.quarter_length_mins
-        cfg = build_tournament_config(m.team_size, m.formation, total_duration, m.quarters > 1)
+        cfg = build_tournament_config(
+            m.team_size, m.formation, total_duration, m.quarters > 1, m.max_subs,
+        )
         period_label = cfg.period_label
     except Exception:
         period_label = "Period"
@@ -179,7 +184,10 @@ def create_tournament(
 ) -> TournamentRead:
     # Validate formation
     try:
-        build_tournament_config(body.team_size, body.formation, body.match_duration_mins, body.has_halftime)
+        build_tournament_config(
+            body.team_size, body.formation, body.match_duration_mins,
+            body.has_halftime, body.max_subs,
+        )
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -191,6 +199,7 @@ def create_tournament(
         formation=body.formation,
         match_duration_mins=body.match_duration_mins,
         has_halftime=1 if body.has_halftime else 0,
+        max_subs=body.max_subs,
         show_timer=body.show_timer,
         fairness_value=body.fairness_value,
         rotation_intensity=body.rotation_intensity,
@@ -333,6 +342,7 @@ class TournamentUpdate(BaseModel):
     formation: str | None = None
     match_duration_mins: int | None = None
     has_halftime: bool | None = None
+    max_subs: int | None = None
     show_timer: int | None = None
     fairness_value: int | None = None
     rotation_intensity: int | None = None
@@ -363,7 +373,8 @@ def _regenerate_planned_matches(session: Session, t: TournamentDB, squad: SquadD
             players_db = tournament_service.apply_position_overrides(players_db, position_overrides)
         try:
             config = build_tournament_config(
-                t.team_size, t.formation, quarters * quarter_length_mins, bool(t.has_halftime)
+                t.team_size, t.formation, quarters * quarter_length_mins,
+                bool(t.has_halftime), t.max_subs,
             )
         except (ValueError, KeyError):
             continue  # unresolvable config — leave this match as-is
@@ -378,6 +389,7 @@ def _regenerate_planned_matches(session: Session, t: TournamentDB, squad: SquadD
         m.show_timer = t.show_timer
         m.rotation_intensity = t.rotation_intensity
         m.share_gk = t.share_gk
+        m.max_subs = t.max_subs
         m.fairness = fairness
         m.fairness_value = fv
         session.add(m)
@@ -403,7 +415,7 @@ def update_tournament(
     # whether the already-created planned matches need regenerating afterwards.
     before = (
         t.match_duration_mins, t.has_halftime, t.team_size, t.formation,
-        t.rotation_intensity, t.fairness_value, t.share_gk,
+        t.rotation_intensity, t.fairness_value, t.share_gk, t.max_subs,
     )
     if body.name is not None:
         t.name = body.name
@@ -417,6 +429,8 @@ def update_tournament(
         t.match_duration_mins = body.match_duration_mins
     if body.has_halftime is not None:
         t.has_halftime = 1 if body.has_halftime else 0
+    if body.max_subs is not None:
+        t.max_subs = body.max_subs
     if body.show_timer is not None:
         t.show_timer = body.show_timer
     if body.fairness_value is not None:
@@ -431,7 +445,7 @@ def update_tournament(
 
     after = (
         t.match_duration_mins, t.has_halftime, t.team_size, t.formation,
-        t.rotation_intensity, t.fairness_value, t.share_gk,
+        t.rotation_intensity, t.fairness_value, t.share_gk, t.max_subs,
     )
     if before != after:
         _regenerate_planned_matches(session, t, squad)
@@ -464,7 +478,9 @@ def set_available_players(
     quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
     total_duration = quarters * quarter_length_mins
     try:
-        config = build_tournament_config(t.team_size, t.formation, total_duration, bool(t.has_halftime))
+        config = build_tournament_config(
+            t.team_size, t.formation, total_duration, bool(t.has_halftime), t.max_subs,
+        )
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -648,6 +664,7 @@ def add_tournament_match(
         fairness_value=fv,
         rotation_intensity=t.rotation_intensity,
         share_gk=t.share_gk,
+        max_subs=t.max_subs,
         home_away="home",
         tournament_id=tournament_id,
         tournament_stage=body.stage,
@@ -667,7 +684,9 @@ def add_tournament_match(
 
     total_duration = quarters * quarter_length_mins
     try:
-        config = build_tournament_config(t.team_size, t.formation, total_duration, bool(t.has_halftime))
+        config = build_tournament_config(
+            t.team_size, t.formation, total_duration, bool(t.has_halftime), t.max_subs,
+        )
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
