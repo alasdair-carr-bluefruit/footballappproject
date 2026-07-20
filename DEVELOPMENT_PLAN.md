@@ -303,6 +303,10 @@ multi-team "coming soon" teaser, and the danger zone. Remaining sub-items:
   emailed to the *new* address (`EmailChangeTokenDB`, `/auth/account/request-email-change`
   + `/auth/account/confirm-email-change`, `?email_change=` confirm-on-click screen), and the
   handle only swaps once that link is tapped — so a change can't silently hijack the login.
+  On confirm, a **"reclaim your squad" notice** is emailed to the *old* address with a
+  `?reclaim=` link (`ReclaimTokenDB`, 7-day TTL) that reverts the email **and signs out all
+  devices** via a per-account `session_epoch` bumped on reclaim (stale-token gate in
+  `deps` + `/me`; middleware preserves epoch). The recovery path if a change wasn't the owner.
 - **Invite a friend** — ⏳ still to do: reuse the existing invite-token flow to generate a
   shareable one-time link (currently admin-key gated — needs a non-admin variant). *(growth loop)*
 *(was H1–H3)*

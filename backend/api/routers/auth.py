@@ -13,7 +13,11 @@ from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
 from backend.api.deps import get_current_account
-from backend.auth.email import send_email_change_link, send_login_link
+from backend.auth.email import (
+    send_email_change_link,
+    send_email_changed_notice,
+    send_login_link,
+)
 from backend.auth.session import set_session_cookie
 from backend.auth.tokens import (
     hash_token,
@@ -31,12 +35,14 @@ from backend.db.models import (
     LoginTokenDB,
     MatchDB,
     PlayerDB,
+    ReclaimTokenDB,
     SquadDB,
     TournamentDB,
 )
 from backend.db.repositories import delete_rotation, get_or_create_squad
 from backend.settings import (
     LOGIN_TOKEN_TTL_MINUTES,
+    RECLAIM_TOKEN_TTL_DAYS,
     SESSION_COOKIE,
     app_base_url,
     auth_enabled,
@@ -107,7 +113,7 @@ def redeem_invite(
     session.commit()
     session.refresh(account)
 
-    set_session_cookie(response, account.id)  # type: ignore[arg-type]
+    set_session_cookie(response, account.id, account.session_epoch)  # type: ignore[arg-type]
     return _account_public(account)
 
 
@@ -173,7 +179,7 @@ def verify_login(
     session.commit()
     session.refresh(account)
 
-    set_session_cookie(response, account.id)  # type: ignore[arg-type]
+    set_session_cookie(response, account.id, account.session_epoch)  # type: ignore[arg-type]
     return _account_public(account)
 
 
@@ -261,15 +267,83 @@ def confirm_email_change(
     if clash and clash.id != account.id:
         raise HTTPException(status_code=409, detail="That email is already in use")
 
+    prior_email = account.email  # notify the old address, and let it reclaim
     account.email = row.new_email
     row.consumed_at = now_iso()
+
+    # Mint a "reclaim your squad" token so the previous owner can undo an
+    # unauthorised change (revert email + sign out everywhere). Longer-lived than a
+    # login token — they may not read the notice email straight away.
+    reclaim_raw = new_token()
+    session.add(
+        ReclaimTokenDB(
+            account_id=account.id,  # type: ignore[arg-type]
+            prior_email=prior_email,
+            token_hash=hash_token(reclaim_raw),
+            created_at=now_iso(),
+            expires_at=iso_in(days=RECLAIM_TOKEN_TTL_DAYS),
+        )
+    )
     session.add(account)
     session.add(row)
     session.commit()
     session.refresh(account)
 
-    set_session_cookie(response, account.id)  # type: ignore[arg-type]
+    squad = session.get(SquadDB, account.squad_id)
+    team_name = (squad.team_name or squad.name) if squad else "your squad"
+    send_email_changed_notice(
+        prior_email,
+        new_email=account.email,
+        team_name=team_name,
+        reclaim_link=f"{app_base_url()}/?reclaim={reclaim_raw}",
+    )
+
+    set_session_cookie(response, account.id, account.session_epoch)  # type: ignore[arg-type]
     return _account_public(account)
+
+
+class ReclaimBody(BaseModel):
+    token: str
+
+
+@router.post("/account/reclaim")
+def reclaim_account(
+    body: ReclaimBody, response: Response, session: Session = Depends(get_session)
+) -> dict:
+    """Undo an email change from the notice sent to the OLD address: restore that
+    address and bump session_epoch (signing out every device, incl. an attacker's).
+
+    No session required — the reclaim token IS the authorisation. Does NOT sign the
+    caller in; they re-request a magic link with the restored address.
+    """
+    presented = hash_token(body.token)
+    row = session.exec(
+        select(ReclaimTokenDB).where(ReclaimTokenDB.token_hash == presented)
+    ).first()
+    if not row or row.consumed_at is not None or is_expired(row.expires_at):
+        raise HTTPException(status_code=400, detail="This reclaim link is invalid or expired")
+    if not tokens_match(body.token, row.token_hash):
+        raise HTTPException(status_code=400, detail="This reclaim link is invalid or expired")
+
+    account = session.get(AccountDB, row.account_id)
+    if not account:
+        raise HTTPException(status_code=400, detail="This account no longer exists")
+    # The address must still be free to restore (normally it is — nobody else can
+    # claim it while it's the pending prior handle, but re-check defensively).
+    clash = session.exec(select(AccountDB).where(AccountDB.email == row.prior_email)).first()
+    if clash and clash.id != account.id:
+        raise HTTPException(status_code=409, detail="That email is no longer available")
+
+    account.email = row.prior_email
+    account.session_epoch += 1  # invalidate every issued session (all devices)
+    row.consumed_at = now_iso()
+    session.add(account)
+    session.add(row)
+    session.commit()
+
+    # Drop the caller's own cookie too, for good measure (they'll sign in fresh).
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return {"ok": True, "email": row.prior_email}
 
 
 @router.post("/account/clear-data")
@@ -310,10 +384,13 @@ def me(request: Request, session: Session = Depends(get_session)) -> dict:
             "squad_id": squad.id,
             "seen_tutorial": True,
         }
-    from backend.auth.session import verify_session
+    from backend.auth.session import session_epoch_from, verify_session
 
-    account_id = verify_session(request.cookies.get(SESSION_COOKIE))
+    cookie = request.cookies.get(SESSION_COOKIE)
+    account_id = verify_session(cookie)
     account = session.get(AccountDB, account_id) if account_id is not None else None
     if not account or account.status != "active":
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if (session_epoch_from(cookie) or 0) != account.session_epoch:
         raise HTTPException(status_code=401, detail="Not authenticated")
     return _account_public(account)

@@ -38,6 +38,7 @@ export const api = {
   requestEmailChange: (newEmail) => request("/auth/account/request-email-change", { method: "POST", body: { new_email: newEmail } }),
   confirmEmailChange: (token)    => request("/auth/account/confirm-email-change", { method: "POST", body: { token }, suppressAuthRedirect: true }),
   clearAccountData:   ()         => request("/auth/account/clear-data", { method: "POST" }),
+  reclaimSquad:       (token)    => request("/auth/account/reclaim", { method: "POST", body: { token }, suppressAuthRedirect: true }),
 
   // Squad
   getTeamInfo:   ()           => request("/squad/info"),

@@ -133,10 +133,39 @@ function showEmailChange(token) {
   };
 }
 
+// Reclaim confirm click-through (link emailed to the OLD address after an email
+// change). Reverts the email + signs out all devices, then routes to login.
+function showReclaim(token) {
+  showScreen("screen-reclaim");
+  maybeShowInAppNudge();
+  const btn = document.getElementById("btn-reclaim-confirm");
+  const msg = document.getElementById("reclaim-msg");
+  if (msg) msg.hidden = true;
+  btn.disabled = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    if (msg) { msg.hidden = false; msg.textContent = "Reclaiming…"; }
+    try {
+      const res = await api.reclaimSquad(token);
+      clearAuthParams();
+      showLogin(`Your squad is restored and all devices were signed out. Sign in with ${res.email} to continue.`);
+    } catch (_) {
+      clearAuthParams();
+      showLogin("That reclaim link was invalid or has expired.");
+    }
+  };
+}
+
 async function runGate() {
-  // An email-change confirm link is an explicit action that must run even when
+  // A reclaim / email-change link is an explicit action that must run even when
   // already signed in (the link usually opens in the same logged-in browser).
-  const emailChangeToken = new URLSearchParams(location.search).get("email_change");
+  const params0 = new URLSearchParams(location.search);
+  const reclaimToken = params0.get("reclaim");
+  if (reclaimToken) {
+    showReclaim(reclaimToken);
+    return;
+  }
+  const emailChangeToken = params0.get("email_change");
   if (emailChangeToken) {
     showEmailChange(emailChangeToken);
     return;

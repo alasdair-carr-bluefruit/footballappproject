@@ -14,7 +14,7 @@ from backend.api.routers import (
     squad_router,
     tournament_router,
 )
-from backend.auth.session import set_session_cookie, verify_session
+from backend.auth.session import session_epoch_from, set_session_cookie, verify_session
 from backend.db.database import create_db_and_tables
 from backend.settings import (
     SESSION_COOKIE,
@@ -72,9 +72,12 @@ async def rolling_session(request, call_next):
         for h in response.headers.getlist("set-cookie")
     )
     if not already_set:
-        account_id = verify_session(request.cookies.get(SESSION_COOKIE))
+        cookie = request.cookies.get(SESSION_COOKIE)
+        account_id = verify_session(cookie)
         if account_id is not None:
-            set_session_cookie(response, account_id)
+            # Preserve the token's epoch so the sliding refresh never downgrades a
+            # post-reclaim session back to epoch 0 (which deps would then reject).
+            set_session_cookie(response, account_id, session_epoch_from(cookie) or 0)
     return response
 
 

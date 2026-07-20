@@ -302,6 +302,78 @@ def test_email_change_requires_auth(clients):
                   json={"new_email": "x@example.com"}).status_code == 401
 
 
+# ── Account reclaim (undo an unauthorised email change) ──────────────────────────
+def _capture_reclaim_link(monkeypatch) -> list[dict]:
+    """Capture the reclaim notice the router sends to the OLD address on confirm."""
+    import backend.api.routers.auth as auth_mod
+
+    captured: list[dict] = []
+    monkeypatch.setattr(
+        auth_mod, "send_email_changed_notice",
+        lambda old, *, new_email, team_name, reclaim_link: captured.append(
+            {"old": old, "new": new_email, "team": team_name, "link": reclaim_link}
+        ),
+    )
+    return captured
+
+
+def _change_email(c, new_email: str) -> None:
+    token = c.post("/api/auth/account/request-email-change",
+                   json={"new_email": new_email}).json()["dev_link"].split("email_change=")[1]
+    assert c.post("/api/auth/account/confirm-email-change", json={"token": token}).status_code == 200
+
+
+def test_reclaim_reverts_email_and_signs_out_all_devices(clients, monkeypatch):
+    captured = _capture_reclaim_link(monkeypatch)
+    victim = clients()
+    _redeem(victim, "owner@example.com")
+    # Second logged-in device for the same account (the "attacker" keeps this open).
+    other = clients()
+    tok = other.post("/api/auth/request-link", json={"email": "owner@example.com"}).json()["dev_link"].split("login=")[1]
+    other.post("/api/auth/verify", json={"token": tok})
+    assert other.get("/api/auth/me").status_code == 200
+
+    # Email is changed away to the attacker's address.
+    _change_email(victim, "attacker@example.com")
+    assert captured and captured[-1]["old"] == "owner@example.com"
+    reclaim_token = captured[-1]["link"].split("reclaim=")[1]
+
+    # Owner reclaims from the notice sent to the old address (no session needed).
+    fresh = clients()
+    resp = fresh.post("/api/auth/account/reclaim", json={"token": reclaim_token})
+    assert resp.status_code == 200 and resp.json()["email"] == "owner@example.com"
+
+    # Every previously-issued session is now invalid (epoch bumped) — both devices.
+    assert other.get("/api/auth/me").status_code == 401
+    assert victim.get("/api/auth/me").status_code == 401
+
+    # The restored address works for a fresh magic-link sign-in; the attacker's doesn't.
+    assert "dev_link" in clients().post("/api/auth/request-link", json={"email": "owner@example.com"}).json()
+    assert "dev_link" not in clients().post("/api/auth/request-link", json={"email": "attacker@example.com"}).json()
+
+    # Reclaim token is single-use.
+    assert fresh.post("/api/auth/account/reclaim", json={"token": reclaim_token}).status_code == 400
+
+
+def test_normal_email_change_keeps_other_devices_signed_in(clients, monkeypatch):
+    """A legitimate email change must NOT sign the coach out elsewhere — only reclaim does."""
+    _capture_reclaim_link(monkeypatch)
+    a = clients()
+    _redeem(a, "coach@example.com")
+    b = clients()
+    tok = b.post("/api/auth/request-link", json={"email": "coach@example.com"}).json()["dev_link"].split("login=")[1]
+    b.post("/api/auth/verify", json={"token": tok})
+
+    _change_email(a, "coach2@example.com")
+    # The other device stays authenticated (epoch unchanged on a normal change).
+    assert b.get("/api/auth/me").status_code == 200
+    assert b.get("/api/auth/me").json()["email"] == "coach2@example.com"
+
+
+def test_reclaim_rejects_bad_token(clients):
+    assert clients().post("/api/auth/account/reclaim", json={"token": "nope"}).status_code == 400
+
+
 # ── Isolation / IDOR ────────────────────────────────────────────────────────────
 def test_accounts_are_isolated(clients):
     a, b = clients(), clients()

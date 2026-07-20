@@ -253,6 +253,66 @@ def send_email_change_link(to_email: str, link: str) -> None:
         logger.exception("Failed to send email-change link to %s", to_email)
 
 
+def send_email_changed_notice(
+    old_email: str, *, new_email: str, team_name: str, reclaim_link: str
+) -> None:
+    """Warn the OLD address that the account's email was changed, with a link to
+    reclaim the squad (revert + sign out everywhere) if it wasn't the owner.
+
+    Dev-stub (log) when no RESEND_API_KEY. Errors swallowed like the login path.
+    """
+    key = resend_api_key()
+    if not key:
+        logger.info(
+            "EMAIL-CHANGED NOTICE (dev-stub) to %s (new=%s, team=%s): %s",
+            old_email, new_email, team_name, reclaim_link,
+        )
+        return
+    subject = f"Your Level email for {team_name} was changed"
+    html = (
+        f'<div style="font-family:{_FONT_STACK};font-size:15px;line-height:1.6;'
+        f'color:{_STUDIO_GREEN};max-width:520px;">'
+        f'<p style="font-family:{_MONO_STACK};font-weight:700;letter-spacing:2px;'
+        f'color:{_STUDIO_GREEN};">LEVEL</p>'
+        "<h2>Your email address was changed</h2>"
+        f"<p>The email registered to <strong>{team_name}</strong> on Level was changed "
+        f"to <strong>{new_email}</strong>. If that was you, no action is needed.</p>"
+        "<p><strong>If this wasn't you</strong>, click below to reclaim your squad — this "
+        "restores this email address and signs out every device.</p>"
+        f'<p><a href="{reclaim_link}" target="_blank" '
+        f'style="display:inline-block;padding:12px 24px;background:{_SIGNAL_LIME};'
+        f'color:{_ON_ACCENT};font-weight:700;text-decoration:none;border-radius:10px;">'
+        "Reclaim my squad</a></p>"
+        "<p style=\"font-size:12px;color:#5a6b60;\">If the button doesn't work, paste this URL:"
+        f'<br><a href="{reclaim_link}" style="color:{_STUDIO_GREEN};word-break:break-all;">'
+        f"{reclaim_link}</a></p></div>"
+    )
+    text = (
+        f"LEVEL\n\nThe email registered to {team_name} on Level was changed to "
+        f"{new_email}.\n\nIf that was you, no action is needed.\n\n"
+        "If this WASN'T you, open this link to reclaim your squad — it restores this "
+        f"email address and signs out every device:\n{reclaim_link}\n"
+    )
+    try:
+        import httpx
+
+        resp = httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {key}"},
+            json={
+                "from": email_from(),
+                "to": [old_email],
+                "subject": subject,
+                "html": html,
+                "text": text,
+            },
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+    except Exception:  # noqa: BLE001 — don't leak send failures into the UX path
+        logger.exception("Failed to send email-changed notice to %s", old_email)
+
+
 def send_early_access_email(submitter_email: str, name: str, message: str) -> None:
     """Notify the founder of an early-access request from the marketing site.
 

@@ -144,5 +144,5 @@ def impersonate_account(
     account = session.get(AccountDB, account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-    set_session_cookie(response, account.id)  # type: ignore[arg-type]
+    set_session_cookie(response, account.id, account.session_epoch)  # type: ignore[arg-type]
     return {"impersonating": account.id, "email": account.email, "squad_id": account.squad_id}

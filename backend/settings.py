@@ -20,6 +20,7 @@ SESSION_COOKIE = "gaffer_session"
 SESSION_MAX_AGE_DAYS = 30
 LOGIN_TOKEN_TTL_MINUTES = 15
 INVITE_TTL_DAYS = 14
+RECLAIM_TOKEN_TTL_DAYS = 7  # "reclaim your squad" link after an email change
 
 
 def _truthy(v: str | None) -> bool:

@@ -230,6 +230,20 @@
     </div>
   </div>
 
+  <!-- ── Screen: Reclaim squad (from the "email changed" notice) ───────────── -->
+  <!-- Confirm-on-click (mail-scanner safe). Reverts the email + signs out all devices. -->
+  <div id="screen-reclaim" class="screen" hidden>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="landing-wordmark"><span class="wordmark-text">Level</span></div>
+        <h2 class="auth-title">Reclaim your squad</h2>
+        <p class="auth-sub">This restores your email address and signs out every device. Do this if a change to your account wasn't you.</p>
+        <button type="button" class="btn btn-primary btn-full" id="btn-reclaim-confirm">Reclaim my squad</button>
+        <p class="auth-msg" id="reclaim-msg" hidden></p>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Screen: Settings ─────────────────────────────────────────────────── -->
   <div id="screen-settings" class="screen" hidden>
     <header class="header header-sub">

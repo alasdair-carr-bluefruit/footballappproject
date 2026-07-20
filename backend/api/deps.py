@@ -12,7 +12,7 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request
 from sqlmodel import Session
 
-from backend.auth.session import verify_session
+from backend.auth.session import session_epoch_from, verify_session
 from backend.db.database import get_session
 from backend.db.models import AccountDB, MatchDB, PlayerDB, SquadDB, TournamentDB
 from backend.db.repositories import get_or_create_squad
@@ -21,11 +21,16 @@ from backend.settings import SESSION_COOKIE, auth_enabled
 
 def _account_from_request(request: Request, session: Session) -> AccountDB | None:
     """Resolve the active account from the session cookie, or None if unauthenticated."""
-    account_id = verify_session(request.cookies.get(SESSION_COOKIE))
+    cookie = request.cookies.get(SESSION_COOKIE)
+    account_id = verify_session(cookie)
     if account_id is None:
         return None
     account = session.get(AccountDB, account_id)
     if not account or account.status != "active":
+        return None
+    # Session-epoch gate: a token minted before the account's epoch was bumped
+    # (via reclaim / sign-out-everywhere) is stale even if its signature is valid.
+    if (session_epoch_from(cookie) or 0) != account.session_epoch:
         return None
     return account
 

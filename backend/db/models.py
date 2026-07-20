@@ -27,6 +27,7 @@ class AccountDB(SQLModel, table=True):
     created_at: str = ""  # ISO datetime
     last_login_at: str | None = None
     seen_tutorial: int = 0  # server-side onboarding flag (follows the coach across devices)
+    session_epoch: int = 0  # bump to invalidate all issued sessions ("sign out everywhere")
 
 
 # A one-time invite token — only coaches sent a /join?token=… link can create a
@@ -68,6 +69,22 @@ class EmailChangeTokenDB(SQLModel, table=True):
     token_hash: str = Field(index=True)  # sha256 of the raw token
     created_at: str = ""
     expires_at: str = ""  # ISO datetime, ~15-min expiry
+    consumed_at: str | None = None
+
+
+# A one-time "reclaim your squad" token, emailed to the OLD address whenever an
+# account's email is changed. Clicking it reverts the email and bumps the account's
+# session_epoch (signing out every device) — the recovery path if a change wasn't
+# the owner. Longer-lived than a login token: the owner may not read mail promptly.
+class ReclaimTokenDB(SQLModel, table=True):
+    __tablename__ = "reclaim_tokens"  # type: ignore[assignment]
+
+    id: int | None = Field(default=None, primary_key=True)
+    account_id: int = Field(foreign_key="accounts.id", index=True)
+    prior_email: str  # the address to restore on reclaim
+    token_hash: str = Field(index=True)  # sha256 of the raw token
+    created_at: str = ""
+    expires_at: str = ""  # ISO datetime, ~7-day expiry
     consumed_at: str | None = None
 
 
