@@ -359,6 +359,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
   }
 
   let pressTimer = null;
+  let dragMoved = false;  // set true by a pointer-drag so the trailing click doesn't open the picker
   div.addEventListener("pointerdown", () => {
     if (!canRecordGoalHere()) return; // no goals while adjusting, reviewing, or browsing a non-live period
     pressTimer = setTimeout(() => {
@@ -376,6 +377,8 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
 
   if (onSwapClick) {
     div.addEventListener("click", (e) => {
+      // A pointer-drag that actually moved handles its own swap — don't also open the picker.
+      if (dragMoved) { dragMoved = false; return; }
       // In edit mode there's no pressTimer (goal recording disabled), so always fire.
       // In live mode only fire on short tap, not after a long-press goal.
       if (state.editMode || pressTimer !== null) {
@@ -384,40 +387,64 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
     });
   }
 
-  // Drag-and-drop for same-slot position swaps in edit mode
+  // Same-slot position swap via a Pointer-Events drag (works for mouse, touch and
+  // pen — unlike the old HTML5 Drag-and-Drop API, which never fired on touch).
   if (dragData) {
-    div.draggable = true;
-    div.addEventListener("dragstart", e => {
-      clearTimeout(pressTimer);
+    div.classList.add("draggable-coin");        // CSS gives this touch-action: none
+    div.dataset.slotIndex = dragData.slotIndex;  // identity in the DOM so elementFromPoint can resolve a target
+    div.dataset.posKey = dragData.posKey;
+
+    let dragging = false;
+    let startX = 0, startY = 0;
+    const THRESHOLD = 6;  // px of travel before a press counts as a drag rather than a tap
+
+    const coinUnder = (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      const coin = el && el.closest(".draggable-coin");
+      return coin && coin !== div && Number(coin.dataset.slotIndex) === dragData.slotIndex ? coin : null;
+    };
+    const clearHover = () =>
+      document.querySelectorAll(".draggable-coin.drag-over").forEach(c => c.classList.remove("drag-over"));
+
+    div.addEventListener("pointerdown", e => {
+      if (!state.editMode || (e.button != null && e.button > 0)) return;
+      dragging = true;
+      dragMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
       state.dragState = { slotIndex: dragData.slotIndex, posKey: dragData.posKey, playerName: name };
-      e.dataTransfer.effectAllowed = "move";
-      setTimeout(() => div.classList.add("dragging"), 0);
+      try { div.setPointerCapture(e.pointerId); } catch { /* older browsers */ }
     });
-    div.addEventListener("dragover", e => {
-      if (state.dragState && state.dragState.slotIndex === dragData.slotIndex && state.dragState.posKey !== dragData.posKey) {
-        e.preventDefault();
-        div.classList.add("drag-over");
-      }
+
+    div.addEventListener("pointermove", e => {
+      if (!dragging) return;
+      if (!dragMoved && Math.hypot(e.clientX - startX, e.clientY - startY) < THRESHOLD) return;
+      dragMoved = true;
+      div.classList.add("dragging");
+      clearHover();
+      coinUnder(e.clientX, e.clientY)?.classList.add("drag-over");
     });
-    div.addEventListener("dragleave", () => div.classList.remove("drag-over"));
-    div.addEventListener("dragend", () => {
+
+    const endDrag = e => {
+      if (!dragging) return;
+      dragging = false;
       div.classList.remove("dragging");
+      try { div.releasePointerCapture(e.pointerId); } catch { /* no-op */ }
+      const target = dragMoved ? coinUnder(e.clientX, e.clientY) : null;
+      clearHover();
       state.dragState = null;
-    });
-    div.addEventListener("drop", e => {
-      e.preventDefault();
-      div.classList.remove("drag-over");
-      if (!state.dragState || state.dragState.slotIndex !== dragData.slotIndex || state.dragState.posKey === dragData.posKey) return;
-      // Same slot, different position — swap locally
+      if (!target) return;
+      // Swap the two players within the slot (local edit; locks the slot for recalculation).
       const slot = state.matchData.slots[dragData.slotIndex];
-      const playerA = slot.lineup[state.dragState.posKey];
-      const playerB = slot.lineup[dragData.posKey];
-      slot.lineup[state.dragState.posKey] = playerB;
-      slot.lineup[dragData.posKey] = playerA;
+      const targetPos = target.dataset.posKey;
+      const a = slot.lineup[dragData.posKey];
+      slot.lineup[dragData.posKey] = slot.lineup[targetPos];
+      slot.lineup[targetPos] = a;
       state.lockedSlots.add(dragData.slotIndex);
-      state.dragState = null;
       render();
-    });
+    };
+    div.addEventListener("pointerup", endDrag);
+    div.addEventListener("pointercancel", endDrag);
   }
 
   return div;

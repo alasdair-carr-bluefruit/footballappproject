@@ -45,6 +45,13 @@
   --pos-mid:  #AEC93C;  --pos-mid-fg: #E4EDB2;
   --pos-fwd:  #C57A3E;  --pos-fwd-fg: #F4D6BB;
 
+  /* Player-status badges (GK tier / DEF restriction) in the squad list — tokenised
+     so colour themes can re-map them (they were hardcoded hex before T2.3). */
+  --badge-gk:        #1565c0;
+  --badge-gkpref:    #1976d2;
+  --badge-emergency: #b71c1c;
+  --badge-def:       #e65100;
+
   /* ── Functional / derived ──────────────────────────────────────────────*/
   --pitch-line:    color-mix(in srgb, var(--chalk) 12%, transparent);
   --circle-bg:     var(--chalk);
@@ -76,6 +83,32 @@
   font-family: var(--font-body);
   font-size: 15px;
   font-feature-settings: "tnum";
+}
+
+/* ── Colourblind-safe theme (T2.3) ────────────────────────────────────────────
+   Re-maps the categorical (GK/DEF/MID/FWD position) and player-state tokens to an
+   Okabe–Ito-based palette chosen for maximum separation under deuteranopia /
+   protanopia / tritanopia. Because every token flows from here, re-mapping the
+   base values cascades through coins, chips, badges and states with no per-widget
+   overrides. Non-hue cues (🧤 GK, ↑/↓ subs, ⚽ goals, position text labels) are
+   preserved as belt-and-braces. The Signal-Lime brand accent (--matchday) is
+   deliberately kept so buttons/identity stay recognisable. */
+:root[data-theme="colourblind"] {
+  --pos-gk:   #0072B2;  --pos-gk-fg:  #CDE4F2;   /* blue */
+  --pos-def:  #CC79A7;  --pos-def-fg: #F0DBEA;   /* reddish purple */
+  --pos-mid:  #F0E442;  --pos-mid-fg: #EEF3C0;   /* yellow */
+  --pos-fwd:  #E69F00;  --pos-fwd-fg: #F6DFC0;   /* orange */
+
+  --amber: #E69F00;          /* GK-status / incoming avatar / warnings → orange */
+  --gold:  #F0E442;          /* goals → yellow (⚽ badge still shown) */
+  --danger:      #D55E00;    /* vermillion */
+  --danger-deep: #9E3D00;    /* darker vermillion (outgoing / conflicts) */
+  --danger-soft: #E8833C;
+
+  --badge-gk:        #0072B2;  /* specialist keeper — blue */
+  --badge-gkpref:    #56B4E9;  /* preferred keeper — sky blue */
+  --badge-emergency: #D55E00;  /* emergency only — vermillion */
+  --badge-def:       #E69F00;  /* defence-restricted — orange */
 }
 
 html, body {
@@ -1056,6 +1089,8 @@ html, body {
 
 .pitch.edit-mode .player-circle { cursor: grab; }
 .pitch.edit-mode .player-circle:active { transform: scale(0.95); cursor: grabbing; }
+/* Draggable coins own the touch gesture so a finger-drag swaps instead of scrolling. */
+.player-circle.draggable-coin { touch-action: none; }
 .player-circle.dragging { opacity: 0.4; transform: scale(0.9); }
 .player-circle.drag-over { outline: 2px solid var(--matchday); box-shadow: 0 0 0 4px color-mix(in srgb, var(--matchday) 25%, transparent); }
 
@@ -2129,11 +2164,11 @@ html, body {
 .badge-number         { background: rgba(255,255,255,0.15); color: var(--chalk); font-variant-numeric: tabular-nums; }
 .badge-number-conflict { background: var(--danger-deep); color: var(--white); }
 
-.badge-gk        { background: #1565c0; color: var(--white); }
-.badge-gkpref    { background: #1976d2; color: var(--white); }
+.badge-gk        { background: var(--badge-gk); color: var(--white); }
+.badge-gkpref    { background: var(--badge-gkpref); color: var(--white); }
 .badge-gkcan     { background: rgba(255,255,255,0.15); color: var(--text-light); }
-.badge-emergency { background: #b71c1c; color: var(--white); }
-.badge-def       { background: #e65100; color: var(--white); }
+.badge-emergency { background: var(--badge-emergency); color: var(--white); }
+.badge-def       { background: var(--badge-def); color: var(--white); }
 
 .player-item-actions { display: flex; gap: 6px; }
 
@@ -3234,3 +3269,23 @@ html, body {
 }
 .settings-danger { border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .settings-danger .settings-heading { color: var(--danger-soft); }
+
+/* Colour-theme radio group */
+.settings-radio-group { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.settings-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--chalk) 14%, transparent);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.settings-radio:has(input:checked) {
+  border-color: var(--matchday);
+  background: color-mix(in srgb, var(--matchday) 12%, transparent);
+}
+.settings-radio input { margin-top: 3px; accent-color: var(--matchday); flex: none; }
+.settings-radio span { display: flex; flex-direction: column; }
+.settings-radio strong { font-size: 14px; color: var(--chalk); }
+.settings-radio small { font-size: 12px; color: var(--text-dim); margin-top: 2px; }

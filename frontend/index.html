@@ -15,6 +15,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=Space+Mono:wght@400;700&family=VT323&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script>
+    // No-flash colour theme: apply the saved choice before first paint. theme.js is the runtime source of truth.
+    (function () {
+      try {
+        var t = localStorage.getItem("gaffer_theme");
+        if (t && t !== "default") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { /* private mode */ }
+    })();
+  </script>
 </head>
 <body>
 
@@ -277,6 +286,23 @@
           <span class="settings-soon-badge">Coming soon</span>
           <p class="settings-hint">Managing several squads from one account — and switching between them — is on the way. You'll be able to add another team here.</p>
         </div>
+      </section>
+
+      <!-- Appearance (colour theme) -->
+      <section class="settings-section">
+        <h3 class="settings-heading">Appearance</h3>
+        <p class="settings-label">Colour theme</p>
+        <div class="settings-radio-group" role="radiogroup" aria-label="Colour theme">
+          <label class="settings-radio">
+            <input type="radio" name="theme-choice" value="default" />
+            <span><strong>Level</strong><small>The standard colours</small></span>
+          </label>
+          <label class="settings-radio">
+            <input type="radio" name="theme-choice" value="colourblind" />
+            <span><strong>Colourblind-friendly</strong><small>Higher-separation palette for red/green colour vision</small></span>
+          </label>
+        </div>
+        <p class="settings-hint">Changes player, position and status colours across the app. Applies on this device.</p>
       </section>
 
       <!-- Danger zone -->

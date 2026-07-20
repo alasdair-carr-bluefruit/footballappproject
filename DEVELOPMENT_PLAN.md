@@ -123,11 +123,14 @@ notice (`session_epoch` sign-out-all-devices) shipped. **Remaining:**
 `/auth/account/clear-data` behind a type-to-confirm "DELETE" modal; backs the Privacy
 Policy / Terms self-service delete promise.
 
-**T1.5 Fix touch drag-and-drop in tinker mode.** *Bug — didn't work on touch this weekend
-(2026-07-20).* Player-coin drag-and-drop to swap within a slot works with a mouse but fails
-on touch devices, which is the primary pitch-side use case. Investigate pointer/touch event
-handling in `pitch.js` (touch events vs pointer events, `touch-action` CSS, drag threshold);
-tap-to-open-swap-picker is the current fallback. Mirror across season ⇄ tournament.
+**T1.5 Fix touch drag-and-drop in tinker mode.** ✅ **BUILT (2026-07-20, pending device test + push).**
+Root cause: the coin swap used the HTML5 Drag-and-Drop API, which never fires from touch on
+iOS Safari / Android Chrome. Rewrote it to **Pointer Events** (`pointerdown`/`move`/`up` +
+`setPointerCapture`, 6px drag threshold, `elementFromPoint` hit-test, `data-slot-index`/
+`data-pos-key` on coins) so mouse **and** touch both work; added `touch-action:none` on
+draggable coins so a finger-drag swaps instead of scrolling. Tap-to-open-swap-picker fallback
+and long-press-to-score gesture preserved. Shared `pitch.js` path → both flows. *(Touch gesture
+isn't covered by the e2e picker path — needs a real-device check.)*
 
 ### 🟠 Tier 2 — Next (retention + product-led growth)
 
@@ -145,10 +148,15 @@ rotation, game time by age, sharing keeper time. Off-site: creator outreach (cit
 freely, **never imply endorsement without consent**), County-FA listings, community
 participation, founder safeguarding credibility. *(SEO technical foundations ✅ shipped.)*
 
-**T2.3 Colourway switcher + colourblind mode.** A theme = an alternate CSS custom-property
-set (`:root` in `style.css`, mirroring `assets/brand/tokens.json`). The colourblind variant
-must keep GK/incoming/danger/goal states distinguishable without relying on hue alone.
-*(Good candidate if T1.1 is deferred — self-contained, no migration.)*
+**T2.3 Colourway switcher + colourblind mode.** ✅ **BUILT (2026-07-20, pending test + push).**
+First theming layer: `:root[data-theme="colourblind"]` in `style.css` re-maps the categorical
+(GK/DEF/MID/FWD) + player-state + status-badge tokens to an Okabe–Ito-based colourblind-safe
+palette; the Signal-Lime brand accent is kept. Player-status **badges** (`--badge-gk/gkpref/
+emergency/def`) were tokenised so themes re-map tokens, not selectors. Non-hue cues (🧤/↑/↓/⚽,
+position labels) preserved. New `theme.js` (persists `gaffer_theme`, no-flash `<head>` boot
+snippet), a **Colour theme** control in Settings (Level / Colourblind-friendly), `tokens.json`
+synced (v2.1.0, `colourway` + `badge` sections), SW→v38. *(Scope: Default + Colourblind-safe,
+per decision 2026-07-20; High-contrast deferred.)*
 
 **T2.4 Configurable max subs on tournament creation.** ✅ **BUILT (2026-07-20, pending local test + push).**
 `max_subs` (nullable) added to `TournamentDB` + denormalised onto `MatchDB`; threaded through

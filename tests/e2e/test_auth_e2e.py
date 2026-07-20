@@ -57,6 +57,10 @@ def test_auth_gate_redeem_signout_and_magic_link(auth_server, page: Page):
     login_token = devlink.get_attribute("href").split("login=")[1]
 
     page.goto(base + f"/?login={login_token}")
+    # Magic links don't auto-verify on load (corporate Safe-Links would burn the
+    # one-time token) — a confirm-click interstitial completes the sign-in.
+    expect(page.locator("#screen-verify")).to_be_visible()
+    page.click("#btn-verify-confirm")
     # Team already configured → tutorial skipped → straight into the app.
     expect(page.locator("#screen-landing")).to_be_visible()
     expect(page.locator("#btn-signout")).to_be_visible()

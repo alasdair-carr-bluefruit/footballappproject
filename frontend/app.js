@@ -9,6 +9,7 @@
 // cache, so this is really just documentation of the graph, not a strict
 // requirement — but keeping it in dependency order makes the graph legible.
 import "./state.js";
+import "./theme.js";
 import "./pitch.js";
 import "./setup-form.js";
 import "./season.js";
