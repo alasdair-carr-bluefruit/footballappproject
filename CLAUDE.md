@@ -34,10 +34,11 @@ Earlier: the **Refactor Phase (C.1–C.7)** and **Phase D.1 "Review the plan" sc
 are done; D.2 (tinker undo/redo) + D.3 (export revisit) remain (now tracked as
 Forward Roadmap **T3.3**).
 
-**Next up = Forward Roadmap Tier 1** (see DEVELOPMENT_PLAN.md, reprioritised
-2026-07-18): **T1.1 multi-team** (real user demand), T1.2 signed-out→marketing link,
-T1.3 settings + update-email + invite-a-friend, T1.4 clear-squad-&-data. The roadmap
-is now ordered by value × effort × demand (Tiers 1–4), not by dependency phases.
+**Tier 1 progress:** T1.2 signed-out→marketing link ✅ (live), T1.4 clear-squad-&-data ✅
+(shipped 2026-07-20), T1.3 mostly done ✅ — Settings screen + update-email (re-verify)
+shipped 2026-07-20; only **invite-a-friend** remains. **Next up = T1.1 multi-team** (real
+user demand) + T1.3 invite-a-friend. See DEVELOPMENT_PLAN.md (reprioritised 2026-07-18);
+the roadmap is ordered by value × effort × demand (Tiers 1–4), not by dependency phases.
 **Live refactor tracker: `docs/refactor/NEXT_STEPS.md`.**
 
 Completed phases:
@@ -53,7 +54,7 @@ Completed phases:
 
 - v1.1: Multi-user — magic-link auth, invite-only, per-account squad isolation, marketing site + early-access (shipped on `feat/multi-user`; 1 account ↔ 1 squad).
 
-Next significant work: **Forward Roadmap Tier 1** (DEVELOPMENT_PLAN.md, reprioritised 2026-07-18) — T1.1 multi-team, T1.2 signed-out→marketing link, T1.3 settings/email/invite, T1.4 clear-squad-&-data.
+Next significant work: **Forward Roadmap Tier 1** (DEVELOPMENT_PLAN.md, reprioritised 2026-07-18) — **T1.1 multi-team** + T1.3 invite-a-friend remain (T1.2, T1.4, and T1.3 settings/update-email shipped 2026-07-20).
 
 ---
 

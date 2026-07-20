@@ -72,6 +72,7 @@
   <!-- ── Screen: Landing ───────────────────────────────────────────────────── -->
   <div id="screen-landing" class="screen" hidden>
     <div class="landing">
+      <button type="button" class="auth-settings" id="btn-settings" hidden>⚙ Settings</button>
       <button type="button" class="auth-signout" id="btn-signout" hidden>Sign out</button>
       <div class="landing-bg" aria-hidden="true">
         <svg class="pitch-svg" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
@@ -210,6 +211,81 @@
         <div class="auth-inapp" hidden>
           <p class="auth-inapp-note">Opened inside another app (email/social)? Setup works best in your normal browser (Safari or Chrome).</p>
           <button type="button" class="btn btn-secondary btn-full js-copy-link">Copy link to open in browser</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Screen: Confirm email change (link click-through) ─────────────────── -->
+  <!-- Like the sign-in confirm, never auto-verifies on load (mail scanners). -->
+  <div id="screen-email-change" class="screen" hidden>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="landing-wordmark"><span class="wordmark-text">Level</span></div>
+        <h2 class="auth-title">Confirm new email</h2>
+        <p class="auth-sub">One more tap to switch your Level account to this email address.</p>
+        <button type="button" class="btn btn-primary btn-full" id="btn-email-change-confirm">Confirm new email</button>
+        <p class="auth-msg" id="email-change-confirm-msg" hidden></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Screen: Settings ─────────────────────────────────────────────────── -->
+  <div id="screen-settings" class="screen" hidden>
+    <header class="header header-sub">
+      <button class="btn-back" id="btn-settings-back">◀</button>
+      <h2>Settings</h2>
+    </header>
+
+    <div class="settings-wrap">
+      <!-- Account -->
+      <section class="settings-section">
+        <h3 class="settings-heading">Account</h3>
+        <p class="settings-label">Signed in as</p>
+        <p class="settings-value" id="settings-email">—</p>
+
+        <form id="email-change-form" class="settings-inline-form">
+          <label class="settings-field-label" for="settings-new-email">Change email address</label>
+          <input type="email" id="settings-new-email" class="auth-input" placeholder="new@example.com" autocomplete="email" required />
+          <button type="submit" class="btn btn-secondary btn-full" id="btn-email-change-send">Send confirmation link</button>
+        </form>
+        <p class="settings-msg" id="email-change-msg" hidden></p>
+        <a class="auth-devlink" id="email-change-devlink" hidden href="#"></a>
+        <p class="settings-hint">We'll email a confirmation link to the new address. Your current email keeps working until you tap it.</p>
+      </section>
+
+      <!-- Teams (multi-team teaser) -->
+      <section class="settings-section">
+        <h3 class="settings-heading">Teams</h3>
+        <p class="settings-label">Current team</p>
+        <p class="settings-value" id="settings-team-name">—</p>
+        <div class="settings-soon">
+          <span class="settings-soon-badge">Coming soon</span>
+          <p class="settings-hint">Managing several squads from one account — and switching between them — is on the way. You'll be able to add another team here.</p>
+        </div>
+      </section>
+
+      <!-- Danger zone -->
+      <section class="settings-section settings-danger">
+        <h3 class="settings-heading">Clear squad &amp; data</h3>
+        <p class="settings-hint">Permanently deletes all your players, matches and tournaments. Your account and login stay, but the football data cannot be recovered.</p>
+        <button type="button" class="btn btn-danger btn-full" id="btn-clear-data">Clear squad &amp; data…</button>
+      </section>
+
+      <button type="button" class="btn btn-secondary btn-full" id="btn-settings-signout">Sign out</button>
+    </div>
+
+    <!-- Clear-data type-to-confirm modal -->
+    <div class="form-overlay" id="clear-data-overlay" hidden>
+      <div class="form-card">
+        <h3>Clear squad &amp; data?</h3>
+        <p class="settings-hint">This permanently deletes every player, match and tournament for your team. <strong>This cannot be undone.</strong></p>
+        <label class="settings-field-label" for="clear-data-confirm">Type <strong>DELETE</strong> to confirm</label>
+        <input type="text" id="clear-data-confirm" class="auth-input" placeholder="DELETE" autocomplete="off" />
+        <p class="settings-msg" id="clear-data-msg" hidden></p>
+        <div class="form-actions">
+          <button class="btn btn-secondary" type="button" id="btn-clear-data-cancel">Cancel</button>
+          <button class="btn btn-danger" type="button" id="btn-clear-data-confirm" disabled>Delete everything</button>
         </div>
       </div>
     </div>

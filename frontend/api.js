@@ -34,6 +34,10 @@ export const api = {
   requestLink:   (email) => request("/auth/request-link", { method: "POST", body: { email }, suppressAuthRedirect: true }),
   verifyLogin:   (token) => request("/auth/verify",       { method: "POST", body: { token }, suppressAuthRedirect: true }),
   logout:        ()      => request("/auth/logout",       { method: "POST" }),
+  // Account self-service (Settings screen)
+  requestEmailChange: (newEmail) => request("/auth/account/request-email-change", { method: "POST", body: { new_email: newEmail } }),
+  confirmEmailChange: (token)    => request("/auth/account/confirm-email-change", { method: "POST", body: { token }, suppressAuthRedirect: true }),
+  clearAccountData:   ()         => request("/auth/account/clear-data", { method: "POST" }),
 
   // Squad
   getTeamInfo:   ()           => request("/squad/info"),

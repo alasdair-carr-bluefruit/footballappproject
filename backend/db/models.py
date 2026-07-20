@@ -56,6 +56,21 @@ class LoginTokenDB(SQLModel, table=True):
     consumed_at: str | None = None
 
 
+# A one-time token that confirms an email-address change. Emailed to the NEW
+# address (proving the coach controls that inbox) — only when confirmed do we
+# swap AccountDB.email, so a change can't silently hijack the login handle.
+class EmailChangeTokenDB(SQLModel, table=True):
+    __tablename__ = "email_change_tokens"  # type: ignore[assignment]
+
+    id: int | None = Field(default=None, primary_key=True)
+    account_id: int = Field(foreign_key="accounts.id", index=True)
+    new_email: str  # the address to switch to once confirmed
+    token_hash: str = Field(index=True)  # sha256 of the raw token
+    created_at: str = ""
+    expires_at: str = ""  # ISO datetime, ~15-min expiry
+    consumed_at: str | None = None
+
+
 class TournamentDB(SQLModel, table=True):
     __tablename__ = "tournaments"  # type: ignore[assignment]
 

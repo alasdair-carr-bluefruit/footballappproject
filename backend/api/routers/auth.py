@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
+from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
-from backend.auth.email import send_login_link
+from backend.api.deps import get_current_account
+from backend.auth.email import send_email_change_link, send_login_link
 from backend.auth.session import set_session_cookie
 from backend.auth.tokens import (
     hash_token,
@@ -22,8 +24,17 @@ from backend.auth.tokens import (
     tokens_match,
 )
 from backend.db.database import get_session
-from backend.db.models import AccountDB, InviteDB, LoginTokenDB, SquadDB
-from backend.db.repositories import get_or_create_squad
+from backend.db.models import (
+    AccountDB,
+    EmailChangeTokenDB,
+    InviteDB,
+    LoginTokenDB,
+    MatchDB,
+    PlayerDB,
+    SquadDB,
+    TournamentDB,
+)
+from backend.db.repositories import delete_rotation, get_or_create_squad
 from backend.settings import (
     LOGIN_TOKEN_TTL_MINUTES,
     SESSION_COOKIE,
@@ -169,6 +180,119 @@ def verify_login(
 @router.post("/logout")
 def logout(response: Response) -> dict:
     response.delete_cookie(SESSION_COOKIE, path="/")
+    return {"ok": True}
+
+
+# ── Account self-service (Settings screen) ──────────────────────────────────────
+
+
+class RequestEmailChangeBody(BaseModel):
+    new_email: str
+
+
+@router.post("/account/request-email-change")
+def request_email_change(
+    body: RequestEmailChangeBody,
+    session: Session = Depends(get_session),
+    account: AccountDB = Depends(get_current_account),
+) -> dict:
+    """Start an email change: email a one-time confirm link to the NEW address.
+
+    The address only switches once that link is confirmed (see /confirm-email-change),
+    so a typo or a hijack attempt can't take over the login handle.
+    """
+    new_email = _norm_email(body.new_email)
+    if not new_email or "@" not in new_email:
+        raise HTTPException(status_code=422, detail="A valid email is required")
+    if new_email == _norm_email(account.email):
+        raise HTTPException(status_code=422, detail="That's already your email address")
+    if session.exec(select(AccountDB).where(AccountDB.email == new_email)).first():
+        raise HTTPException(status_code=409, detail="That email is already in use")
+
+    raw = new_token()
+    session.add(
+        EmailChangeTokenDB(
+            account_id=account.id,  # type: ignore[arg-type]
+            new_email=new_email,
+            token_hash=hash_token(raw),
+            created_at=now_iso(),
+            expires_at=iso_in(minutes=LOGIN_TOKEN_TTL_MINUTES),
+        )
+    )
+    session.commit()
+    link = f"{app_base_url()}/?email_change={raw}"
+    send_email_change_link(new_email, link)
+    result: dict = {"ok": True}
+    if not resend_api_key():
+        result["dev_link"] = link  # dev convenience (no email provider)
+    return result
+
+
+class ConfirmEmailChangeBody(BaseModel):
+    token: str
+
+
+@router.post("/account/confirm-email-change")
+def confirm_email_change(
+    body: ConfirmEmailChangeBody,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Consume an email-change token (from the link) and swap the account's email.
+
+    Deliberately does NOT require the existing session — the token was emailed to
+    the new address and is bound to the account, which is the authorisation. A
+    fresh session cookie is issued so the coach stays signed in.
+    """
+    presented = hash_token(body.token)
+    row = session.exec(
+        select(EmailChangeTokenDB).where(EmailChangeTokenDB.token_hash == presented)
+    ).first()
+    if not row or row.consumed_at is not None or is_expired(row.expires_at):
+        raise HTTPException(status_code=400, detail="This confirmation link is invalid or expired")
+    if not tokens_match(body.token, row.token_hash):
+        raise HTTPException(status_code=400, detail="This confirmation link is invalid or expired")
+
+    account = session.get(AccountDB, row.account_id)
+    if not account or account.status != "active":
+        raise HTTPException(status_code=400, detail="This account is not active")
+    # Re-check the address is still free (a rival account may have taken it since).
+    clash = session.exec(select(AccountDB).where(AccountDB.email == row.new_email)).first()
+    if clash and clash.id != account.id:
+        raise HTTPException(status_code=409, detail="That email is already in use")
+
+    account.email = row.new_email
+    row.consumed_at = now_iso()
+    session.add(account)
+    session.add(row)
+    session.commit()
+    session.refresh(account)
+
+    set_session_cookie(response, account.id)  # type: ignore[arg-type]
+    return _account_public(account)
+
+
+@router.post("/account/clear-data")
+def clear_account_data(
+    session: Session = Depends(get_session),
+    account: AccountDB = Depends(get_current_account),
+) -> dict:
+    """Delete all of the account's football data — players, matches and tournaments
+    (guest players included) — while keeping the account, its login and the squad
+    shell. Backs the self-service deletion promise in the Privacy Policy.
+    """
+    squad_id = account.squad_id
+    match_ids = [
+        m.id for m in session.exec(select(MatchDB).where(MatchDB.squad_id == squad_id)).all()
+    ]
+    for mid in match_ids:
+        delete_rotation(session, mid)  # slots, assignments, goals, availability, removed
+    if match_ids:
+        session.execute(sql_delete(MatchDB).where(MatchDB.squad_id == squad_id))
+    session.execute(sql_delete(TournamentDB).where(TournamentDB.squad_id == squad_id))
+    # Deletes squad players AND tournament guests (guests carry the same squad_id).
+    session.execute(sql_delete(PlayerDB).where(PlayerDB.squad_id == squad_id))
+    session.commit()
     return {"ok": True}
 
 

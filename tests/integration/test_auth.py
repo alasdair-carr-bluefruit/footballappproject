@@ -231,6 +231,77 @@ def test_admin_account_tooling_is_gated(clients):
     assert c.post("/api/admin/accounts/1/impersonate").status_code == 403
 
 
+# ── Account self-service: clear data ─────────────────────────────────────────────
+def test_clear_data_wipes_only_callers_squad(clients):
+    a, b = clients(), clients()
+    _redeem(a, "clear@example.com")
+    _redeem(b, "keep@example.com")
+
+    a.post("/api/squad/players", json={"name": "Alfa", "gk_status": "emergency_only"})
+    a.post("/api/matches/", json={"date": "2026-03-25", "opponent": "Rovers"})
+    a.post("/api/tournaments/", json={"name": "A Cup", "date": "2026-04-12"})
+    b.post("/api/squad/players", json={"name": "Bravo", "gk_status": "emergency_only"})
+
+    resp = a.post("/api/auth/account/clear-data")
+    assert resp.status_code == 200 and resp.json() == {"ok": True}
+
+    # A's football data is gone…
+    assert a.get("/api/squad/players").json() == []
+    assert a.get("/api/matches/").json() == []
+    assert a.get("/api/tournaments/").json() == []
+    # …but the account + login still work (can rebuild the squad).
+    assert a.get("/api/auth/me").json()["email"] == "clear@example.com"
+    assert a.post("/api/squad/players",
+                  json={"name": "New", "gk_status": "emergency_only"}).status_code == 201
+    # B is untouched.
+    assert len(b.get("/api/squad/players").json()) == 1
+
+
+def test_clear_data_requires_auth(clients):
+    assert clients().post("/api/auth/account/clear-data").status_code == 401
+
+
+# ── Account self-service: change email (re-verify) ───────────────────────────────
+def test_email_change_confirms_to_new_address(clients):
+    c = clients()
+    _redeem(c, "old@example.com")
+    req = c.post("/api/auth/account/request-email-change", json={"new_email": "new@example.com"})
+    assert req.status_code == 200
+    token = req.json()["dev_link"].split("email_change=")[1]  # dev-stub surfaces the link
+
+    # Not switched until confirmed.
+    assert c.get("/api/auth/me").json()["email"] == "old@example.com"
+
+    confirm = c.post("/api/auth/account/confirm-email-change", json={"token": token})
+    assert confirm.status_code == 200 and confirm.json()["email"] == "new@example.com"
+    assert c.get("/api/auth/me").json()["email"] == "new@example.com"
+
+    # New handle now receives sign-in links; the old one no longer resolves.
+    assert "dev_link" in clients().post("/api/auth/request-link", json={"email": "new@example.com"}).json()
+    assert "dev_link" not in clients().post("/api/auth/request-link", json={"email": "old@example.com"}).json()
+
+    # Single-use: the confirm token can't be replayed.
+    assert c.post("/api/auth/account/confirm-email-change", json={"token": token}).status_code == 400
+
+
+def test_email_change_rejects_taken_or_same_email(clients):
+    a, b = clients(), clients()
+    _redeem(a, "a@example.com")
+    _redeem(b, "b@example.com")
+    # Requesting a change to an in-use address is refused up front.
+    assert a.post("/api/auth/account/request-email-change",
+                  json={"new_email": "b@example.com"}).status_code == 409
+    # …as is changing to your own current address.
+    assert a.post("/api/auth/account/request-email-change",
+                  json={"new_email": "a@example.com"}).status_code == 422
+
+
+def test_email_change_requires_auth(clients):
+    c = clients()
+    assert c.post("/api/auth/account/request-email-change",
+                  json={"new_email": "x@example.com"}).status_code == 401
+
+
 # ── Isolation / IDOR ────────────────────────────────────────────────────────────
 def test_accounts_are_isolated(clients):
     a, b = clients(), clients()

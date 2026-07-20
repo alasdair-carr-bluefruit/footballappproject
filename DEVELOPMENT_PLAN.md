@@ -296,18 +296,22 @@ already asked.* **Full design: `MULTI_TEAM_PLAN.md`.** Today it's 1 account ↔ 
 unauthenticated visitor an obvious link back to `keepthingslevel.com` (header/landing
 link on the login screen). Tiny; plugs a funnel leak. *(was H6)*
 
-**T1.3 Settings screen + account self-service.** New screen from the account menu:
-- **Update email address** — needs a re-verify step (magic link to the new address) so a
-  change can't silently hijack the login handle.
-- **Invite a friend** — reuse the existing invite-token flow to generate a shareable
-  one-time link. *(growth loop)*
+**T1.3 Settings screen + account self-service.** ⚙ **Settings screen SHIPPED (2026-07-20)** —
+reachable from the landing header (auth-on only), with the account email shown, a
+multi-team "coming soon" teaser, and the danger zone. Remaining sub-items:
+- **Update email address** — ✅ **DONE (2026-07-20).** Re-verify step: confirm link is
+  emailed to the *new* address (`EmailChangeTokenDB`, `/auth/account/request-email-change`
+  + `/auth/account/confirm-email-change`, `?email_change=` confirm-on-click screen), and the
+  handle only swaps once that link is tapped — so a change can't silently hijack the login.
+- **Invite a friend** — ⏳ still to do: reuse the existing invite-token flow to generate a
+  shareable one-time link (currently admin-key gated — needs a non-admin variant). *(growth loop)*
 *(was H1–H3)*
 
-**T1.4 ⚡ Clear squad & data (destructive).** In settings: delete the coach's squad(s),
-players, matches and tournaments. Requires **at least one extra explicit confirmation**
-("Are you sure? This data cannot be recovered") beyond the initial tap — ideally
-type-to-confirm — and unreachable by accident. Also backs the delete-on-request promise
-in the Privacy/Safeguarding pages. *(was H5)*
+**T1.4 ⚡ Clear squad & data (destructive).** ✅ **SHIPPED (2026-07-20).** In Settings:
+`/auth/account/clear-data` deletes the account's players, matches and tournaments (guests
+included) while keeping the account + login + squad shell. Gated behind a **type-to-confirm
+"DELETE"** modal (extra explicit confirmation beyond the initial tap). Backs the self-service
+delete promise now referenced in the Privacy Policy + Terms. *(was H5)*
 
 ### 🟠 Tier 2 — Next (retention + product-led growth)
 

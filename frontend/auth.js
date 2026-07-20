@@ -19,8 +19,11 @@ function clearAuthParams() {
 }
 
 function toggleSignout(me) {
-  const btn = document.getElementById("btn-signout");
-  if (btn) btn.hidden = !(me && me.auth_enabled);
+  const on = !!(me && me.auth_enabled);
+  const signout = document.getElementById("btn-signout");
+  if (signout) signout.hidden = !on;
+  const settings = document.getElementById("btn-settings");
+  if (settings) settings.hidden = !on;  // Settings needs an account (auth on)
 }
 
 // Heuristic: are we inside an app's embedded webview (email/social) rather than a
@@ -107,7 +110,37 @@ async function handleVerify(token) {
   }
 }
 
+// Email-change confirm click-through (link emailed to the NEW address). Same
+// confirm-on-click discipline as sign-in so a mail scanner can't burn the token.
+function showEmailChange(token) {
+  showScreen("screen-email-change");
+  maybeShowInAppNudge();
+  const btn = document.getElementById("btn-email-change-confirm");
+  const msg = document.getElementById("email-change-confirm-msg");
+  if (msg) msg.hidden = true;
+  btn.disabled = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    if (msg) { msg.hidden = false; msg.textContent = "Confirming…"; }
+    try {
+      const me = await api.confirmEmailChange(token);
+      clearAuthParams();
+      enterApp(me);
+    } catch (_) {
+      clearAuthParams();
+      showLogin("That confirmation link was invalid or has expired — try changing your email again from Settings.");
+    }
+  };
+}
+
 async function runGate() {
+  // An email-change confirm link is an explicit action that must run even when
+  // already signed in (the link usually opens in the same logged-in browser).
+  const emailChangeToken = new URLSearchParams(location.search).get("email_change");
+  if (emailChangeToken) {
+    showEmailChange(emailChangeToken);
+    return;
+  }
   const probe = await probeMe();
   if (probe.me || probe.offline) {
     // Authenticated, or auth disabled (me present), or server unreachable → boot.
