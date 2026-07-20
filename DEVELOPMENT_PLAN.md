@@ -134,12 +134,15 @@ isn't covered by the e2e picker path — needs a real-device check.)*
 
 ### 🟠 Tier 2 — Next (retention + product-led growth)
 
-**T2.1 Shareable match-day moments.** The share-image is the viral surface. Ship together:
-Man of the Match on the export (`motm_player_id` on `MatchDB`); record assists (per-player
-by id, on-pitch non-scorer, surfaced in stats + export); goal celebration
-(confetti/fireworks in `pitch.js`, respecting `prefers-reduced-motion`, non-blocking);
-**"Level" branding on the shared match report** — wordmark/spirit-level mark on the share
-image so every WhatsApp post is a soft ad (design against BRAND.md). *(user request 2026-07-20)*
+**T2.1 Shareable match-day moments.** The share-image is the viral surface. Progress:
+- **"Level" branding on the shared match report** — ✅ **DONE.** Wordmark/spirit-level mark on
+  the share image so every WhatsApp post is a soft ad.
+- **Goal celebration** — ✅ **BUILT (2026-07-20, pending test).** Firework-confetti burst
+  (`celebrateGoal()` in `pitch.js`) on every goal-add path; `pointer-events:none` so it never
+  blocks recording, self-removes, skipped under `prefers-reduced-motion`.
+- **Man of the Match on the export** — ⏳ `motm_player_id` (nullable) on `MatchDB`; pick at
+  full-time from players who actually played; render on the share image.
+- **Record assists** — ⏳ per-player by id, on-pitch non-scorer, surfaced in stats + export.
 
 **T2.2 FA 2026/27 cornerstone blog + SEO content + reach.** Marketing-site blog
 (`marketing/blog/`, plain HTML, `FAQPage`/`Article` JSON-LD, add to `sitemap.xml`).
@@ -201,7 +204,8 @@ head coach reviews a current-vs-proposed diff and Accepts / Requests changes / R
 - Local-first/offline sync and any monetization — re-evaluate only if real usage shows
   offline failures or hosting costs bite. Not before.
 
-### UX polish — ✅ BUILT (2026-07-20, pending push)
+### UX polish
+Shipped (pushed 2026-07-20):
 - **"Rotate keeper?"** — renamed the "Share goalkeeper time" switch and moved its explanation
   behind a click-to-reveal (?) info button (reusable `.info-btn`/`.field-info`), both flows.
 - **Manual mode promoted** — the availability screen's hidden "assign manually" link is now a
@@ -209,7 +213,13 @@ head coach reviews a current-vs-proposed diff and Accepts / Requests changes / R
   manual mode = you build lineups, still tracks goals + shows skill ratings).
 - **Generating-plan loading overlay** — spinner + "Generating game plan…" + a random,
   positive/development-themed manager quote (rotates every 4s), on season + tournament generate.
-  Includes an Uncle Iroh line and a rare comedy easter-egg gaffer. New `frontend/quotes.js`.
+  Includes an Uncle Iroh line and a Roy Kent "WHISTLE!!!!" easter egg. New `frontend/quotes.js`.
+
+Built 2026-07-20 (pending test, not pushed):
+- **Goal celebration** — see T2.1.
+- **"Check for updates" in Settings** — clears caches + updates the SW + reloads, so an
+  installed PWA (esp. Android, no easy refresh) can pull the latest version on demand
+  (`btn-check-updates` in `settings.js`).
 
 ### SEO technical foundations — ✅ SHIPPED (2026-07-18)
 `robots.txt`, `sitemap.xml`, `llms.txt`, JSON-LD (`Organization` + `SoftwareApplication`),

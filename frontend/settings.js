@@ -103,6 +103,26 @@ clearConfirmBtn.addEventListener("click", async () => {
   }
 });
 
+// ── Check for updates (hard refresh past the service-worker cache) ─────────────────
+// Installed PWAs (esp. Android) have no easy "reload" — this clears the caches and
+// pulls the latest assets. The SW is network-first, so the reload re-caches fresh.
+document.getElementById("btn-check-updates").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-check-updates");
+  btn.disabled = true;
+  showMsg("check-updates-msg", "Checking for updates…");
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) await reg.update();
+    }
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch (_) { /* best effort — reload anyway */ }
+  location.reload();
+});
+
 // ── Sign out (mirrors the landing sign-out) ────────────────────────────────────────
 document.getElementById("btn-settings-signout").addEventListener("click", async () => {
   try { await api.logout(); } catch (_) { /* clear locally regardless */ }

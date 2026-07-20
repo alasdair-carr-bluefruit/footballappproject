@@ -325,7 +325,28 @@
       "Bash(curl -s -o /dev/null -w \"rainreplan.png: %{http_code}\\\\n\" http://localhost:8901/assets/brand/rainreplan.png)",
       "Bash(curl -s -o /dev/null -w \"style.css: %{http_code}\\\\n\" http://localhost:8901/style.css)",
       "Skill(claude-in-chrome)",
-      "Bash(sips -g pixelWidth -g pixelHeight assets/brand/rainreplan.png)"
+      "Bash(sips -g pixelWidth -g pixelHeight assets/brand/rainreplan.png)",
+      "Bash(DATABASE_URL=\"sqlite:///./scratch_settings_smoke.db\" .venv/bin/python -m uvicorn main:app --port 8123 --log-level warning)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8123/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8123/settings.js)",
+      "Bash(curl -s http://localhost:8123/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST http://localhost:8123/api/auth/account/clear-data)",
+      "Bash(lsof -ti:8123)",
+      "Bash(curl -s https://app.keepthingslevel.com/sw.js)",
+      "Bash(curl -s https://app.keepthingslevel.com/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://app.keepthingslevel.com/settings.js)",
+      "Bash(curl -sI https://app.keepthingslevel.com/sw.js)",
+      "Bash(curl -sI https://app.keepthingslevel.com/)",
+      "Bash(curl -s \"https://app.keepthingslevel.com/sw.js?cb=$\\(date +%s\\)\")",
+      "Bash(curl -sI \"https://app.keepthingslevel.com/sw.js?cb=$\\(date +%s\\)2\")",
+      "Bash(curl -s https://app.keepthingslevel.com/auth.js)",
+      "Bash(curl -sI https://app.keepthingslevel.com/auth.js)",
+      "Bash(curl -s https://app.keepthingslevel.com/settings.js)",
+      "Bash(curl -s https://app.keepthingslevel.com/app.js)",
+      "Bash(curl -s https://app.keepthingslevel.com/auth.js?x=__CMDSUB_OUTPUT__)",
+      "Bash(DATABASE_URL=sqlite:///./scratch_migrate.db .venv/bin/python -c ' *)",
+      "Bash(awk -F: '{s+=$2} END {print s}')",
+      "Bash(ipconfig getifaddr *)"
     ]
   }
 }

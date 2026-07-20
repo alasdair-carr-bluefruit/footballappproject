@@ -307,6 +307,35 @@ function confirmGoalEdit() {
   return false;
 }
 
+// Goal celebration — a few firework bursts of confetti. Purely decorative:
+// pointer-events:none so it never blocks recording, self-removes, and is skipped
+// entirely under prefers-reduced-motion.
+function celebrateGoal() {
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const layer = document.createElement("div");
+  layer.className = "celebrate-layer";
+  const colors = ["#A4CC46", "#F5B544", "#ffd700", "#3E8E97", "#E8D97A", "#ffffff"];
+  for (let b = 0; b < 3; b++) {                    // 3 staggered firework bursts
+    const cx = 20 + Math.random() * 60;            // vw
+    const cy = 18 + Math.random() * 32;            // vh
+    for (let i = 0; i < 24; i++) {
+      const p = document.createElement("div");
+      p.className = "celebrate-particle";
+      const angle = (Math.PI * 2 * i) / 24 + Math.random() * 0.3;
+      const dist = 80 + Math.random() * 120;       // px from the burst origin
+      p.style.left = cx + "vw";
+      p.style.top = cy + "vh";
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      p.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+      p.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+      p.style.animationDelay = (b * 0.15) + "s";
+      layer.appendChild(p);
+    }
+  }
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), 1700);
+}
+
 // ── Pitch rendering ───────────────────────────────────────────────────────────
 function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapClick = null, dragData = null) {
   const div = document.createElement("div");
@@ -369,6 +398,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
       div.classList.add("goal-scored");
       setTimeout(() => div.classList.remove("goal-scored"), 600);
       if (navigator.vibrate) navigator.vibrate(80);
+      celebrateGoal();
       render();
     }, 600);
   });
@@ -1297,6 +1327,7 @@ document.getElementById("btn-action-goal").addEventListener("click", () => {
   if (state.pendingActionPlayer) {
     state.goalCounts[state.pendingActionPlayer.name] = (state.goalCounts[state.pendingActionPlayer.name] || 0) + 1;
     if (navigator.vibrate) navigator.vibrate(80);
+    celebrateGoal();
     render();
   }
   state.pendingActionPlayer = null;

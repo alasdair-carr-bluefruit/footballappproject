@@ -499,6 +499,28 @@ html, body {
   50%  { box-shadow: 0 0 0 12px color-mix(in srgb, var(--gold) 0%, transparent); }
   100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 0%, transparent); }
 }
+/* Goal celebration — firework confetti (JS-spawned particles). Non-blocking. */
+.celebrate-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 200;
+}
+.celebrate-particle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: celebrate-burst 1.2s cubic-bezier(0.15, 0.6, 0.4, 1) forwards;
+}
+@keyframes celebrate-burst {
+  0%   { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), calc(var(--dy) + 130px)) scale(0.4) rotate(360deg); opacity: 0; }
+}
+
 .player-circle.goal-scored .circle-avatar {
   animation: goalFlash 0.6s ease-out;
 }
