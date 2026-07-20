@@ -161,6 +161,30 @@
         </form>
         <p class="auth-msg" id="login-msg" hidden></p>
         <a class="auth-devlink" id="login-devlink" hidden href="#"></a>
+        <div class="auth-inapp" hidden>
+          <p class="auth-inapp-note">Opened inside another app (email/social)? Sign-in works best in your normal browser (Safari or Chrome).</p>
+          <button type="button" class="btn btn-secondary btn-full js-copy-link">Copy link to open in browser</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Screen: Confirm sign-in (magic-link click-through) ────────────────── -->
+  <!-- Deliberately does NOT auto-verify on load: corporate mail scanners (Safe
+       Links etc.) pre-open the URL, so the one-time token must only be spent on
+       an explicit user click, never on page load. -->
+  <div id="screen-verify" class="screen" hidden>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="landing-wordmark"><span class="wordmark-text">Level</span></div>
+        <h2 class="auth-title">Confirm sign-in</h2>
+        <p class="auth-sub">One more tap to finish signing in to Level.</p>
+        <button type="button" class="btn btn-primary btn-full" id="btn-verify-confirm">Sign in to Level</button>
+        <p class="auth-msg" id="verify-msg" hidden></p>
+        <div class="auth-inapp" hidden>
+          <p class="auth-inapp-note">Opened inside another app (email/social)? If sign-in doesn't stick, open this page in your normal browser (Safari or Chrome).</p>
+          <button type="button" class="btn btn-secondary btn-full js-copy-link">Copy sign-in link</button>
+        </div>
       </div>
     </div>
   </div>
@@ -178,6 +202,10 @@
           <button type="submit" class="btn btn-primary btn-full" id="btn-join-create">Create my team</button>
         </form>
         <p class="auth-msg" id="join-msg" hidden></p>
+        <div class="auth-inapp" hidden>
+          <p class="auth-inapp-note">Opened inside another app (email/social)? Setup works best in your normal browser (Safari or Chrome).</p>
+          <button type="button" class="btn btn-secondary btn-full js-copy-link">Copy link to open in browser</button>
+        </div>
       </div>
     </div>
   </div>

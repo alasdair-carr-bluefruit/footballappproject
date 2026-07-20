@@ -3140,6 +3140,16 @@ html, body {
   font-size: 13px;
   color: var(--matchday);
 }
+.auth-inapp {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.auth-inapp-note {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+}
 .auth-signout {
   position: absolute;
   top: 12px;

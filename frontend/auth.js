@@ -23,6 +23,30 @@ function toggleSignout(me) {
   if (btn) btn.hidden = !(me && me.auth_enabled);
 }
 
+// Heuristic: are we inside an app's embedded webview (email/social) rather than a
+// real browser? These have isolated cookie jars, so a session set here often
+// won't carry to the browser the coach actually uses.
+function isInAppBrowser() {
+  const ua = navigator.userAgent || "";
+  return /FBAN|FBAV|Instagram|Line|Twitter|WhatsApp|Snapchat|Pinterest|; wv\)|GSA\/|OutlookMobile|MicrosoftTeams/i.test(ua);
+}
+
+// Reveal the "open in your browser" nudge on the currently-shown auth screen when
+// we look like an in-app webview. Copy buttons put the full URL on the clipboard
+// (incl. any ?login=/?invite= token) so pasting into Safari/Chrome completes it.
+function maybeShowInAppNudge() {
+  if (isInAppBrowser()) {
+    document.querySelectorAll(".auth-inapp").forEach((el) => { el.hidden = false; });
+  }
+}
+document.querySelectorAll(".js-copy-link").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    navigator.clipboard.writeText(location.href)
+      .then(() => { btn.textContent = "Link copied ✓"; })
+      .catch(() => { btn.textContent = "Copy failed — long-press the address bar"; });
+  });
+});
+
 async function probeMe() {
   // Raw fetch (not api.me) so we can tell 401 (show login) from offline (be
   // permissive and boot — the app tolerates an unreachable server on its own).
@@ -52,6 +76,24 @@ function showLogin(message) {
     msg.textContent = message || "";
     msg.hidden = !message;
   }
+  maybeShowInAppNudge();
+}
+
+// Magic-link click-through. We show a Confirm screen and only POST /verify on an
+// explicit tap — never on page load — so corporate mail scanners that pre-open the
+// link can't burn the one-time token before the coach arrives.
+function showVerify(token) {
+  showScreen("screen-verify");
+  maybeShowInAppNudge();
+  const btn = document.getElementById("btn-verify-confirm");
+  const msg = document.getElementById("verify-msg");
+  if (msg) msg.hidden = true;
+  btn.disabled = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    if (msg) { msg.hidden = false; msg.textContent = "Signing you in…"; }
+    await handleVerify(token);
+  };
 }
 
 async function handleVerify(token) {
@@ -77,9 +119,10 @@ async function runGate() {
   const loginToken = params.get("login");
   const inviteToken = params.get("invite");
   if (loginToken) {
-    await handleVerify(loginToken);
+    showVerify(loginToken);
   } else if (inviteToken) {
     showScreen("screen-join");
+    maybeShowInAppNudge();
   } else {
     showLogin();
   }
