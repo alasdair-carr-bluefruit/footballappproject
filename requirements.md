@@ -1,4 +1,4 @@
-# Gaffer — Squad Rotation Manager
+# Level — Squad Rotation Manager
 
 > [!NOTE]
 > **Original product spec ("what it should do") — not a status tracker.** Predates

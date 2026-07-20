@@ -88,7 +88,7 @@ def _specialist_gk_max_slots(
     (slots played by everyone through this match ÷ squad size). A partial deficit
     rounds up to one full goal period (goal is assigned in 2-slot periods), so the
     keeper always gets at least their share and never sits two matches running.
-    The GK selector spends this budget, then a backup covers and the keeper rests.
+    Applied by the GK selector only when GK sharing is on; ignored otherwise.
 
     Returns ``None`` when this isn't a tournament match or there's no specialist.
     Reactive (looks only at matches already played), so it's correct even though

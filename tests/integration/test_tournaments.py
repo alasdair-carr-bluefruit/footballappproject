@@ -353,15 +353,15 @@ def test_adjust_flags_consecutive_sit_out(
     )
 
 
-# ── Specialist keeper cross-match fairness (Titans bug) ───────────────────────
+# ── Specialist keeper cross-match fairness (Titans bug, ported to multi-user) ──
 
 def test_specialist_keeper_gets_fair_share_across_tournament(
     client: TestClient, tournament: dict, squad_ids: list[int]
 ) -> None:
     """A specialist keeper (Kai) must play only in goal but get ~a fair share of
-    slots across a no-halftime tournament — not every match. Regression for the
-    Titans report: 10 players, 6 no-halftime matches, keeper was in goal for all
-    12 slots. Fair share = 6*2*5 / 10 = 6 goal slots (~half the matches)."""
+    slots across a no-halftime tournament, not every match. 10 players, 6
+    no-halftime matches → fair share = 6*2*5 / 10 = 6 goal slots. GK sharing is
+    on by default, so the cross-match budget applies."""
     kai_goal = 0
     kai_outfield = 0
     played_per_match: list[int] = []
@@ -381,9 +381,7 @@ def test_specialist_keeper_gets_fair_share_across_tournament(
 
     assert kai_outfield == 0, "a specialist keeper must never be played outfield"
     assert kai_goal > 0, "the keeper should still keep goal sometimes"
-    # Fair share is 6; allow the coach's "maybe 2 more" tolerance, never all 12.
     assert 6 <= kai_goal <= 8, f"keeper goal slots {kai_goal} not near fair share (6)"
-    # Never sit out two whole matches in a row.
     for a, b in zip(played_per_match, played_per_match[1:], strict=False):
         assert not (a == 0 and b == 0), (
             f"keeper sat out two consecutive matches: {played_per_match}"
@@ -396,8 +394,7 @@ def test_editing_halftime_regenerates_planned_matches(
     client: TestClient, squad_ids: list[int]
 ) -> None:
     """Toggling half-time on an existing tournament must actually change its
-    planned matches. Regression: the edit saved on the tournament but the matches
-    kept their old slot count ("it said updating but didn't")."""
+    planned matches (regression: the edit saved but matches kept their old slots)."""
     created = client.post(
         "/api/tournaments/", json={**TOURNAMENT_BASE, "has_halftime": True}
     )
@@ -407,10 +404,8 @@ def test_editing_halftime_regenerates_planned_matches(
     _add_match(client, t["id"], squad_ids)
     match_id = client.get(f"/api/tournaments/{t['id']}").json()["matches"][0]["id"]
 
-    # With half-time: 2 periods → 4 slots.
     assert len(client.get(f"/api/matches/{match_id}").json()["slots"]) == 4
 
-    # Turn half-time OFF → the planned match regenerates to a single period.
     resp = client.put(f"/api/tournaments/{t['id']}", json={"has_halftime": False})
     assert resp.status_code == 200
     assert resp.json()["has_halftime"] is False

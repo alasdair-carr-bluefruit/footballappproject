@@ -1,7 +1,54 @@
-# Gaffer v1.0 — Multi-User Plan (PIN-first, magic-link-ready)
+# Level v1.0 — Multi-User Plan (PIN-first, magic-link-ready)
 
-> Working plan for converting Gaffer from single-global-squad to multi-tenant.
+> Working plan for converting Level from single-global-squad to multi-tenant.
 > Built to be picked up task-by-task in development. Robust and additive.
+
+> [!IMPORTANT]
+> ## ▶ STATUS 2026-07-17 — backend + frontend BUILT on branch `feat/multi-user` (5 commits, NOT pushed)
+>
+> **Done & green (289 non-e2e + 49 e2e).** Steps 1–9 of §10 complete. Key design
+> choice: an **`AUTH_ENABLED` env flag, OFF by default** — dev/tests keep today's
+> single-squad behaviour (via `get_current_squad`'s fallback to
+> `get_or_create_squad`); prod sets `AUTH_ENABLED=true`.
+> - Models `AccountDB`/`InviteDB`/`LoginTokenDB` (`backend/db/models.py`); tables
+>   auto-created by `create_all` on boot (no Alembic migration needed).
+> - `backend/auth/` — stdlib **HMAC-SHA256** signed session cookie (no itsdangerous
+>   dep), sha256 one-time tokens, Resend email sender (dev-stubs to a logged link
+>   when no `RESEND_API_KEY`). `backend/settings.py` (lazy env reads).
+> - `backend/api/deps.py` — `get_current_squad` pivot (replaces every
+>   `get_or_create_squad` call site) + `owned_match/tournament/player` IDOR guards
+>   (→404) on every id-path route. `analytics`/`spreadsheet_export` take `squad_id`.
+> - Routers: `/api/auth` (redeem, request-link, verify, logout, me),
+>   `/api/admin` (invites + accounts list/dump/impersonate, `X-Admin-Key`-gated).
+> - **Rolling 30-day session** (`main.py` `rolling_session` middleware refreshes the
+>   cookie on activity → 30 days from last use, not sign-in).
+> - Frontend: `frontend/auth.js` boot gate (auth-off boots straight through),
+>   login/join/verify screens, sign-out, `credentials:"include"`, 401→login
+>   (post-boot only). `screens.js` IIFE → exported `bootApp()`. SW cache v32.
+> - Tests: `tests/integration/test_auth.py` (isolation/IDOR, invite + magic-link
+>   lifecycle, rolling, admin tooling), `tests/e2e/test_auth_e2e.py` (`auth_server`
+>   fixture, full browser flow). Testing guide: `docs/multi-user-testing.md`.
+>
+> **DEPLOY ARTEFACTS DONE (2026-07-17):** `Dockerfile` + `.dockerignore` at repo
+> root (python:3.12-slim, `pip install -e ".[api]"`, uvicorn on `$PORT`) and a
+> full **`DEPLOY.md`** (Railway + Neon + Resend + domain, env table, smoke test).
+> Also added `httpx` to the `[api]` extras — the Resend sender imports it and it
+> was previously dev-only (email would have silently failed in prod). **Still to do
+> by hand (external accounts, can't script):** create Railway Hobby project, fresh
+> Neon DB, Resend account, set env vars, point the domain, run the smoke test.
+> Env to set in prod: `AUTH_ENABLED=true`, `SECRET_KEY`, `ADMIN_KEY`,
+> `RESEND_API_KEY`, `EMAIL_FROM`, `APP_BASE_URL`, `FRONTEND_ORIGIN`, `DATABASE_URL`
+> (leave `COOKIE_SECURE` unset → secure on). **Domain: `keepthingslevel.com`** →
+> point at the Railway app; set `FRONTEND_ORIGIN`/`APP_BASE_URL` to it; verify it
+> with Resend for a branded From address. See `DEPLOY.md`.
+>
+> **Safety:** existing live Render instances are unaffected — separate app + fresh
+> Neon DB; and even a stray `main` redeploy stays behaviourally identical because
+> `AUTH_ENABLED` defaults off. Decision pending: merge branch → `main` before or
+> after standing up the new deploy. Restore-of-deleted-data = Neon PITR for v1;
+> soft-delete is a documented fast-follow (not built).
+>
+> _(Original task-ordered plan below is still the reference; §8 deploy is what's left.)_
 
 > [!IMPORTANT]
 > **DECISION UPDATE (2026-07-10): magic link FIRST — the PIN stage is skipped entirely.**

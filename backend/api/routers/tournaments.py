@@ -16,14 +16,14 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
+from backend.api.deps import get_current_squad, owned_tournament
 from backend.db.database import get_session
-from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, TournamentDB
+from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB, TournamentDB
 from backend.db.repositories import (
     build_plan_response,
     delete_rotation,
     get_available_ids,
     get_goals_total,
-    get_or_create_squad,
     get_players,
     get_position_overrides,
 )
@@ -53,6 +53,7 @@ class TournamentCreate(BaseModel):
     show_timer: int = 1  # 0=hide the match clock, 1=show
     fairness_value: int = 50  # 0=equal, 100=start strong
     rotation_intensity: int = 50
+    share_gk: int = 1  # 1=specialist keeper rotates for equal time, 0=in goal all match
 
 
 class TournamentRead(BaseModel):
@@ -66,6 +67,7 @@ class TournamentRead(BaseModel):
     show_timer: int = 1
     fairness_value: int
     rotation_intensity: int
+    share_gk: int = 1
     status: str
     match_count: int = 0
 
@@ -101,6 +103,7 @@ def _tournament_read(t: TournamentDB, match_count: int = 0) -> TournamentRead:
         show_timer=t.show_timer,
         fairness_value=t.fairness_value,
         rotation_intensity=t.rotation_intensity,
+        share_gk=t.share_gk,
         status=t.status,
         match_count=match_count,
     )
@@ -130,6 +133,7 @@ def _match_response(
             "fairness": m.fairness,
             "fairness_value": m.fairness_value,
             "rotation_intensity": m.rotation_intensity,
+            "share_gk": m.share_gk,
             "period_label": period_label,
             "home_away": m.home_away,
             "opponent_goals": m.opponent_goals,
@@ -148,8 +152,10 @@ def _match_response(
 # ── Tournament CRUD ───────────────────────────────────────────────────────────
 
 @router.get("/", response_model=list[TournamentRead])
-def list_tournaments(session: Session = Depends(get_session)) -> list[TournamentRead]:
-    squad = get_or_create_squad(session)
+def list_tournaments(
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> list[TournamentRead]:
     tournaments = list(
         session.exec(
             select(TournamentDB).where(TournamentDB.squad_id == squad.id)
@@ -167,7 +173,9 @@ def list_tournaments(session: Session = Depends(get_session)) -> list[Tournament
 
 @router.post("/", response_model=TournamentRead, status_code=201)
 def create_tournament(
-    body: TournamentCreate, session: Session = Depends(get_session),
+    body: TournamentCreate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> TournamentRead:
     # Validate formation
     try:
@@ -175,7 +183,6 @@ def create_tournament(
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    squad = get_or_create_squad(session)
     t = TournamentDB(
         squad_id=squad.id,
         name=body.name,
@@ -187,6 +194,7 @@ def create_tournament(
         show_timer=body.show_timer,
         fairness_value=body.fairness_value,
         rotation_intensity=body.rotation_intensity,
+        share_gk=body.share_gk,
     )
     session.add(t)
     session.commit()
@@ -196,11 +204,11 @@ def create_tournament(
 
 @router.get("/{tournament_id}")
 def get_tournament(
-    tournament_id: int, session: Session = Depends(get_session),
+    tournament_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
+    t = owned_tournament(tournament_id, squad, session)
 
     matches = list(
         session.exec(
@@ -233,7 +241,6 @@ def get_tournament(
         })
 
     # Load players for this tournament (squad + guest players)
-    squad = get_or_create_squad(session)
     squad_players = [
         p for p in get_players(session, squad.id)
         if p.source_tournament_id is None
@@ -270,15 +277,21 @@ def get_tournament(
 # Static /stats/all and /export/all.xlsx are declared BEFORE the /{tournament_id}/…
 # routes so the path parameter can never shadow them.
 @router.get("/stats/all")
-def get_all_tournament_stats(session: Session = Depends(get_session)) -> dict[str, Any]:
+def get_all_tournament_stats(
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> dict[str, Any]:
     """Per-player stats aggregated across every tournament match (all tournaments)."""
-    return analytics.all_tournament_stats(session)
+    return analytics.all_tournament_stats(session, squad.id)
 
 
 @router.get("/export/all.xlsx")
-def export_all_tournaments_xlsx(session: Session = Depends(get_session)) -> Response:
+def export_all_tournaments_xlsx(
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> Response:
     """All-tournaments stats as a formatted .xlsx (no skill data)."""
-    data, filename = spreadsheet_export.all_tournaments_workbook(session)
+    data, filename = spreadsheet_export.all_tournaments_workbook(session, squad.id)
     return Response(
         content=data,
         media_type=spreadsheet_export.XLSX_MEDIA_TYPE,
@@ -288,24 +301,24 @@ def export_all_tournaments_xlsx(session: Session = Depends(get_session)) -> Resp
 
 @router.get("/{tournament_id}/stats")
 def get_tournament_stats(
-    tournament_id: int, session: Session = Depends(get_session),
+    tournament_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Return per-player slot counts and goals aggregated across all tournament matches."""
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
-    return analytics.tournament_stats(session, tournament_id)
+    owned_tournament(tournament_id, squad, session)
+    return analytics.tournament_stats(session, squad.id, tournament_id)
 
 
 @router.get("/{tournament_id}/export.xlsx")
 def export_tournament_xlsx(
-    tournament_id: int, session: Session = Depends(get_session),
+    tournament_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> Response:
     """Single-tournament stats as a formatted .xlsx (parity with the season export)."""
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
-    data, filename = spreadsheet_export.tournament_workbook(session, tournament_id)
+    owned_tournament(tournament_id, squad, session)
+    data, filename = spreadsheet_export.tournament_workbook(session, squad.id, tournament_id)
     return Response(
         content=data,
         media_type=spreadsheet_export.XLSX_MEDIA_TYPE,
@@ -323,16 +336,16 @@ class TournamentUpdate(BaseModel):
     show_timer: int | None = None
     fairness_value: int | None = None
     rotation_intensity: int | None = None
+    share_gk: int | None = None
 
 
-def _regenerate_planned_matches(session: Session, t: TournamentDB) -> int:
+def _regenerate_planned_matches(session: Session, t: TournamentDB, squad: SquadDB) -> int:
     """Re-apply the tournament's settings to every *planned* match and regenerate
-    its rotation, so a settings change (e.g. toggling half-time or the match
-    length) actually takes effect. Mirrors how ``add_tournament_match`` builds a
-    match. In-progress and completed matches are left untouched (their structure
-    is locked), as is any match without enough available players to re-fill.
+    its rotation, so a settings change (e.g. toggling half-time, the match length,
+    or GK sharing) actually takes effect. Mirrors how ``add_tournament_match``
+    builds a match. In-progress and completed matches are left untouched, as is any
+    match without enough available players to re-fill.
     """
-    squad = get_or_create_squad(session)
     all_players = get_players(session, squad.id)
     quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
     position_overrides = get_position_overrides(t)
@@ -364,6 +377,7 @@ def _regenerate_planned_matches(session: Session, t: TournamentDB) -> int:
         m.formation = t.formation
         m.show_timer = t.show_timer
         m.rotation_intensity = t.rotation_intensity
+        m.share_gk = t.share_gk
         m.fairness = fairness
         m.fairness_value = fv
         session.add(m)
@@ -379,16 +393,17 @@ def _regenerate_planned_matches(session: Session, t: TournamentDB) -> int:
 
 @router.put("/{tournament_id}", response_model=TournamentRead)
 def update_tournament(
-    tournament_id: int, body: TournamentUpdate, session: Session = Depends(get_session),
+    tournament_id: int,
+    body: TournamentUpdate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> TournamentRead:
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
+    t = owned_tournament(tournament_id, squad, session)
     # Snapshot the fields that change a match's structure / rotation so we know
     # whether the already-created planned matches need regenerating afterwards.
     before = (
-        t.match_duration_mins, t.has_halftime, t.team_size,
-        t.formation, t.rotation_intensity, t.fairness_value,
+        t.match_duration_mins, t.has_halftime, t.team_size, t.formation,
+        t.rotation_intensity, t.fairness_value, t.share_gk,
     )
     if body.name is not None:
         t.name = body.name
@@ -408,16 +423,18 @@ def update_tournament(
         t.fairness_value = body.fairness_value
     if body.rotation_intensity is not None:
         t.rotation_intensity = body.rotation_intensity
+    if body.share_gk is not None:
+        t.share_gk = body.share_gk
     session.add(t)
     session.commit()
     session.refresh(t)
 
     after = (
-        t.match_duration_mins, t.has_halftime, t.team_size,
-        t.formation, t.rotation_intensity, t.fairness_value,
+        t.match_duration_mins, t.has_halftime, t.team_size, t.formation,
+        t.rotation_intensity, t.fairness_value, t.share_gk,
     )
     if before != after:
-        _regenerate_planned_matches(session, t)
+        _regenerate_planned_matches(session, t, squad)
 
     count = len(list(session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()))
     return _tournament_read(t, count)
@@ -432,13 +449,11 @@ def set_available_players(
     tournament_id: int,
     body: SetAvailablePlayersBody,
     session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Update the available player list for all planned matches and regenerate their rotations."""
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
+    t = owned_tournament(tournament_id, squad, session)
 
-    squad = get_or_create_squad(session)
     all_players = get_players(session, squad.id)
     available_ids = set(body.available_player_ids)
     players_db = [p for p in all_players if p.id in available_ids]
@@ -484,15 +499,14 @@ def set_position_overrides(
     tournament_id: int,
     body: SetPositionOverridesBody,
     session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Store tournament-scoped position overrides for players.
 
     Overrides are applied during rotation generation for all matches in this
     tournament. They do not modify the player's permanent squad profile.
     """
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
+    t = owned_tournament(tournament_id, squad, session)
     save_position_overrides(session, t, body.overrides)
     return {"overrides": body.overrides}
 
@@ -507,8 +521,10 @@ def update_match_opponent(
     match_id: int,
     body: MatchOpponentUpdate,
     session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Update the opponent name for a tournament match."""
+    owned_tournament(tournament_id, squad, session)
     m = session.get(MatchDB, match_id)
     if not m or m.tournament_id != tournament_id:
         raise HTTPException(status_code=404, detail="Match not found in this tournament")
@@ -520,11 +536,11 @@ def update_match_opponent(
 
 @router.delete("/{tournament_id}", status_code=204)
 def delete_tournament(
-    tournament_id: int, session: Session = Depends(get_session),
+    tournament_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> None:
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
+    owned_tournament(tournament_id, squad, session)
 
     # Explicit ordered DELETEs — bypasses ORM flush ordering issues with PostgreSQL FKs
     match_ids = [
@@ -546,12 +562,9 @@ def add_guest_player(
     tournament_id: int,
     body: GuestPlayerCreate,
     session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
-
-    squad = get_or_create_squad(session)
+    owned_tournament(tournament_id, squad, session)
 
     # Check for name collision (across all players in this squad including guests)
     existing = session.exec(
@@ -588,10 +601,14 @@ def add_guest_player(
 
 @router.delete("/{tournament_id}/players/{player_id}", status_code=204)
 def remove_guest_player(
-    tournament_id: int, player_id: int, session: Session = Depends(get_session),
+    tournament_id: int,
+    player_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> None:
+    owned_tournament(tournament_id, squad, session)
     p = session.get(PlayerDB, player_id)
-    if not p or p.source_tournament_id != tournament_id:
+    if not p or p.source_tournament_id != tournament_id or p.squad_id != squad.id:
         raise HTTPException(status_code=404, detail="Guest player not found in this tournament")
     session.delete(p)
     session.commit()
@@ -604,13 +621,10 @@ def add_tournament_match(
     tournament_id: int,
     body: TournamentMatchCreate,
     session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Create a match for this tournament and immediately generate its rotation."""
-    t = session.get(TournamentDB, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Tournament not found")
-
-    squad = get_or_create_squad(session)
+    t = owned_tournament(tournament_id, squad, session)
 
     quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
     fv, fairness = tournament_service.resolve_fairness(t, body.stage, body.knockout_fairness_value)
@@ -633,6 +647,7 @@ def add_tournament_match(
         fairness=fairness,
         fairness_value=fv,
         rotation_intensity=t.rotation_intensity,
+        share_gk=t.share_gk,
         home_away="home",
         tournament_id=tournament_id,
         tournament_stage=body.stage,

@@ -5,8 +5,9 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
+from backend.api.deps import get_current_squad, owned_match, owned_player
 from backend.db.database import get_session
-from backend.db.models import MatchDB, RotationPlanDB
+from backend.db.models import MatchDB, RotationPlanDB, SquadDB
 from backend.db.repositories import (
     build_plan_response,
     create_blank_plan,
@@ -14,7 +15,6 @@ from backend.db.repositories import (
     get_available_ids,
     get_goals,
     get_goals_total,
-    get_or_create_squad,
     get_players,
     get_removed,
     get_rotation,
@@ -43,6 +43,7 @@ class MatchCreate(BaseModel):
     fairness: str = "equal"
     fairness_value: int = 0
     rotation_intensity: int = 50
+    share_gk: int = 1  # 1=specialist keeper rotates for equal time, 0=in goal all match
     home_away: str = "home"
     show_timer: int = 1  # 0=hide the match clock, 1=show
 
@@ -59,6 +60,7 @@ class MatchRead(BaseModel):
     fairness: str
     fairness_value: int
     rotation_intensity: int
+    share_gk: int = 1
     home_away: str = "home"
     opponent_goals: int = 0
     hide_score: int = 0
@@ -81,6 +83,7 @@ def _match_read(m: MatchDB, has_rotation: bool, our_goals: int = 0) -> MatchRead
         fairness=m.fairness,
         fairness_value=m.fairness_value,
         rotation_intensity=m.rotation_intensity,
+        share_gk=m.share_gk,
         home_away=m.home_away,
         opponent_goals=m.opponent_goals,
         hide_score=m.hide_score,
@@ -105,6 +108,7 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "formation": m.formation,
             "fairness": m.fairness,
             "rotation_intensity": m.rotation_intensity,
+            "share_gk": m.share_gk,
             "period_label": period_label,
             "home_away": m.home_away,
             "opponent_goals": m.opponent_goals,
@@ -122,8 +126,10 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
 
 
 @router.get("/", response_model=list[MatchRead])
-def list_matches(session: Session = Depends(get_session)) -> list[MatchRead]:
-    squad = get_or_create_squad(session)
+def list_matches(
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> list[MatchRead]:
     matches = list(
         session.exec(
             select(MatchDB).where(
@@ -147,14 +153,17 @@ def list_matches(session: Session = Depends(get_session)) -> list[MatchRead]:
 
 
 @router.post("/", response_model=MatchRead, status_code=201)
-def create_match(match: MatchCreate, session: Session = Depends(get_session)) -> MatchRead:
+def create_match(
+    match: MatchCreate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> MatchRead:
     # Validate team_size + formation combo
     try:
         get_config(match.team_size, match.formation)
     except KeyError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    squad = get_or_create_squad(session)
     db_match = MatchDB(squad_id=squad.id, **match.model_dump())
     session.add(db_match)
     session.commit()
@@ -172,18 +181,20 @@ class MatchUpdate(BaseModel):
     fairness: str | None = None
     fairness_value: int | None = None
     rotation_intensity: int | None = None
+    share_gk: int | None = None
     home_away: str | None = None
     show_timer: int | None = None
 
 
 @router.put("/{match_id}", response_model=MatchRead)
 def update_match(
-    match_id: int, body: MatchUpdate, session: Session = Depends(get_session),
+    match_id: int,
+    body: MatchUpdate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> MatchRead:
     """Edit a *planned* season match's settings (the caller re-generates after)."""
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
     if db_match.tournament_id is not None:
         raise HTTPException(status_code=400, detail="Edit tournament matches from the tournament")
     if db_match.status != "planned":
@@ -206,10 +217,12 @@ def update_match(
 
 
 @router.get("/{match_id}")
-def get_match(match_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+def get_match(
+    match_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> dict[str, Any]:
+    db_match = owned_match(match_id, squad, session)
 
     if not get_rotation(session, match_id):
         return _rotation_response(db_match, [], [])
@@ -242,10 +255,9 @@ def generate_match_rotation(
     match_id: int,
     body: RotationRequest | None = None,
     session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
 
     try:
         config = match_service.build_match_config(db_match)
@@ -284,11 +296,10 @@ def create_blank_rotation(
     match_id: int,
     body: RotationRequest | None = None,
     session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Create an empty rotation (all positions unfilled) for manual slot assignment."""
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
 
     config = match_service.build_match_config(db_match)
 
@@ -325,12 +336,13 @@ class AdjustRequest(BaseModel):
 
 @router.post("/{match_id}/adjust")
 def adjust_match_rotation(
-    match_id: int, body: AdjustRequest, session: Session = Depends(get_session),
+    match_id: int,
+    body: AdjustRequest,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Apply manual edits and re-generate unlocked slots."""
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
 
     if not get_rotation(session, match_id):
         raise HTTPException(status_code=400, detail="No rotation exists — generate one first")
@@ -384,11 +396,12 @@ class GoalsSave(BaseModel):
 
 @router.post("/{match_id}/goals")
 def save_match_goals(
-    match_id: int, body: GoalsSave, session: Session = Depends(get_session),
+    match_id: int,
+    body: GoalsSave,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, str]:
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
 
     if not get_rotation(session, match_id):
         raise HTTPException(status_code=404, detail="No rotation for this match")
@@ -413,15 +426,21 @@ def save_match_goals(
 
 
 @router.get("/stats/season")
-def get_season_stats(session: Session = Depends(get_session)) -> list[dict[str, Any]]:
+def get_season_stats(
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> list[dict[str, Any]]:
     """Aggregate stats across all season matches (excludes tournament matches)."""
-    return analytics.season_stats(session)
+    return analytics.season_stats(session, squad.id)
 
 
 @router.get("/export/season.xlsx")
-def export_season_xlsx(session: Session = Depends(get_session)) -> Response:
+def export_season_xlsx(
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> Response:
     """Season stats as a formatted .xlsx (parent/investigation-facing; no skill data)."""
-    data, filename = spreadsheet_export.season_workbook(session)
+    data, filename = spreadsheet_export.season_workbook(session, squad.id)
     return Response(
         content=data,
         media_type=spreadsheet_export.XLSX_MEDIA_TYPE,
@@ -430,21 +449,24 @@ def export_season_xlsx(session: Session = Depends(get_session)) -> Response:
 
 
 @router.get("/stats/player/{player_id}")
-def get_player_history(player_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+def get_player_history(
+    player_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> dict[str, Any]:
     """Return per-match history for a single player: slots, positions, goals per match."""
-    squad = get_or_create_squad(session)
-    player_db = next((p for p in get_players(session, squad.id) if p.id == player_id), None)
-    if not player_db:
-        raise HTTPException(status_code=404, detail="Player not found")
+    player_db = owned_player(player_id, squad, session)
     return analytics.player_history(session, player_db)
 
 
 @router.post("/{match_id}/start")
-def start_match(match_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+def start_match(
+    match_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> dict[str, Any]:
     """Mark match as in_progress. Idempotent if already started."""
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
     if db_match.status == "planned":
         db_match.status = "in_progress"
         db_match.current_slot = 0
@@ -454,11 +476,13 @@ def start_match(match_id: int, session: Session = Depends(get_session)) -> dict[
 
 
 @router.post("/{match_id}/unstart")
-def unstart_match(match_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+def unstart_match(
+    match_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> dict[str, Any]:
     """Revert an accidentally-started match back to planned. Only allowed when current_slot == 0."""
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
     if db_match.status != "in_progress":
         raise HTTPException(status_code=400, detail="Match is not in progress")
     if db_match.current_slot != 0:
@@ -476,12 +500,13 @@ class ProgressUpdate(BaseModel):
 
 @router.post("/{match_id}/progress")
 def update_progress(
-    match_id: int, body: ProgressUpdate, session: Session = Depends(get_session),
+    match_id: int,
+    body: ProgressUpdate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Persist current slot position and optionally update match status."""
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
     db_match.current_slot = body.current_slot
     if body.status and body.status in ("in_progress", "completed"):
         db_match.status = body.status
@@ -497,12 +522,13 @@ class RemovePlayerRequest(BaseModel):
 
 @router.post("/{match_id}/remove-player")
 def remove_player_from_match(
-    match_id: int, body: RemovePlayerRequest, session: Session = Depends(get_session),
+    match_id: int,
+    body: RemovePlayerRequest,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Mark a player unavailable from a given slot onward and re-generate remaining slots."""
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
 
     if not get_rotation(session, match_id):
         raise HTTPException(status_code=400, detail="No rotation exists")
@@ -520,15 +546,15 @@ def remove_player_from_match(
     all_players = get_players(session, db_match.squad_id)
     players_db = [p for p in all_players if p.id in set(avail_ids)]
 
-    match, squad = match_db_to_domain(db_match, players_db)
+    match, domain_squad = match_db_to_domain(db_match, players_db)
     id_to_player = {p.id: p for p in players_db if p.id is not None}
 
     # Reconstruct current plan; lock all slots before from_slot, then re-generate
     current_plan = match_service.reconstruct_plan(
-        session, match_id, squad, id_to_player, lock_before=body.from_slot,
+        session, match_id, domain_squad, id_to_player, lock_before=body.from_slot,
     )
     new_plan, fairness_warnings = match_service.adjust_and_save(
-        session, db_match, current_plan, {}, players_db, squad, match,
+        session, db_match, current_plan, {}, players_db, domain_squad, match,
     )
 
     plan_data = build_plan_response(session, match_id, id_to_player)
@@ -544,12 +570,13 @@ class ReinstatePlayerRequest(BaseModel):
 
 @router.post("/{match_id}/reinstate-player")
 def reinstate_player_in_match(
-    match_id: int, body: ReinstatePlayerRequest, session: Session = Depends(get_session),
+    match_id: int,
+    body: ReinstatePlayerRequest,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
 ) -> dict[str, Any]:
     """Restore a removed player and re-generate slots from current match position."""
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+    db_match = owned_match(match_id, squad, session)
 
     if not get_rotation(session, match_id):
         raise HTTPException(status_code=400, detail="No rotation exists")
@@ -567,15 +594,15 @@ def reinstate_player_in_match(
     all_players = get_players(session, db_match.squad_id)
     players_db = [p for p in all_players if p.id in set(avail_ids)]
 
-    match, squad = match_db_to_domain(db_match, players_db)
+    match, domain_squad = match_db_to_domain(db_match, players_db)
     id_to_player = {p.id: p for p in players_db if p.id is not None}
 
     # Lock all slots up to current_slot, then re-generate the rest
     current_plan = match_service.reconstruct_plan(
-        session, match_id, squad, id_to_player, lock_before=db_match.current_slot,
+        session, match_id, domain_squad, id_to_player, lock_before=db_match.current_slot,
     )
     new_plan, fairness_warnings = match_service.adjust_and_save(
-        session, db_match, current_plan, {}, players_db, squad, match,
+        session, db_match, current_plan, {}, players_db, domain_squad, match,
     )
 
     plan_data = build_plan_response(session, match_id, id_to_player)
@@ -586,10 +613,12 @@ def reinstate_player_in_match(
 
 
 @router.delete("/{match_id}", status_code=204)
-def delete_match(match_id: int, session: Session = Depends(get_session)) -> None:
-    db_match = session.get(MatchDB, match_id)
-    if not db_match:
-        raise HTTPException(status_code=404, detail="Match not found")
+def delete_match(
+    match_id: int,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> None:
+    owned_match(match_id, squad, session)
     # Explicit ordered DELETEs — bypasses ORM flush ordering issues with PostgreSQL FKs
     delete_rotation(session, match_id)
     session.execute(sql_delete(MatchDB).where(MatchDB.id == match_id))

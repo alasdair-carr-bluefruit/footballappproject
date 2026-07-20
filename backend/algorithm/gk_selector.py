@@ -27,20 +27,31 @@ def select_gk_for_slots(
     num_slots: int,
     squad_size: int,
     players_per_slot: int = 5,
+    share_gk: bool | None = None,
     specialist_max_slots: int | None = None,
 ) -> tuple:
     """Return a list of GK assignments (one per slot) and any warnings.
 
     GK assignments are made per-period (same GK for both sub-periods).
 
-    ``specialist_max_slots`` caps how many GK slots a *specialist* keeper may take
-    in this match. It's used for tournaments to spread a specialist's total goal
-    time across the whole day so they don't play every match (their fair share
-    minus what they've already played — see ``match_service``). Once the budget is
-    spent, a backup keeper covers and the specialist rests (a specialist never
-    plays outfield). ``None`` = no cross-match budget (season / single match): the
-    legacy per-match behaviour below is used unchanged. If no backup keeper exists,
-    the specialist still covers goal regardless of budget (goal must be filled).
+    ``share_gk`` controls how a *specialist* keeper's time is handled:
+      * True  — the keeper splits goal duty (plays alternate periods, rests the
+        others while a backup covers) so their total pitch time matches the rest
+        of the squad. This is the fair-time default set by the setup form.
+      * False — the keeper stays in goal every period (traditional; they play
+        more total time than outfielders).
+      * None  — legacy heuristic used by bare callers/tests: share only when the
+        squad has 10+ players.
+    Sharing needs at least one spare player to cover goal while the keeper rests,
+    so it is forced off when ``squad_size <= players_per_slot`` (no bench).
+
+    ``specialist_max_slots`` adds a *cross-match* cap for tournaments: when sharing
+    is on, the specialist keeps goal only up to this many slots this match (their
+    fair share across the day minus what they've already played — see
+    ``match_service``), then a backup covers and the keeper rests. Within a single
+    match, one goal period alternates within it as before. ``None`` = no cap
+    (season / single match) — the legacy within-match alternation is used. Ignored
+    when sharing is off (the keeper stays in goal all match by the coach's choice).
 
     Returns:
         gk_assignments: list of length num_slots
@@ -57,10 +68,20 @@ def select_gk_for_slots(
     specialist = next((p for p in players if p.gk_status == GKTier.SPECIALIST), None)
 
     if specialist is not None:
-        if specialist_max_slots is not None:
-            # Tournament: the specialist keeps goal only up to their cross-match
-            # fair-share budget; a backup covers once it's spent (specialist rests).
-            spec_quarter_budget = specialist_max_slots // 2  # 2 slots per GK quarter
+        if share_gk is None:
+            share = squad_size >= 10  # legacy default
+        else:
+            share = share_gk
+        # Can only rest the keeper if a spare player exists to cover goal.
+        if squad_size <= players_per_slot:
+            share = False
+        if not share:
+            # Specialist plays every quarter
+            gk_per_quarter = [specialist] * num_quarters
+        elif specialist_max_slots is not None:
+            # Tournament: keeper keeps goal only up to their cross-match budget;
+            # a backup covers once it's spent (keeper rests, never plays outfield).
+            spec_quarter_budget = specialist_max_slots // 2  # 2 slots per goal period
             other_players = [p for p in players if p is not specialist]
             backup_pool = _ranked_gk_pool(other_players, warnings)
             q_counts: dict = {}
@@ -78,9 +99,6 @@ def select_gk_for_slots(
                     # No backup keeper available — the specialist must cover goal.
                     gk_per_quarter.append(specialist)
                     spec_used += 1
-        elif squad_size < 10:
-            # Specialist plays every quarter
-            gk_per_quarter = [specialist] * num_quarters
         else:
             # Specialist plays Q1 and Q3 (alternating quarters).
             # Non-specialist GKs cover Q2 and Q4 — spreads GK experience more evenly.

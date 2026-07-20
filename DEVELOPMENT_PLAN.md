@@ -1,4 +1,4 @@
-# Gaffer — Codebase Analysis & Forward Development Plan
+# Level — Codebase Analysis & Forward Development Plan
 
 > Produced 2026-07-10 from a full audit of the codebase, git history, all requirements
 > documents, and the latest user feedback. This document consolidates the findings and
@@ -142,10 +142,17 @@ is consistent, and all 34 endpoints have integration coverage. Known debts:
 
 ## Part 3 — Roadmap
 
-Ordering rationale: fix the trust-damaging fairness bug and quick wins first (current
-users are actively testing), do the refactors that both the UX work and multi-user
-need next, then ship multi-user before the bigger UX build-out so new coaches onboard
-onto the shared instance instead of yet more Render clones.
+> **Reprioritised 2026-07-18.** Multi-user (Phase E) is **shipped and live** on
+> `feat/multi-user` (magic-link auth, invite-only, per-account squad isolation). The
+> original phases were ordered by *dependency*; now that the foundations are in, the
+> **Forward Roadmap** below is ordered by *value × effort × demand* into Tiers 1–4.
+> Phases A–E are kept as the completed record. `CLAUDE.md`'s "Current Phase" should be
+> refreshed to match (multi-user live; next up = Tier 1).
+
+Original ordering rationale (historical): fix the trust-damaging fairness bug and quick
+wins first (current users were actively testing), do the refactors that both the UX work
+and multi-user need next, then ship multi-user before the bigger UX build-out so new
+coaches onboard onto the shared instance instead of yet more Render clones.
 
 ### Phase A — Housekeeping (hours, do immediately)
 1. Update CLAUDE.md / PHASES.md / requirements.md to reflect v0.7+v0.8 shipped;
@@ -227,17 +234,29 @@ onto the shared instance instead of yet more Render clones.
    Tournament also gets a combined "Review all plans" page (one card per match,
    rotations generated in order for cross-match fairness). ("Save changes" was
    dropped — edits already auto-persist.)
-2. Tinkering undo/redo command stack (adopt the V2 §6 spec).
-3. Revisit export (CSV/Sheets) once the review screen exposes the same data.
+2. Tinkering undo/redo command stack (adopt the V2 §6 spec). → **moved to Forward
+   Roadmap T3.3** (not yet done).
+3. Revisit export (CSV/Sheets) once the review screen exposes the same data. → **moved
+   to Forward Roadmap T3.3** (not yet done).
 4. This is the proving ground for the new module structure — if the component can be
    shared cleanly between season and tournament, the refactor worked.
 
-### Phase E — v1.1 Multi-user (magic link + co-coach)
-Follow `V1_MULTIUSER_PLAN.md` §5–§10 with the magic-link substitutions from Part 2:
+### Phase E — v1.1 Multi-user (magic link) — ✅ SHIPPED & LIVE
+> **Shipped on `feat/multi-user`.** Magic-link auth (no PIN ever), invite-only
+> onboarding, `AccountDB`/`InviteDB`/`LoginTokenDB`, `deps.py` isolation seam
+> (`get_current_account`/`get_current_squad` + `owned_*` IDOR guards), early-access
+> capture + Resend email, Railway + Neon deploy. **Scope note:** the shipped model is
+> **1 account ↔ 1 squad** (`AccountDB.squad_id`); the planned `SquadMembershipDB` join
+> table + roles were deliberately deferred — so **both multi-team (Tier 1) and co-coach
+> (Tier 3) now depend on introducing that membership/ownership layer.** The link was
+> intentionally placed on `AccountDB` so this is additive.
+
+Original plan (for reference), per `V1_MULTIUSER_PLAN.md` §5–§10:
 1. Tables: `AccountDB` (email required/unique), `InviteDB`, `LoginTokenDB`,
    **`SquadMembershipDB`** (account_id FK, squad_id FK, role: `owner | coach | viewer`).
    Co-coach is a membership row — no shared credentials, individual identity per coach,
-   role-based access revocable per member without affecting others.
+   role-based access revocable per member without affecting others. *(membership table
+   not yet built — see scope note above)*
 2. Auth core: token gen/hash/verify, signed session cookie, email send via Resend/Postmark.
 3. `deps.py`: `get_current_account`, `get_current_squad`, `owned_match/tournament/player`
    — audit every id-path route (IDOR list already enumerated in the plan doc).
@@ -249,26 +268,131 @@ Follow `V1_MULTIUSER_PLAN.md` §5–§10 with the magic-link substitutions from 
 8. Deploy: Dockerfile, Railway + fresh Neon Postgres; invite existing coaches; retire
    Render clones once migrated.
 
-### Phase F — v1.2 Co-coach plan proposals
-Once individual identity exists (Phase E), a co-coach can propose a rotation plan to
-the head coach for review before it goes live:
-- **`PlanProposalDB`**: match_id FK, proposed_by (account_id) FK, snapshot of
-  `SlotAssignment` rows (requires Phase C schema normalisation — proposals are diffs,
-  not JSON blob copies), status: `pending | accepted | rejected`, optional note.
-- Co-coach opens the Plan Review screen (Phase D), tinkers, hits "Propose to head coach"
-  instead of "Start match." Head coach sees a notification badge on that match.
-- Head coach opens Plan Review with two columns: current plan vs proposed plan,
-  changes highlighted. Actions: Accept (replaces current plan) / Request changes /
-  Reject. If accepted, the proposal's `SlotAssignment` rows become the live plan.
-- This is intentionally a Phase F feature — it requires individual identity (E),
-  relational slot storage (C), and the Plan Review UI (D) to all exist first.
+## Forward Roadmap — prioritised (2026-07-18)
 
-### Phase G — Later / decision points
-- Open self-serve signup (drop invite gate) — only after magic link + rate limiting
-  proven.
+Ordered by **value × effort × demand** (replaces the old dependency-ordered Phases F–J).
+⚡ = quick win. Cross-cutting rules still apply to every match-day item: **season ⇄
+tournament parity** (mirror both flows in the same change) and **additive migrations**
+for any schema change.
+
+### 🔴 Tier 1 — Now
+
+**T1.1 Multi-team (one coach, several squads).** *Real user demand — a live coach has
+already asked.* **Full design: `MULTI_TEAM_PLAN.md`.** Today it's 1 account ↔ 1 squad
+(`AccountDB.squad_id`). Because the isolation seam is a single function
+(`get_current_squad` in `deps.py`), this is additive, not a rewrite:
+- **Data:** introduce ownership/membership — either add `owner_account_id` to `SquadDB`
+  (simplest), or a `SquadMembershipDB(account_id, squad_id, role)` join (**preferred** —
+  it also unblocks co-coach, T3.2). Migrate each existing account → one owned squad.
+- **Active squad:** add the currently-selected squad (e.g. `AccountDB.active_squad_id`,
+  or carry it in the session) so requests resolve to the right team.
+- **`get_current_squad`:** return the active squad *after* asserting the account owns/
+  is a member of it — keeps the IDOR guarantee intact.
+- **Frontend:** team switcher + "Create new team" in the account menu; current team name
+  visible; squad-scoped screens refetch on switch.
+- **Tests:** extend isolation tests — account A can never reach account B's second squad.
+
+**T1.2 ⚡ Signed-out → marketing site.** On `app.keepthingslevel.com`, give an
+unauthenticated visitor an obvious link back to `keepthingslevel.com` (header/landing
+link on the login screen). Tiny; plugs a funnel leak. *(was H6)*
+
+**T1.3 Settings screen + account self-service.** New screen from the account menu:
+- **Update email address** — needs a re-verify step (magic link to the new address) so a
+  change can't silently hijack the login handle.
+- **Invite a friend** — reuse the existing invite-token flow to generate a shareable
+  one-time link. *(growth loop)*
+*(was H1–H3)*
+
+**T1.4 ⚡ Clear squad & data (destructive).** In settings: delete the coach's squad(s),
+players, matches and tournaments. Requires **at least one extra explicit confirmation**
+("Are you sure? This data cannot be recovered") beyond the initial tap — ideally
+type-to-confirm — and unreachable by accident. Also backs the delete-on-request promise
+in the Privacy/Safeguarding pages. *(was H5)*
+
+### 🟠 Tier 2 — Next (retention + product-led growth)
+
+**T2.1 Shareable match-day moments.** The share-image is the viral surface — every
+WhatsApp post is a soft ad. Ship together:
+- **Man of the Match on the export** — add `motm_player_id` (nullable) to `MatchDB`; at
+  full-time pick from players who actually played (`available_player_ids`); render on the
+  share image / export. *(was G4)*
+- **Record assists** — on goal record, "Who assisted?" popup (on-pitch players + **N/A**);
+  store per-player by id (assists column on `GoalRecordDB` or a sibling table); surface in
+  stats + export; assist must be an on-pitch player and not the scorer. *(was G2)*
+- **Goal celebration** — confetti/fireworks on goal (`pitch.js`); respect
+  `prefers-reduced-motion`; must not block goal/assist recording. *(was G3)*
+
+**T2.2 FA 2026/27 cornerstone blog + SEO content + reach.** Marketing-site blog
+(`marketing/blog/`, plain HTML, no build step), answer-first with `FAQPage`/`Article`
+JSON-LD; add each post to `sitemap.xml`. Cornerstone + cluster:
+- "What the FA's 2026/27 youth football changes mean for your team" (timely anchor —
+  30–40 min recommended game time, 3v3 U7 no-subs).
+- "Why equal playing time matters (and what the FA actually recommends)" (links to FA guides).
+- "A fair rotation without the spreadsheet" (problem→product).
+- "How much game time should kids get, by age group?" (FAQ-schema bait).
+- "Sharing keeper time so one kid isn't stuck in goal" (maps to `share_gk`).
+
+Off-site reach (highest leverage — backlinks + trusted audiences): outreach to aligned
+creators (Kev Weir / *Just Play Sports*, Saul Isaksson-Hurst / *My Personal Football
+Coach*, The Coaching Manual, 360TFT) with free access + a genuine feedback ask —
+**cite/link freely; never imply endorsement without explicit consent**; County-FA
+resource listings; genuine community participation (Facebook groups,
+r/grassrootsfootball); founder safeguarding credibility (parent/coach/ref/former DSL) in
+content and press/podcast outreach. *(SEO technical foundations already ✅ shipped — see
+bottom.)*
+
+**T2.3 Colourway switcher + colourblind mode.** A theme = an alternate CSS
+custom-property set (`:root` in `style.css`, mirroring `assets/brand/tokens.json`). The
+colourblind variant must keep GK/incoming/danger/goal states distinguishable without
+relying on hue alone (design against BRAND.md; verify contrast). Accessibility + fits the
+inclusive brand. *(was H4)*
+
+**T2.4 Configurable max subs on tournament creation.** Tournaments usually have no
+half-time, so the coach wants direct control over substitutions per match: a picker for
+**1–4 subs at 5v5**, scaling up for larger sizes. The engine already has per-size sub
+limits (`GameConfig.mid_period_subs` / `break_subs`, enforced by `validator.py`) — this
+exposes them to the coach instead of using the fixed defaults. Work: a `max_subs` field on
+`TournamentDB` (additive migration) threaded into the match's `GameConfig`, a
+size-aware selector on the tournament create/edit form (bounds scale with team size),
+and validator wiring. Mirror the season⇄tournament setup form where shared. *(user
+request 2026-07-19)*
+
+### 🟡 Tier 3 — Bigger bets, later
+
+**T3.1 Match-day engine features.**
+- **Adjust formation mid-match** — `MatchDB.formation` is fixed at creation; allow a live
+  change keeping played/locked slots, re-deriving remaining unlocked slots against the new
+  formation (reuse the tinkering locked-slot model + `config.formation.outfield_positions()`);
+  guard the team-size invariant. *(was G1)*
+- **Add an extra player mid-match (power play)** — the engine assumes a fixed `team_size`;
+  needs a per-slot size override / temporary lineup addition so remaining slots recalc
+  without corrupting fairness accounting. Trickiest item; pin behaviour with BDD before
+  touching the engine. *(was G5)*
+
+**T3.2 Co-coach plan proposals.** Depends on the T1.1 membership layer. A co-coach
+proposes a rotation for the head coach to review:
+- **`PlanProposalDB`**: match_id FK, proposed_by (account_id) FK, snapshot of
+  `SlotAssignment` rows (diffs, not JSON copies), status `pending | accepted | rejected`,
+  optional note.
+- Co-coach opens Plan Review, tinkers, hits "Propose to head coach"; head coach sees a
+  badge, opens a current-vs-proposed diff, and Accepts / Requests changes / Rejects.
+*(was Phase F — unblocked once T1.1 membership exists)*
+
+**T3.3 Plan Review polish.** Tinkering undo/redo command stack (V2 §6 spec) and the
+CSV/Sheets export revisit against the review-screen data. *(was Phase D.2/D.3)*
+
+### ⚪ Tier 4 — Decision points (only when the trigger fires)
+- Open self-serve signup (drop the invite gate) — only after magic link + rate limiting
+  are proven.
 - 8-a-side preset; knockout bracket structure.
-- Local-first/offline sync and any monetization: **re-evaluate only if** real usage
-  shows offline failures or hosting costs bite. Not before.
+- Local-first/offline sync and any monetization: **re-evaluate only if** real usage shows
+  offline failures or hosting costs bite. Not before.
+
+### SEO technical foundations — ✅ SHIPPED (2026-07-18)
+`robots.txt`, `sitemap.xml`, `llms.txt`, JSON-LD (`Organization` + `SoftwareApplication`),
+canonical + OG/Twitter tags (`index.html` + `about.html`), 1200×630 `og-image.png`
+(source `og-image.svg`). **Remaining manual step (you, on the live site):** submit
+`sitemap.xml` to Google Search Console + Bing Webmaster Tools.
 
 ---
 

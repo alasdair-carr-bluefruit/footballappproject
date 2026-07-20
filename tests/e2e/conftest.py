@@ -61,6 +61,55 @@ def live_server(tmp_path_factory):
             proc.kill()
 
 
+def _wait_until_ready(proc: subprocess.Popen, base_url: str) -> None:
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError("uvicorn exited during startup")
+        try:
+            if httpx.get(base_url + "/", timeout=1).status_code == 200:
+                return
+        except httpx.HTTPError:
+            time.sleep(0.25)
+    raise RuntimeError("uvicorn did not become ready within 30s")
+
+
+@pytest.fixture(scope="session")
+def auth_server(tmp_path_factory):
+    """Start uvicorn with multi-user AUTH ENABLED (own temp DB); yield the base URL.
+
+    COOKIE_SECURE=false so the session cookie rides the http test server. ADMIN_KEY
+    lets the test mint invites via the API. This exercises the real auth gate that
+    the default (auth-off) suite deliberately skips.
+    """
+    port = _free_port()
+    db_path = tmp_path_factory.mktemp("e2e-auth-db") / "e2e.db"
+    env = {
+        **os.environ,
+        "DATABASE_URL": f"sqlite:///{db_path}",
+        "AUTH_ENABLED": "true",
+        "SECRET_KEY": "e2e-secret",
+        "ADMIN_KEY": "e2e-admin",
+        "COOKIE_SECURE": "false",
+    }
+    python = str(VENV_PY) if VENV_PY.exists() else sys.executable
+    proc = subprocess.Popen(
+        [python, "-m", "uvicorn", "main:app", "--port", str(port), "--log-level", "warning"],
+        cwd=str(REPO_ROOT),
+        env=env,
+    )
+    base_url = f"http://127.0.0.1:{port}"
+    try:
+        _wait_until_ready(proc, base_url)
+        yield base_url
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
 @pytest.fixture
 def browser_context_args(browser_context_args):
     """Block service workers so a stale SW cache never masks a real change."""

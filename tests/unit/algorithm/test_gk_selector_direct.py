@@ -91,20 +91,18 @@ class TestGkTimeBudget:
 class TestSpecialistBudget:
     """Cross-match goal-slot budget for a specialist (tournament fairness).
 
-    ``specialist_max_slots`` caps how many goal slots the specialist takes this
-    match; a backup covers the rest so a specialist keeper doesn't play every
-    match of a tournament. ``None`` keeps the legacy per-match behaviour.
+    When GK sharing is on, ``specialist_max_slots`` caps how many goal slots the
+    specialist takes this match; a backup covers the rest so a specialist keeper
+    doesn't play every match of a tournament. Ignored when sharing is off.
     """
 
     def test_budget_zero_rests_specialist_backup_covers(self):
-        # No-halftime match (2 slots / 1 period). Budget 0 → specialist rests,
-        # the backup keeper covers goal.
         spec = make_player("Kai", GKTier.SPECIALIST)
         backup = make_player("Bo", GKTier.PREFERRED)
         others = [make_player(f"P{i}") for i in range(8)]
         assignments, _ = select_gk_for_slots(
             [spec, backup] + others, num_slots=2, squad_size=10,
-            players_per_slot=5, specialist_max_slots=0,
+            players_per_slot=5, share_gk=True, specialist_max_slots=0,
         )
         assert all(a is backup for a in assignments)
         assert spec not in assignments
@@ -115,32 +113,27 @@ class TestSpecialistBudget:
         others = [make_player(f"P{i}") for i in range(8)]
         assignments, _ = select_gk_for_slots(
             [spec, backup] + others, num_slots=2, squad_size=10,
-            players_per_slot=5, specialist_max_slots=2,
+            players_per_slot=5, share_gk=True, specialist_max_slots=2,
         )
         assert all(a is spec for a in assignments)
 
     def test_zero_budget_but_no_backup_specialist_still_covers(self):
-        # Goal must be filled: with no other keeper, the specialist covers even
-        # when the budget is spent (better a specialist than an empty net).
         spec = make_player("Kai", GKTier.SPECIALIST)
-        outfield = [make_player(f"P{i}") for i in range(9)]  # emergency-only default
+        outfield = [make_player(f"P{i}") for i in range(9)]
         assignments, _ = select_gk_for_slots(
             [spec] + outfield, num_slots=2, squad_size=10,
-            players_per_slot=5, specialist_max_slots=0,
+            players_per_slot=5, share_gk=True, specialist_max_slots=0,
         )
-        # Emergency-only players are a valid backup pool, so either the specialist
-        # rests (backup covers) — but there must always be a keeper, never None.
         assert all(a is not None for a in assignments)
 
-    def test_none_budget_preserves_legacy_behaviour(self):
-        # Without a budget (season / single match), squad>=10 alternation stands:
-        # specialist keeps Q1/Q3.
+    def test_share_off_ignores_budget_keeper_plays_all(self):
+        # Coach explicitly turned sharing off → keeper stays in goal every period,
+        # regardless of the budget.
         spec = make_player("Kai", GKTier.SPECIALIST)
         backup = make_player("Bo", GKTier.PREFERRED)
         others = [make_player(f"P{i}") for i in range(8)]
         assignments, _ = select_gk_for_slots(
-            [spec, backup] + others, num_slots=8, squad_size=10,
-            players_per_slot=5, specialist_max_slots=None,
+            [spec, backup] + others, num_slots=2, squad_size=10,
+            players_per_slot=5, share_gk=False, specialist_max_slots=0,
         )
-        assert assignments[0] is spec  # Q1
-        assert assignments[4] is spec  # Q3
+        assert all(a is spec for a in assignments)

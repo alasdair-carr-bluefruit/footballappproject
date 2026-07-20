@@ -15,8 +15,7 @@ from openpyxl.styles import Alignment, Font, PatternFill  # type: ignore[import-
 from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 from sqlmodel import Session
 
-from backend.db.models import TournamentDB
-from backend.db.repositories import get_or_create_squad
+from backend.db.models import SquadDB, TournamentDB
 from backend.services import analytics
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -27,7 +26,7 @@ _HEADERS = ["Player", "Matches", "Slots", "Minutes", "Goals", "GK", "DEF", "MID"
 def _sanitize(name: str) -> str:
     """Filesystem-safe filename fragment (letters/digits/space/-/_)."""
     keep = "".join(c if (c.isalnum() or c in " -_") else " " for c in name)
-    return " ".join(keep.split()) or "Gaffer"
+    return " ".join(keep.split()) or "Level"
 
 
 def _row_from_stat(s: dict[str, Any]) -> list[Any]:
@@ -97,34 +96,34 @@ def _build_workbook(title: str, subtitle: str, rows: list[list[Any]]) -> bytes:
     return buf.getvalue()
 
 
-def _team_name(session: Session) -> str:
-    squad = get_or_create_squad(session)
-    return squad.team_name or squad.name or "Gaffer"
+def _team_name(session: Session, squad_id: int) -> str:
+    squad = session.get(SquadDB, squad_id)
+    return (squad.team_name or squad.name if squad else None) or "Level"
 
 
 def _today() -> str:
     return datetime.date.today().isoformat()
 
 
-def season_workbook(session: Session) -> tuple[bytes, str]:
-    team = _team_name(session)
-    rows = [_row_from_stat(s) for s in analytics.season_stats(session)]
+def season_workbook(session: Session, squad_id: int) -> tuple[bytes, str]:
+    team = _team_name(session, squad_id)
+    rows = [_row_from_stat(s) for s in analytics.season_stats(session, squad_id)]
     data = _build_workbook(team, f"Season summary · generated {_today()}", rows)
     return data, f"{_sanitize(team)} season stats {_today()}.xlsx"
 
 
-def tournament_workbook(session: Session, tournament_id: int) -> tuple[bytes, str]:
+def tournament_workbook(session: Session, squad_id: int, tournament_id: int) -> tuple[bytes, str]:
     t = session.get(TournamentDB, tournament_id)
     name = (t.name if t else None) or "Tournament"
-    stats = analytics.tournament_stats(session, tournament_id)["players"]
+    stats = analytics.tournament_stats(session, squad_id, tournament_id)["players"]
     rows = [_row_from_stat(s) for s in stats]
     data = _build_workbook(name, f"Tournament summary · generated {_today()}", rows)
     return data, f"{_sanitize(name)} stats {_today()}.xlsx"
 
 
-def all_tournaments_workbook(session: Session) -> tuple[bytes, str]:
-    team = _team_name(session)
-    rows = [_row_from_stat(s) for s in analytics.all_tournament_stats(session)["players"]]
+def all_tournaments_workbook(session: Session, squad_id: int) -> tuple[bytes, str]:
+    team = _team_name(session, squad_id)
+    rows = [_row_from_stat(s) for s in analytics.all_tournament_stats(session, squad_id)["players"]]
     data = _build_workbook(
         f"{team} — All tournaments",
         f"All tournament matches · generated {_today()}",

@@ -100,6 +100,7 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   document.getElementById("match-date").value = new Date().toISOString().split("T")[0];
   document.getElementById("opponent-input").value = "";
   document.getElementById("match-show-timer").checked = true;
+  document.getElementById("match-share-gk").checked = true;
   document.getElementById("btn-generate").disabled = false;
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
   document.getElementById("fairness-slider").value = 0;
@@ -135,6 +136,7 @@ async function openEditMatch(m) {
   document.getElementById("formation-select").value = m.formation;
   document.getElementById("match-length").value = String(m.quarter_length_mins ?? 10);
   document.getElementById("match-show-timer").checked = m.show_timer !== 0;
+  document.getElementById("match-share-gk").checked = m.share_gk !== 0;
 
   document.getElementById("fairness-slider").value = m.fairness_value || 0;
   updateFairnessLabel(m.fairness_value || 0);
@@ -174,10 +176,12 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
   }
   const quarter_length_mins = Number.isFinite(lengthVal) && lengthVal > 0 ? lengthVal : lengthDefault;
   const show_timer = document.getElementById("match-show-timer").checked ? 1 : 0;
+  const share_gk = document.getElementById("match-share-gk").checked ? 1 : 0;
 
   state.pendingMatchConfig = {
     date, opponent, team_size: state.selectedSize, formation,
     fairness, fairness_value: fairnessVal, rotation_intensity,
+    share_gk,
     home_away: state.selectedHomeAway,
     quarters: state.selectedPeriods,
     quarter_length_mins,

@@ -19,6 +19,9 @@ class Match:
     fairness: str = "equal"  # "equal" or "competitive"
     fairness_value: int = 0  # 0-100 slider value
     rotation_intensity: int = 50  # 0 = specialist, 100 = all-rounder
+    # Specialist-GK time sharing: True = keeper rotates out for equal time,
+    # False = keeper in goal all match, None = legacy squad-size heuristic.
+    share_gk: bool | None = None
 
     @property
     def half_quarters(self) -> int:

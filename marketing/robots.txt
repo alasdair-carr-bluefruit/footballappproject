@@ -1,0 +1,7 @@
+# keepthingslevel.com — marketing site
+# Allow all crawlers, including AI answer-engine crawlers (GPTBot, ClaudeBot,
+# PerplexityBot, Google-Extended). We want to be indexed and cited.
+User-agent: *
+Allow: /
+
+Sitemap: https://keepthingslevel.com/sitemap.xml

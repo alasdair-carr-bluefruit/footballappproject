@@ -1,0 +1,5 @@
+# Railway config-as-code. Railway Express detects the Python build but leaves the
+# start command unset (and ignores the Procfile), so the app never binds to $PORT
+# and the health check fails. Supply it explicitly here. main.py reads $PORT.
+[deploy]
+startCommand = "python main.py"

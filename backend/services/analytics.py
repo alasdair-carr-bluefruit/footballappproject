@@ -15,7 +15,6 @@ from backend.db.models import MatchDB, PlayerDB, RotationPlanDB
 from backend.db.repositories import (
     get_available_ids,
     get_goals,
-    get_or_create_squad,
     get_plan_slots,
     get_players,
 )
@@ -82,10 +81,11 @@ def _aggregate(session: Session, matches: list[MatchDB]) -> dict[int, dict[str, 
     return agg
 
 
-def _players_from_agg(session: Session, agg: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
+def _players_from_agg(
+    session: Session, squad_id: int, agg: dict[int, dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Resolve names and shape `_aggregate` output for the tournament boards/exports."""
-    squad = get_or_create_squad(session)
-    id_to_name = {p.id: p.name for p in get_players(session, squad.id) if p.id is not None}
+    id_to_name = {p.id: p.name for p in get_players(session, squad_id) if p.id is not None}
     players_data = [
         {
             "name": id_to_name.get(pid, f"Player {pid}"),
@@ -101,12 +101,11 @@ def _players_from_agg(session: Session, agg: dict[int, dict[str, Any]]) -> list[
     return players_data
 
 
-def season_stats(session: Session) -> list[dict[str, Any]]:
+def season_stats(session: Session, squad_id: int) -> list[dict[str, Any]]:
     """Aggregate per-player stats across all season matches (excludes tournaments)."""
-    squad = get_or_create_squad(session)
     # Exclude guest players (source_tournament_id IS NOT NULL)
-    players = [p for p in get_players(session, squad.id) if p.source_tournament_id is None]
-    matches = _season_matches(session, squad.id)
+    players = [p for p in get_players(session, squad_id) if p.source_tournament_id is None]
+    matches = _season_matches(session, squad_id)
     rotations = _rotations_by_match(session, matches)
 
     stats: dict[int, dict[str, Any]] = {
@@ -185,17 +184,23 @@ def player_history(session: Session, player: PlayerDB) -> dict[str, Any]:
     }
 
 
-def tournament_stats(session: Session, tournament_id: int) -> dict[str, Any]:
+def tournament_stats(session: Session, squad_id: int, tournament_id: int) -> dict[str, Any]:
     """Per-player matches/slots/minutes/goals/positions across one tournament."""
     matches = list(session.exec(
-        select(MatchDB).where(MatchDB.tournament_id == tournament_id)
+        select(MatchDB).where(
+            MatchDB.tournament_id == tournament_id,
+            MatchDB.squad_id == squad_id,
+        )
     ).all())
-    return {"players": _players_from_agg(session, _aggregate(session, matches))}
+    return {"players": _players_from_agg(session, squad_id, _aggregate(session, matches))}
 
 
-def all_tournament_stats(session: Session) -> dict[str, Any]:
-    """Same shape as `tournament_stats`, aggregated across *every* tournament match."""
+def all_tournament_stats(session: Session, squad_id: int) -> dict[str, Any]:
+    """Same shape as `tournament_stats`, aggregated across this squad's tournament matches."""
     matches = list(session.exec(
-        select(MatchDB).where(MatchDB.tournament_id != None)  # noqa: E711 — all tournament matches
+        select(MatchDB).where(
+            MatchDB.tournament_id != None,  # noqa: E711 — all tournament matches
+            MatchDB.squad_id == squad_id,
+        )
     ).all())
-    return {"players": _players_from_agg(session, _aggregate(session, matches))}
+    return {"players": _players_from_agg(session, squad_id, _aggregate(session, matches))}

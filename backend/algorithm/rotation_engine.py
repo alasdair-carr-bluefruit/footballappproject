@@ -51,9 +51,8 @@ def generate_rotation(
             entire immediately preceding tournament match. They are guaranteed at
             least 1 slot this match (consecutive sit-out hard constraint).
         specialist_gk_max_slots: optional cap on how many goal slots a specialist
-            keeper may take this match — used by tournaments to spread the
-            specialist's total goal time across the day (their fair share minus
-            slots already played). ``None`` = no cap (season / single match).
+            keeper may take this match — used by tournaments (when GK sharing is on)
+            to spread the keeper's total goal time across the day. ``None`` = no cap.
 
     Raises:
         ValueError: if the squad is too small to fill a lineup
@@ -73,6 +72,7 @@ def generate_rotation(
     # Step 1: Determine GK per slot (same GK for both sub-periods of a period)
     gk_assignments, warnings = select_gk_for_slots(
         players, num_slots, squad_size=n, players_per_slot=config.players_per_slot,
+        share_gk=match.share_gk,
         specialist_max_slots=specialist_gk_max_slots,
     )
 
@@ -217,6 +217,7 @@ def adjust_rotation(
     gk_assignments_orig, _ = select_gk_for_slots(
         players, num_slots, squad_size=len(players),
         players_per_slot=config.players_per_slot,
+        share_gk=match.share_gk,
     )
     non_specialist_gk = []
     seen: set = set()

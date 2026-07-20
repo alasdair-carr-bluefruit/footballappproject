@@ -1,0 +1,151 @@
+// Multi-user auth gate (v1.1). Runs before the app boots: probes /api/auth/me,
+// and if auth is enabled but the coach isn't signed in, routes to the login or
+// invite-redeem screen (or verifies a magic-link token from the URL). When auth
+// is OFF (single-user dev/default), /me returns 200 and we boot straight through,
+// so nothing here changes today's behaviour.
+import { api, setUnauthorizedHandler } from "./api.js";
+import { state } from "./state.js";
+import { showScreen } from "./pitch.js";
+import { bootApp } from "./screens.js";
+
+// Only bounce to the login screen for a 401 once the app has actually booted (an
+// expired session mid-use). Before boot, the gate owns screen routing, so stray
+// pre-auth 401s must not hijack the login/join screen it just showed.
+let appBooted = false;
+
+function clearAuthParams() {
+  // Drop ?login=/?invite= from the URL so a refresh doesn't replay the token.
+  history.replaceState({}, "", location.pathname);
+}
+
+function toggleSignout(me) {
+  const btn = document.getElementById("btn-signout");
+  if (btn) btn.hidden = !(me && me.auth_enabled);
+}
+
+async function probeMe() {
+  // Raw fetch (not api.me) so we can tell 401 (show login) from offline (be
+  // permissive and boot — the app tolerates an unreachable server on its own).
+  let res;
+  try {
+    res = await fetch("/api/auth/me", { credentials: "include" });
+  } catch (_) {
+    return { offline: true };
+  }
+  if (res.status === 401) return { unauth: true };
+  if (!res.ok) return { offline: true };
+  return { me: await res.json() };
+}
+
+function enterApp(me) {
+  if (me) { state.account = me; toggleSignout(me); }
+  appBooted = true;
+  bootApp();
+}
+
+function showLogin(message) {
+  showScreen("screen-login");
+  const msg = document.getElementById("login-msg");
+  const devlink = document.getElementById("login-devlink");
+  if (devlink) devlink.hidden = true;
+  if (msg) {
+    msg.textContent = message || "";
+    msg.hidden = !message;
+  }
+}
+
+async function handleVerify(token) {
+  try {
+    const me = await api.verifyLogin(token);
+    clearAuthParams();
+    enterApp(me);
+  } catch (_) {
+    clearAuthParams();
+    showLogin("That sign-in link was invalid or has expired — enter your email for a fresh one.");
+  }
+}
+
+async function runGate() {
+  const probe = await probeMe();
+  if (probe.me || probe.offline) {
+    // Authenticated, or auth disabled (me present), or server unreachable → boot.
+    enterApp(probe.me || null);
+    return;
+  }
+  // Not authenticated: check the URL for a magic-link / invite token.
+  const params = new URLSearchParams(location.search);
+  const loginToken = params.get("login");
+  const inviteToken = params.get("invite");
+  if (loginToken) {
+    await handleVerify(loginToken);
+  } else if (inviteToken) {
+    showScreen("screen-join");
+  } else {
+    showLogin();
+  }
+}
+
+// A mid-session 401 (expired/cleared cookie) drops back to the login screen —
+// but only once booted, so the gate's own login/join routing isn't clobbered.
+setUnauthorizedHandler(() => {
+  if (appBooted) {
+    showLogin("Your session has expired — enter your email for a fresh sign-in link.");
+  }
+});
+
+// ── Login form: request a magic link ────────────────────────────────────────────
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("login-email").value.trim();
+  if (!email) return;
+  const btn = document.getElementById("btn-login-send");
+  btn.disabled = true;
+  const msg = document.getElementById("login-msg");
+  const devlink = document.getElementById("login-devlink");
+  try {
+    const res = await api.requestLink(email);
+    msg.textContent = "Check your email for a sign-in link. It expires shortly.";
+    msg.hidden = false;
+    // Dev convenience: no email provider configured → the API returns the link.
+    if (res && res.dev_link) {
+      devlink.textContent = "Dev link — open sign-in";
+      devlink.href = res.dev_link;
+      devlink.hidden = false;
+    }
+  } catch (_) {
+    msg.textContent = "Something went wrong — please try again.";
+    msg.hidden = false;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ── Join form: redeem an invite ──────────────────────────────────────────────────
+document.getElementById("join-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const token = new URLSearchParams(location.search).get("invite");
+  const email = document.getElementById("join-email").value.trim();
+  const displayName = document.getElementById("join-name").value.trim();
+  const msg = document.getElementById("join-msg");
+  if (!token) { showLogin(); return; }
+  if (!email) return;
+  const btn = document.getElementById("btn-join-create");
+  btn.disabled = true;
+  try {
+    const me = await api.redeemInvite({ token, email, display_name: displayName });
+    clearAuthParams();
+    enterApp(me);
+  } catch (err) {
+    msg.textContent = (err && err.message) || "That invite link is invalid or expired.";
+    msg.hidden = false;
+    btn.disabled = false;
+  }
+});
+
+// ── Sign out ─────────────────────────────────────────────────────────────────────
+document.getElementById("btn-signout").addEventListener("click", async () => {
+  try { await api.logout(); } catch (_) { /* clear locally regardless */ }
+  location.reload();  // re-runs the gate → login screen
+});
+
+runGate();
