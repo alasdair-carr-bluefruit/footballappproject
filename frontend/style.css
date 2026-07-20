@@ -3150,6 +3150,14 @@ html, body {
   color: var(--text-dim);
   margin: 0 0 10px;
 }
+.auth-links {
+  margin-top: 22px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.auth-links a { color: var(--text-dim); text-decoration: none; }
+.auth-links a:hover { color: var(--chalk); text-decoration: underline; }
+.auth-links span { margin: 0 8px; opacity: 0.5; }
 .auth-signout {
   position: absolute;
   top: 12px;
