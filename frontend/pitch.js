@@ -641,6 +641,10 @@ function render() {
     document.getElementById("btn-jump-live").hidden = isCompleted || viewingLive;
   }
 
+  // When the End Match bar is visible it becomes the bottom-most element, so it
+  // (not .controls) carries the safe-area inset — flag the screen for the CSS.
+  document.getElementById("screen-pitch").classList.toggle("has-end-bar", !endMatchBar.hidden);
+
   // "Recalculate rest of match": only while tinkering a plan (not manual-assign,
   // not on the final slot — nothing follows it).
   document.getElementById("btn-recalc-following").hidden =
