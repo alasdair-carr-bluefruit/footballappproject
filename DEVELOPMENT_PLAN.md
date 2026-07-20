@@ -201,6 +201,16 @@ head coach reviews a current-vs-proposed diff and Accepts / Requests changes / R
 - Local-first/offline sync and any monetization — re-evaluate only if real usage shows
   offline failures or hosting costs bite. Not before.
 
+### UX polish — ✅ BUILT (2026-07-20, pending push)
+- **"Rotate keeper?"** — renamed the "Share goalkeeper time" switch and moved its explanation
+  behind a click-to-reveal (?) info button (reusable `.info-btn`/`.field-info`), both flows.
+- **Manual mode promoted** — the availability screen's hidden "assign manually" link is now a
+  proper secondary button "Manually create plan" with an explainer modal (Level rotates fairly /
+  manual mode = you build lineups, still tracks goals + shows skill ratings).
+- **Generating-plan loading overlay** — spinner + "Generating game plan…" + a random,
+  positive/development-themed manager quote (rotates every 4s), on season + tournament generate.
+  Includes an Uncle Iroh line and a rare comedy easter-egg gaffer. New `frontend/quotes.js`.
+
 ### SEO technical foundations — ✅ SHIPPED (2026-07-18)
 `robots.txt`, `sitemap.xml`, `llms.txt`, JSON-LD (`Organization` + `SoftwareApplication`),
 canonical + OG/Twitter tags, 1200×630 `og-image.png`. **Remaining manual step (you, on the

@@ -4,6 +4,7 @@ import { showScreen, enterManualAssignMode, openMatch, enterReviewView } from ".
 import { selectSize, selectPeriods, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast } from "./toast.js";
 import { exportSpreadsheet } from "./share.js";
+import { showGenerating, hideGenerating } from "./quotes.js";
 
 // ── Home screen ───────────────────────────────────────────────────────────────
 async function loadHome() {
@@ -226,6 +227,7 @@ document.getElementById("btn-generate").addEventListener("click", async () => {
   const btn = document.getElementById("btn-generate");
   btn.disabled = true;
   btn.textContent = "Generating…";
+  showGenerating();
 
   const selectedIds = [...document.querySelectorAll("#avail-list input:checked")].map(
     cb => parseInt(cb.value)
@@ -237,16 +239,31 @@ document.getElementById("btn-generate").addEventListener("click", async () => {
     state.editingMatchId = null;
     btn.disabled = false;
     btn.textContent = "Generate Rotation ▶";
+    hideGenerating();
     enterReviewView(data);
   } catch (err) {
+    hideGenerating();
     alert("Error: " + err.message);
     btn.disabled = false;
     btn.textContent = "Generate Rotation ▶";
   }
 });
 
-// Manual slot assignment — blank rotation, all slots empty, tinkering mode on
-document.getElementById("btn-manual-slots").addEventListener("click", async () => {
+// Manual slot assignment — blank rotation, all slots empty, tinkering mode on.
+// The button opens an explainer first (manual mode turns off fair rotation), and
+// only the explainer's confirm actually creates the blank plan.
+const manualOverlay = () => document.getElementById("manual-mode-overlay");
+
+document.getElementById("btn-manual-slots").addEventListener("click", () => {
+  manualOverlay().hidden = false;
+});
+document.getElementById("btn-manual-mode-cancel").addEventListener("click", () => {
+  manualOverlay().hidden = true;
+});
+document.getElementById("btn-manual-mode-confirm").addEventListener("click", startManualPlan);
+
+async function startManualPlan() {
+  manualOverlay().hidden = true;
   const btn = document.getElementById("btn-manual-slots");
   btn.disabled = true;
   btn.textContent = "Setting up…";
@@ -260,14 +277,14 @@ document.getElementById("btn-manual-slots").addEventListener("click", async () =
     const data = await api.blankRotation(matchId, { available_player_ids: selectedIds });
     state.editingMatchId = null;
     btn.disabled = false;
-    btn.textContent = "or assign positions manually";
+    btn.textContent = "Manually create plan";
     enterManualAssignMode(data);
   } catch (err) {
     alert("Error: " + err.message);
     btn.disabled = false;
-    btn.textContent = "or assign positions manually";
+    btn.textContent = "Manually create plan";
   }
-});
+}
 
 // Prevent actual form submission
 document.getElementById("new-match-form").addEventListener("submit", e => e.preventDefault());

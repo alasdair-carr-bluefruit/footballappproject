@@ -435,14 +435,17 @@
       </div>
       <div class="rotation-clarifier">Players only appear in positions you've set for them in Squad Management.</div>
 
-      <label class="switch-row">
-        <span>Share goalkeeper time</span>
-        <span class="switch">
+      <div class="switch-row">
+        <span class="switch-label">
+          <label for="match-share-gk">Rotate keeper?</label>
+          <button type="button" class="info-btn" data-info="match-share-gk-info" aria-controls="match-share-gk-info" aria-expanded="false" aria-label="What does rotate keeper mean?">?</button>
+        </span>
+        <label class="switch">
           <input type="checkbox" id="match-share-gk" checked />
           <span class="switch-slider"></span>
-        </span>
-      </label>
-      <div class="rotation-clarifier">A specialist keeper rotates out so everyone gets equal time. Turn off to keep them in goal for the whole match.</div>
+        </label>
+      </div>
+      <div class="field-info" id="match-share-gk-info" hidden>A specialist keeper rotates out so everyone gets equal time. Turn off to keep them in goal for the whole match.</div>
 
       <button class="btn btn-primary btn-full" type="button" id="btn-select-players">
         Next: Select Players →
@@ -460,7 +463,31 @@
     <ul class="avail-list padded" id="avail-list"></ul>
     <div class="squad-footer">
       <button class="btn btn-primary btn-full btn-lg" id="btn-generate">Generate Rotation ▶</button>
-      <button class="btn-manual-slots" id="btn-manual-slots">or assign positions manually</button>
+      <button class="btn btn-secondary btn-full" id="btn-manual-slots">Manually create plan</button>
+    </div>
+  </div>
+
+  <!-- Generating-plan loading overlay (spinner + rotating manager quote) -->
+  <div class="form-overlay generating-overlay" id="generating-overlay" hidden>
+    <div class="generating-card">
+      <div class="generating-spinner" aria-hidden="true"></div>
+      <p class="generating-title" id="generating-title">Generating game plan…</p>
+      <blockquote class="generating-quote">
+        <p id="generating-quote-text"></p>
+        <cite id="generating-quote-author"></cite>
+      </blockquote>
+    </div>
+  </div>
+
+  <!-- Manual-mode explainer (shown before entering manual plan creation) -->
+  <div class="form-overlay" id="manual-mode-overlay" hidden>
+    <div class="form-card">
+      <h3>Manually create plan?</h3>
+      <p class="settings-hint">Level was designed to rotate game time fairly and keep a balanced skill level on the field. In manual mode you build each lineup yourself — it still keeps track of goals and shows you the skill rating of every team selection.</p>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" id="btn-manual-mode-cancel">Cancel</button>
+        <button class="btn btn-primary" type="button" id="btn-manual-mode-confirm">Create manual plan</button>
+      </div>
     </div>
   </div>
 
@@ -652,14 +679,17 @@
       </div>
       <div class="rotation-clarifier">Players only appear in positions you've set for them in Squad Management.</div>
 
-      <label class="switch-row">
-        <span>Share goalkeeper time</span>
-        <span class="switch">
+      <div class="switch-row">
+        <span class="switch-label">
+          <label for="tournament-share-gk">Rotate keeper?</label>
+          <button type="button" class="info-btn" data-info="tournament-share-gk-info" aria-controls="tournament-share-gk-info" aria-expanded="false" aria-label="What does rotate keeper mean?">?</button>
+        </span>
+        <label class="switch">
           <input type="checkbox" id="tournament-share-gk" checked />
           <span class="switch-slider"></span>
-        </span>
-      </label>
-      <div class="rotation-clarifier">A specialist keeper rotates out so everyone gets equal time. Turn off to keep them in goal for the whole match.</div>
+        </label>
+      </div>
+      <div class="field-info" id="tournament-share-gk-info" hidden>A specialist keeper rotates out so everyone gets equal time. Turn off to keep them in goal for the whole match.</div>
       <button class="btn btn-primary btn-full" type="submit" id="btn-create-tournament">Next: Select Players →</button>
     </form>
   </div>

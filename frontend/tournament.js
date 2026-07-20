@@ -4,6 +4,7 @@ import { showScreen, openMatch, enterReviewView, buildReviewCard } from "./pitch
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast, withSaveToast } from "./toast.js";
 import { exportSpreadsheet } from "./share.js";
+import { showGenerating, hideGenerating } from "./quotes.js";
 
 // ── Tournament Home ───────────────────────────────────────────────────────────
 async function loadTournamentHome() {
@@ -314,6 +315,7 @@ document.getElementById("btn-generate-all-matches").addEventListener("click", as
 
   const btn = document.getElementById("btn-generate-all-matches");
   btn.disabled = true;
+  showGenerating("Generating game plans…");
   const isEditing = state.editingTournamentId != null;
 
   // Save any position overrides before generating
@@ -371,6 +373,7 @@ document.getElementById("btn-generate-all-matches").addEventListener("click", as
 
   btn.disabled = false;
   btn.textContent = "Generate Matches ▶";
+  hideGenerating();
   loadTournamentLobby(state.activeTournamentId);
 });
 
@@ -719,6 +722,7 @@ document.getElementById("btn-generate-tournament-match").addEventListener("click
   const btn = document.getElementById("btn-generate-tournament-match");
   btn.disabled = true;
   btn.textContent = "Generating…";
+  showGenerating();
 
   const body = {
     opponent,
@@ -737,6 +741,7 @@ document.getElementById("btn-generate-tournament-match").addEventListener("click
 
   btn.disabled = false;
   btn.textContent = "Generate ▶";
+  hideGenerating();
 
   if (!result) return;
 

@@ -1850,6 +1850,39 @@ html, body {
 .switch input:checked + .switch-slider::before { transform: translateX(20px); }
 .switch input:focus-visible + .switch-slider { outline: 2px solid var(--trophy-amber); outline-offset: 2px; }
 
+/* Label + click-to-reveal (?) info button (e.g. "Rotate keeper?") */
+.switch-label { display: inline-flex; align-items: center; gap: 7px; }
+.info-btn {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--chalk) 35%, transparent);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.info-btn:hover,
+.info-btn[aria-expanded="true"] { border-color: var(--matchday); color: var(--matchday); }
+.info-btn:focus-visible { outline: 2px solid var(--matchday); outline-offset: 2px; }
+.field-info {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--chalk) 60%, transparent);
+  line-height: 1.5;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-left: 2px solid color-mix(in srgb, var(--matchday) 55%, transparent);
+  background: color-mix(in srgb, var(--chalk) 4%, transparent);
+  border-radius: 0 6px 6px 0;
+}
+
 .btn-back {
   background: none;
   border: none;
@@ -2367,6 +2400,52 @@ html, body {
   align-items: flex-end;
   z-index: 100;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+/* Generating-plan loading overlay — centred card with a spinner + manager quote. */
+.generating-overlay { align-items: center; justify-content: center; }
+.generating-card {
+  background: var(--pitch-deep);
+  border: 1px solid color-mix(in srgb, var(--chalk) 12%, transparent);
+  border-radius: 16px;
+  padding: 28px 24px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+.generating-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--chalk) 15%, transparent);
+  border-top-color: var(--matchday);
+  animation: generating-spin 0.8s linear infinite;
+}
+@keyframes generating-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .generating-spinner { animation-duration: 2s; }
+}
+.generating-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--chalk);
+  margin: 0 0 16px;
+}
+.generating-quote { margin: 0; }
+.generating-quote p {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--chalk);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+.generating-quote cite {
+  font-size: 13px;
+  font-style: normal;
+  color: var(--matchday);
+  font-family: var(--font-display);
 }
 
 

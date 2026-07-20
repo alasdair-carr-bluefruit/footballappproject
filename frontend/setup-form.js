@@ -174,4 +174,17 @@ document.getElementById("tournament-fairness-slider").addEventListener("input", 
   updateFairnessLabel(e.target.value, "tournament-fairness-value", "tournament-fairness-warning");
 });
 
+// Click-to-reveal field explanations: an (?) info button toggles its .field-info
+// panel (id in data-info) instead of showing the help text permanently. Delegated
+// so it covers every .info-btn (season + tournament share-gk, and any future ones).
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".info-btn[data-info]");
+  if (!btn) return;
+  const panel = document.getElementById(btn.dataset.info);
+  if (!panel) return;
+  const show = panel.hidden;
+  panel.hidden = !show;
+  btn.setAttribute("aria-expanded", String(show));
+});
+
 export { updateFairnessLabel, getRotationValue, selectSize, selectPeriods, tournamentSelectSize, buildMaxSubsOptions };

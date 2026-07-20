@@ -212,7 +212,7 @@ football-app-project/
 ### Specialist-GK time sharing (`share_gk`, per match/tournament)
 - A specialist never plays outfield, so in a small squad they'd otherwise be in
   goal every slot and play ~2× everyone else. The `share_gk` flag (setup-form
-  switch "Share goalkeeper time", **default on**) controls this:
+  switch "Rotate keeper?", **default on**) controls this:
   - **on** — the keeper splits goal duty (plays alternate periods, rests the
     rest while a backup covers) so their total time matches the squad.
   - **off** — keeper stays in goal all match (traditional; plays more).
