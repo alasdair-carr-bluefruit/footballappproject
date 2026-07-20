@@ -30,11 +30,11 @@ const QUOTES = [
   { text: "Good times become good memories, but bad times make good lessons.", who: "Uncle Iroh, the Dragon of the West" },
 ];
 
-// Easter egg: a rare comedy "gaffer" who occasionally shows up instead of a real
-// quote (~1 in 12). Kept obviously fictional so it reads as a joke, never a real
-// misattribution. TODO(ali): swap in the Gaffer Oscar / Five Guys line you want.
+// Easter egg: a rare comedy line that occasionally shows up instead of a real
+// quote (~1 in 12). Fictional characters only, so it reads as a joke — never a
+// real misattribution.
 const EASTER_EGGS = [
-  { text: "Just get it in the mixer and let the big lad chase it — football's a simple game, lads.", who: "Gaffer Oscar (allegedly)" },
+  { text: "WHISTLE!!!!", who: "Roy Kent" },
 ];
 const EASTER_EGG_CHANCE = 1 / 12;
 
