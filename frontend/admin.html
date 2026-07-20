@@ -95,6 +95,20 @@
         <tbody id="invite-rows"></tbody>
       </table>
     </div>
+
+    <!-- Accounts -->
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <h2 style="margin:0;">Accounts</h2>
+        <button class="btn btn-ghost" id="btn-refresh-accounts">Refresh</button>
+      </div>
+      <p class="sub" style="margin:10px 0 0;">Impersonate opens the app in a new tab as that coach. Use <strong>Sign out</strong> in the app to return to yourself.</p>
+      <div class="msg" id="accounts-msg"></div>
+      <table id="accounts-table" class="hide">
+        <thead><tr><th>Coach</th><th>Team</th><th>Last login</th><th>Actions</th></tr></thead>
+        <tbody id="account-rows"></tbody>
+      </table>
+    </div>
   </div>
 
   <script>
@@ -107,7 +121,7 @@
       const has = !!adminKey();
       $("key-setup").classList.toggle("hide", has);
       $("key-saved").classList.toggle("hide", !has);
-      if (has) loadInvites();
+      if (has) { loadInvites(); loadAccounts(); }
     }
 
     $("btn-save-key").addEventListener("click", () => {
@@ -205,6 +219,75 @@
         listMsg.className = "msg warn"; listMsg.textContent = e.message || "Couldn't load invites.";
       }
     });
+
+    // ── Accounts (impersonate / dump) ──────────────────────────────────────────
+    async function loadAccounts() { $("btn-refresh-accounts").click(); }
+    $("btn-refresh-accounts").addEventListener("click", async () => {
+      const msg = $("accounts-msg"), table = $("accounts-table"), rows = $("account-rows");
+      msg.className = "msg"; msg.textContent = "";
+      try {
+        const accounts = await apiGet("/api/admin/accounts");
+        rows.innerHTML = "";
+        if (!accounts.length) {
+          table.classList.add("hide");
+          msg.className = "msg"; msg.style.display = "block"; msg.textContent = "No accounts yet.";
+          return;
+        }
+        for (const a of accounts) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td><div>" + (a.display_name || "—") + "</div>" +
+            "<div class='keystate'>" + a.email + "</div></td>" +
+            "<td>squad #" + a.squad_id + "</td>" +
+            "<td>" + fmt(a.last_login_at) + "</td><td></td>";
+          const actions = tr.lastElementChild;
+          const imp = document.createElement("button");
+          imp.className = "btn btn-primary"; imp.textContent = "Impersonate";
+          imp.style.cssText = "margin-right:6px;padding:7px 12px;font-size:13px;";
+          imp.addEventListener("click", () => impersonate(a.id, a.display_name, imp));
+          const dump = document.createElement("button");
+          dump.className = "btn btn-ghost"; dump.textContent = "Dump";
+          dump.style.cssText = "padding:7px 12px;font-size:13px;";
+          dump.addEventListener("click", () => dumpAccount(a.id, dump));
+          actions.appendChild(imp); actions.appendChild(dump);
+          rows.appendChild(tr);
+        }
+        table.classList.remove("hide");
+      } catch (e) {
+        msg.className = "msg warn"; msg.textContent = e.message || "Couldn't load accounts.";
+      }
+    });
+
+    async function impersonate(id, name, btn) {
+      const msg = $("accounts-msg");
+      btn.disabled = true;
+      try {
+        await apiPost("/api/admin/accounts/" + id + "/impersonate", {});
+        msg.className = "msg ok";
+        msg.textContent = "Signed in as " + (name || ("account " + id)) + ". Opening the app in a new tab…";
+        window.open("/", "_blank");
+      } catch (e) {
+        msg.className = "msg warn"; msg.textContent = e.message || "Impersonate failed.";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function dumpAccount(id, btn) {
+      const msg = $("accounts-msg");
+      btn.disabled = true;
+      try {
+        const d = await apiGet("/api/admin/accounts/" + id + "/dump");
+        const team = d.squad ? (d.squad.team_name || "(no team name)") : "(no squad)";
+        msg.className = "msg ok";
+        msg.textContent = team + " — players: " + d.counts.players +
+          ", matches: " + d.counts.matches + ", tournaments: " + d.counts.tournaments;
+      } catch (e) {
+        msg.className = "msg warn"; msg.textContent = e.message || "Dump failed.";
+      } finally {
+        btn.disabled = false;
+      }
+    }
 
     renderKeyState();
   </script>
