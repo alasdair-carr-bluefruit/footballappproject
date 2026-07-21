@@ -1289,6 +1289,63 @@ html, body {
   z-index: 1;
 }
 
+/* Assistant-coach teaser — a prominent Signal-Lime banner on the landing page */
+.coach-teaser {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  margin: 4px 0 14px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--matchday), color-mix(in srgb, var(--matchday) 72%, #dfffa0));
+  color: #0A2619;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--matchday) 34%, transparent);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.2s ease;
+}
+.coach-teaser:hover { box-shadow: 0 8px 26px color-mix(in srgb, var(--matchday) 44%, transparent); }
+.coach-teaser:active { transform: scale(0.985); }
+.coach-teaser:focus-visible { outline: 3px solid #0A2619; outline-offset: 2px; }
+.coach-teaser-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(10, 38, 25, 0.14);
+}
+.coach-teaser-icon svg { width: 22px; height: 22px; }
+.coach-teaser-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.coach-teaser-titlerow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.coach-teaser-titlerow strong { font-size: 16px; font-weight: 800; }
+.coach-teaser-badge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #0A2619;
+  color: var(--matchday);
+}
+.coach-teaser-text small { font-size: 12.5px; line-height: 1.45; color: rgba(10, 38, 25, 0.78); }
+/* Once interest is registered, calm it down and show the confirmed state */
+.coach-teaser.is-interested {
+  background: color-mix(in srgb, var(--matchday) 20%, transparent);
+  color: var(--white);
+  box-shadow: none;
+}
+.coach-teaser.is-interested .coach-teaser-icon { background: color-mix(in srgb, var(--matchday) 24%, transparent); color: var(--matchday); }
+.coach-teaser.is-interested .coach-teaser-badge { background: var(--matchday); color: #0A2619; }
+.coach-teaser.is-interested .coach-teaser-text small { color: rgba(255, 255, 255, 0.7); }
+
 .mode-card {
   display: grid;
   grid-template-columns: auto 1fr;

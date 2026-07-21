@@ -3,7 +3,7 @@ import { state, refreshShirtNumbers, displayPos } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
-import { withSaveToast } from "./toast.js";
+import { withSaveToast, showToast } from "./toast.js";
 
 // ── First-launch tutorial ─────────────────────────────────────────────────────
 // Check server first — if a team name exists the DB already has data (e.g. a
@@ -92,6 +92,37 @@ document.getElementById("btn-squad-management").addEventListener("click", () => 
   state.squadBackContext = "landing";
   loadSquad();
 });
+
+// ── Assistant-coach teaser (coming soon — a tap registers demand) ─────────────
+const COACH_INTEREST_KEY = "gaffer_coach_interest";
+const coachTeaser = document.getElementById("btn-coach-teaser");
+function markCoachInterested() {
+  if (!coachTeaser) return;
+  coachTeaser.classList.add("is-interested");
+  const sub = coachTeaser.querySelector("small");
+  if (sub) sub.textContent = "You're on the list — we'll let you know ✓";
+}
+if (coachTeaser) {
+  if (localStorage.getItem(COACH_INTEREST_KEY)) markCoachInterested();
+  coachTeaser.addEventListener("click", async () => {
+    if (localStorage.getItem(COACH_INTEREST_KEY)) {
+      showToast("You're on the list — we'll let you know! 👍");
+      return;
+    }
+    localStorage.setItem(COACH_INTEREST_KEY, "1");
+    markCoachInterested();
+    showToast("Thanks! We'll let you know when assistant coaches land. 🙌");
+    // Best-effort demand signal via the existing feedback pipeline.
+    try {
+      await api.submitFeedback("Feature interest: Add your assistant coach (co-coach)", {
+        kind: "feature-interest",
+        feature: "assistant-coach",
+        screen: "landing",
+        email: state.account?.email || "",
+      });
+    } catch (_) { /* local flag already set — never block the coach */ }
+  });
+}
 
 // ── Bug reporting ─────────────────────────────────────────────────────────────
 
