@@ -40,6 +40,12 @@ export const api = {
   clearAccountData:   ()         => request("/auth/account/clear-data", { method: "POST" }),
   reclaimSquad:       (token)    => request("/auth/account/reclaim", { method: "POST", body: { token }, suppressAuthRedirect: true }),
 
+  // Teams (multi-team). Active team = the account's squad_id (from /me).
+  getTeams:      ()      => request("/teams"),
+  createTeam:    (data)  => request("/teams",              { method: "POST",   body: data || {} }),
+  activateTeam:  (id)    => request(`/teams/${id}/activate`, { method: "POST" }),
+  deleteTeam:    (id)    => request(`/teams/${id}`,        { method: "DELETE" }),
+
   // Squad
   getTeamInfo:   ()           => request("/squad/info"),
   updateTeamInfo:(data)       => request("/squad/info",           { method: "PUT",    body: data }),

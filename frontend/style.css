@@ -3478,3 +3478,153 @@ html, body {
 .settings-radio span { display: flex; flex-direction: column; }
 .settings-radio strong { font-size: 14px; color: var(--chalk); }
 .settings-radio small { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+/* ── Multi-team switcher (T1.1) ─────────────────────────────────────────────
+   Header pill (both home screens) + shared team list used by the switcher sheet
+   and the Settings "Teams" section. */
+.team-pill-slot { margin-left: auto; position: relative; }
+
+/* "Beta" tag next to the multi-team UI (switcher sheet + Settings heading). */
+.beta-badge {
+  display: inline-block;
+  background: var(--amber);
+  color: var(--slate);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 2px 7px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* One-time "new feature" callout anchored under the header team pill. */
+.team-pill-callout {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  width: 240px;
+  background: var(--toast-bg);
+  color: var(--chalk);
+  border: 1px solid var(--matchday);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  text-align: left;
+}
+.team-pill-callout::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  right: 22px;
+  width: 12px;
+  height: 12px;
+  background: var(--toast-bg);
+  border-left: 1px solid var(--matchday);
+  border-top: 1px solid var(--matchday);
+  transform: rotate(45deg);
+}
+.team-pill-callout-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--matchday);
+  margin: 0 0 4px;
+}
+.team-pill-callout-body { font-size: 13px; line-height: 1.45; margin: 0 0 10px; color: var(--chalk); }
+.team-pill-callout-dismiss {
+  background: var(--matchday);
+  color: var(--on-accent);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.team-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 52vw;
+  background: var(--matchday);
+  color: var(--on-accent);
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.team-pill:active { background: var(--accent-press); }
+.team-pill-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-pill-caret { font-size: 11px; opacity: 0.85; }
+
+.team-switcher-card { max-width: 420px; }
+.team-switcher-card h3 {
+  font-family: var(--font-display);
+  color: var(--chalk);
+  margin: 0 0 12px;
+}
+.team-switcher-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+
+.team-switcher-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.team-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--chalk) 5%, transparent);
+  border: 1px solid var(--bench-border);
+}
+.team-row--active { border-color: var(--matchday); }
+.team-row-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  color: var(--chalk);
+  padding: 12px;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.team-row-main:active { background: rgba(255,255,255,0.06); }
+.team-row-check {
+  width: 16px;
+  color: var(--matchday);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.team-row-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-row-count { font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
+.team-row-remove {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  padding: 10px 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.team-row-remove:active { color: var(--danger); }
+
+/* Settings "Teams" list spacing + its add button */
+#settings-team-list { margin: 8px 0 12px; }
+#btn-settings-add-team { margin-top: 4px; }

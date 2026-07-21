@@ -5,6 +5,7 @@ import { api } from "./api.js";
 import { state } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { showToast } from "./toast.js";
+import { renderSettingsTeams } from "./teams.js";
 
 // ── Open / populate ─────────────────────────────────────────────────────────────
 async function openSettings() {
@@ -17,13 +18,8 @@ async function openSettings() {
   document.getElementById("settings-email").textContent =
     (state.account && state.account.email) || "—";
 
-  // Team name: prefer cached, else fetch.
-  let teamName = state.teamInfo && state.teamInfo.team_name;
-  if (!teamName) {
-    const info = await api.getTeamInfo().catch(() => null);
-    if (info) { state.teamInfo = info; teamName = info.team_name; }
-  }
-  document.getElementById("settings-team-name").textContent = teamName || "Your team";
+  // Multi-team list (also sets the "Current team" name from the active row).
+  renderSettingsTeams();
 }
 
 function hide(id) { const el = document.getElementById(id); if (el) el.hidden = true; }

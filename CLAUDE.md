@@ -26,19 +26,23 @@ PIN), invite-only onboarding, `AccountDB`/`InviteDB`/`LoginTokenDB`, the `deps.p
 isolation seam (`get_current_account`/`get_current_squad` + `owned_*` IDOR guards),
 early-access capture + Resend email, and a separate static marketing site
 (`marketing/`, Cloudflare Pages, `keepthingslevel.com`) with the app on
-`app.keepthingslevel.com`. **Scope note:** the shipped model is **1 account ↔ 1
-squad** (`AccountDB.squad_id`) — the `SquadMembershipDB` join + roles were deferred,
-so **multi-team and co-coach both depend on adding that membership layer next.**
+`app.keepthingslevel.com`. **Scope note:** the shipped model is now **1 account ↔ N
+squads** — `SquadDB.account_id` is the owner FK, `AccountDB.squad_id` is the *active*
+squad pointer, and the `teams` router (list/create/activate/delete) manages them. The
+`SquadMembershipDB` join + roles are still deferred, so **co-coach (multiple accounts
+per squad) depends on adding that membership layer next** (single access point:
+`owned_squad` in `deps.py`).
 
 Earlier: the **Refactor Phase (C.1–C.7)** and **Phase D.1 "Review the plan" screen**
 are done; D.2 (tinker undo/redo) + D.3 (export revisit) remain (now tracked as
 Forward Roadmap **T3.3**).
 
-**Tier 1 progress:** T1.2 signed-out→marketing link ✅ (live), T1.4 clear-squad-&-data ✅
-(shipped 2026-07-20), T1.3 mostly done ✅ — Settings screen + update-email (re-verify)
-shipped 2026-07-20; only **invite-a-friend** remains. **Next up = T1.1 multi-team** (real
-user demand) + T1.3 invite-a-friend. See DEVELOPMENT_PLAN.md (reprioritised 2026-07-18);
-the roadmap is ordered by value × effort × demand (Tiers 1–4), not by dependency phases.
+**Tier 1 progress:** T1.1 multi-team ✅ (shipped 2026-07-21 — `SquadDB.account_id` owner +
+`teams` router + header pill switcher), T1.2 signed-out→marketing link ✅ (live), T1.4
+clear-squad-&-data ✅ (shipped 2026-07-20), T1.3 mostly done ✅ — Settings screen + update-email
+(re-verify) shipped 2026-07-20; only **invite-a-friend** remains. **Next up = T1.3
+invite-a-friend.** See DEVELOPMENT_PLAN.md (reprioritised 2026-07-18); the roadmap is ordered by
+value × effort × demand (Tiers 1–4), not by dependency phases.
 **Live refactor tracker: `docs/refactor/NEXT_STEPS.md`.**
 
 Completed phases:

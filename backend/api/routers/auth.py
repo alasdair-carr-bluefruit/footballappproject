@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
 from backend.api.deps import get_current_account
@@ -33,13 +32,10 @@ from backend.db.models import (
     EmailChangeTokenDB,
     InviteDB,
     LoginTokenDB,
-    MatchDB,
-    PlayerDB,
     ReclaimTokenDB,
     SquadDB,
-    TournamentDB,
 )
-from backend.db.repositories import delete_rotation, get_or_create_squad
+from backend.db.repositories import delete_squad_data, get_or_create_squad
 from backend.settings import (
     LOGIN_TOKEN_TTL_MINUTES,
     RECLAIM_TOKEN_TTL_DAYS,
@@ -107,6 +103,11 @@ def redeem_invite(
         last_login_at=now_iso(),
     )
     session.add(account)
+    session.commit()  # assign account.id so we can set the squad owner
+    session.refresh(account)
+
+    squad.account_id = account.id  # every squad created from now on has an owner
+    session.add(squad)
     invite.account_id = account.id
     invite.redeemed_at = now_iso()
     session.add(invite)
@@ -355,17 +356,8 @@ def clear_account_data(
     (guest players included) — while keeping the account, its login and the squad
     shell. Backs the self-service deletion promise in the Privacy Policy.
     """
-    squad_id = account.squad_id
-    match_ids = [
-        m.id for m in session.exec(select(MatchDB).where(MatchDB.squad_id == squad_id)).all()
-    ]
-    for mid in match_ids:
-        delete_rotation(session, mid)  # slots, assignments, goals, availability, removed
-    if match_ids:
-        session.execute(sql_delete(MatchDB).where(MatchDB.squad_id == squad_id))
-    session.execute(sql_delete(TournamentDB).where(TournamentDB.squad_id == squad_id))
-    # Deletes squad players AND tournament guests (guests carry the same squad_id).
-    session.execute(sql_delete(PlayerDB).where(PlayerDB.squad_id == squad_id))
+    # Keep the squad shell (and its owner link) — clear only the football data.
+    delete_squad_data(session, account.squad_id, drop_squad_row=False)
     session.commit()
     return {"ok": True}
 

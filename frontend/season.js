@@ -5,10 +5,12 @@ import { selectSize, selectPeriods, updateFairnessLabel, getRotationValue } from
 import { showToast } from "./toast.js";
 import { exportSpreadsheet } from "./share.js";
 import { showGenerating, hideGenerating } from "./quotes.js";
+import { renderTeamPill } from "./teams.js";
 
 // ── Home screen ───────────────────────────────────────────────────────────────
 async function loadHome() {
   showScreen("screen-home");
+  renderTeamPill("team-pill-home");
   const list = document.getElementById("match-list");
   list.innerHTML = "<li class='loading'>Loading…</li>";
 

@@ -93,21 +93,28 @@ and **additive migrations** for any schema change.
 
 ### 🔴 Tier 1 — Now
 
-**T1.1 Multi-team (one coach, several squads). — NEXT.** *Real user demand — a live coach has
-asked.* **Full design: `MULTI_TEAM_PLAN.md`.** Today it's 1 account ↔ 1 squad
-(`AccountDB.squad_id`). Because the isolation seam is a single function
-(`get_current_squad` in `deps.py`), this is additive, not a rewrite:
-- **Data:** `SquadMembershipDB(account_id, squad_id, role)` join (preferred — also unblocks
-  co-coach T3.2) + `AccountDB.active_squad_id`; Alembic revision with a **backfill** (one
-  `owner` membership per existing account, `active_squad_id = squad_id`).
-- **`get_current_squad`:** return the active squad *after* asserting membership — keeps the
-  IDOR guarantee intact.
-- **Endpoints:** `list` / `create` / `switch` / `delete` (delete folds in T1.4's clear-data).
-- **Frontend:** team switcher + "Create new team" in the account menu; active team name
-  visible; **state reset + refetch on switch** (season + tournament).
-- **Tests:** isolation/IDOR (A can't reach B's squad), multi-squad happy path, backfill, delete.
-- **Effort:** multi-hour — new table + risky data migration + frontend switcher + tests. Not
-  a one-hour job.
+**T1.1 Multi-team (one coach, several squads). — ✅ SHIPPED (2026-07-21).** *Real user demand —
+a live coach asked.* **Design: `MULTI_TEAM_PLAN.md`.** Built the **simpler owner-FK model**
+the plan settled on rather than the join table: add **`SquadDB.account_id`** (owner) and
+**repurpose `AccountDB.squad_id` as the active-squad pointer**. The `SquadMembershipDB` join +
+roles are still deferred to T3.2 (co-coach) — the single access check lives in one helper
+(`owned_squad` in `deps.py`) so swapping to a membership join later is a one-function change.
+- **Data:** Alembic revision `b7f1e2a9c3d5` adds `squads.account_id` (plain indexed col, no DB
+  FK — avoids an accounts↔squads cycle) with an idempotent **backfill** from `accounts.squad_id`;
+  `redeem_invite` now stamps the owner. Backfill + idempotency verified against a copied
+  pre-migration DB.
+- **Isolation seam untouched:** `get_current_squad` still reads `account.squad_id` fresh per
+  request; switching team = updating that one column. ~40 squad-scoped endpoints + `owned_*`
+  guards unchanged.
+- **Endpoints:** `teams` router — `GET /api/teams` (list, active flagged, player counts),
+  `POST` (create + activate), `POST /{id}/activate`, `DELETE /{id}` (refuses last team, re-points
+  active, shares the extracted `delete_squad_data` helper with T1.4 clear-data).
+- **Frontend:** header **team pill + switcher sheet** on both homes (parity); add-a-team drops
+  into squad management to name it; remove-team confirm modal; Settings "Teams" list. **Caches
+  reset + refetch on switch/add/remove** (season + tournament).
+- **Tests:** `tests/integration/test_teams.py` (list/activate/delete/IDOR/last-team), e2e
+  `test_multi_team_pill_add_and_switch` (parity via shared render). All green.
+- **Deferred:** co-coach (T3.2), export/transfer a team to another coach.
 
 **T1.2 ⚡ Signed-out → marketing site.** ✅ **SHIPPED (live).** Unauthenticated visitors on
 `app.keepthingslevel.com` get a link back to `keepthingslevel.com` from the login screen.

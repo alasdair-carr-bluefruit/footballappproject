@@ -12,6 +12,7 @@ from backend.api.routers import (
     match_router,
     public_router,
     squad_router,
+    teams_router,
     tournament_router,
 )
 from backend.auth.session import session_epoch_from, set_session_cookie, verify_session
@@ -84,6 +85,7 @@ async def rolling_session(request, call_next):
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(squad_router, prefix="/api/squad", tags=["squad"])
+app.include_router(teams_router, prefix="/api/teams", tags=["teams"])
 app.include_router(match_router, prefix="/api/matches", tags=["matches"])
 app.include_router(tournament_router, prefix="/api/tournaments", tags=["tournaments"])
 app.include_router(feedback_router, prefix="/api/feedback", tags=["feedback"])

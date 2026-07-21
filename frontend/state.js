@@ -45,6 +45,9 @@ export const state = {
   pendingNumMatches: 4,
   editingTournamentId: null, // null = creating new, set = editing existing
   editingMatchId: null, // season match being edited (null = creating a new match)
+  account: null, // /me payload (auth on): { email, squad_id, auth_enabled, ... }
+  teams: [], // multi-team: list from GET /api/teams
+  activeSquadId: null, // multi-team: the account's active squad id
 };
 
 // Shared across season.js + tournament.js (both need the formation/team-size
@@ -77,4 +80,15 @@ export async function refreshShirtNumbers() {
   state.shirtNumbers = {};
   players.forEach(p => { if (p.shirt_number != null) state.shirtNumbers[p.name] = p.shirt_number; });
   return players;
+}
+
+// Multi-team: reload the account's team list + active id. No-op (empty list) when
+// auth is off or the fetch fails, so the switcher simply doesn't render.
+export async function refreshTeams() {
+  if (!state.account?.auth_enabled) { state.teams = []; return state.teams; }
+  const teams = await api.getTeams().catch(() => []);
+  state.teams = teams;
+  const active = teams.find(t => t.is_active);
+  state.activeSquadId = active ? active.id : (state.account?.squad_id ?? null);
+  return teams;
 }

@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { state, refreshShirtNumbers, displayPos } from "./state.js";
+import { state, refreshShirtNumbers, refreshTeams, displayPos } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
@@ -12,6 +12,7 @@ import { withSaveToast, showToast } from "./toast.js";
 // so a logged-out coach never briefly sees the app behind the login screen.
 export async function bootApp() {
   maybeDismissSquadTip();  // players-exist check, now post-auth
+  refreshTeams();  // multi-team: populate the switcher (no-op when auth off)
   try {
     const info = await api.getTeamInfo();
     if (info) state.teamInfo = info;
@@ -163,7 +164,7 @@ document.getElementById("bug-report-form").addEventListener("submit", async e =>
 });
 
 // ── Squad screen ──────────────────────────────────────────────────────────────
-async function loadSquad() {
+export async function loadSquad() {
   showScreen("screen-squad");
   closePlayerForm();
 

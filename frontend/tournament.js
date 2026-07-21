@@ -5,10 +5,12 @@ import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./s
 import { showToast, withSaveToast } from "./toast.js";
 import { exportSpreadsheet } from "./share.js";
 import { showGenerating, hideGenerating } from "./quotes.js";
+import { renderTeamPill } from "./teams.js";
 
 // ── Tournament Home ───────────────────────────────────────────────────────────
 async function loadTournamentHome() {
   showScreen("screen-tournament-home");
+  renderTeamPill("team-pill-tournament");
   const list = document.getElementById("tournament-list");
   list.innerHTML = "<li class='loading'>Loading…</li>";
 

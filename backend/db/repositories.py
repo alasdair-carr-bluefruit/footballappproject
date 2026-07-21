@@ -220,6 +220,26 @@ def create_blank_plan(
     set_available_ids(session, match_id, available_ids)
 
 
+def delete_squad_data(
+    session: Session, squad_id: int, *, drop_squad_row: bool = False
+) -> None:
+    """Delete all of a squad's football data — matches (+ their rotation data),
+    tournaments and players (guests included, same squad_id). Optionally drop the
+    SquadDB shell too (team removal vs clear-data, which keeps the shell). Does NOT
+    commit — the caller owns the transaction (matches delete_rotation's convention)."""
+    match_ids = [
+        m.id for m in session.exec(select(MatchDB).where(MatchDB.squad_id == squad_id)).all()
+    ]
+    for mid in match_ids:
+        delete_rotation(session, mid)  # slots, assignments, goals, availability, removed
+    if match_ids:
+        session.execute(sql_delete(MatchDB).where(MatchDB.squad_id == squad_id))
+    session.execute(sql_delete(TournamentDB).where(TournamentDB.squad_id == squad_id))
+    session.execute(sql_delete(PlayerDB).where(PlayerDB.squad_id == squad_id))
+    if drop_squad_row:
+        session.execute(sql_delete(SquadDB).where(SquadDB.id == squad_id))
+
+
 def delete_rotation(session: Session, match_id: int) -> None:
     """Delete all rotation data for a match (slots, assignments, goals, availability,
     removed players, and the anchor row). Does not commit — the caller owns the

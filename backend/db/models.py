@@ -7,6 +7,11 @@ class SquadDB(SQLModel, table=True):
     __tablename__ = "squads"  # type: ignore[assignment]
 
     id: int | None = Field(default=None, primary_key=True)
+    # Owner account (multi-team). Nullable so the auth-off dev default squad and
+    # any legacy row stay valid; backfilled from AccountDB.squad_id by migration.
+    # Plain indexed column (no DB-level FK) — avoids an accounts↔squads create/drop
+    # cycle and matches the TournamentDB.squad_id convention.
+    account_id: int | None = Field(default=None, index=True)
     name: str = "My Squad"
     team_name: str = ""
     team_logo: str = ""  # base64 DataURL or empty string
@@ -20,7 +25,7 @@ class AccountDB(SQLModel, table=True):
     __tablename__ = "accounts"  # type: ignore[assignment]
 
     id: int | None = Field(default=None, primary_key=True)
-    squad_id: int = Field(foreign_key="squads.id")  # 1:1 for now
+    squad_id: int = Field(foreign_key="squads.id")  # the account's ACTIVE squad (may own several)
     email: str = Field(index=True, unique=True)  # the login handle (magic-link target)
     display_name: str = ""  # coach's name, shown in the UI
     status: str = "invited"  # "invited" | "active" | "disabled"

@@ -276,15 +276,14 @@
     </header>
 
     <div class="settings-wrap">
-      <!-- Teams (multi-team teaser) — pinned to the top, always expanded -->
+      <!-- Teams (multi-team) — pinned to the top, always expanded -->
       <section class="settings-section">
-        <h3 class="settings-heading">Teams</h3>
+        <h3 class="settings-heading">Teams<span class="beta-badge">Beta</span></h3>
         <p class="settings-label">Current team</p>
         <p class="settings-value" id="settings-team-name">—</p>
-        <div class="settings-soon">
-          <span class="settings-soon-badge">Coming soon</span>
-          <p class="settings-hint">Managing several squads from one account — and switching between them — is on the way. You'll be able to add another team here.</p>
-        </div>
+        <ul class="team-switcher-list" id="settings-team-list"></ul>
+        <button class="btn btn-secondary btn-full" type="button" id="btn-settings-add-team">+ Add a team</button>
+        <p class="settings-hint">Switch the active team from any home screen using the team pill at the top. Removing a team deletes all its data.</p>
       </section>
 
       <!-- Account -->
@@ -368,6 +367,7 @@
       <div class="home-title-row">
         <button class="btn-back" id="btn-home-back">◀</button>
         <h1 class="app-title">Season Mode</h1>
+        <div class="team-pill-slot" id="team-pill-home"></div>
       </div>
       <div class="home-actions">
         <button class="btn btn-primary" id="btn-go-new-match">+ New Match</button>
@@ -617,6 +617,7 @@
       <div class="home-title-row">
         <button class="btn-back" id="btn-tournament-home-back">◀</button>
         <h1 class="app-title">Tournament Mode</h1>
+        <div class="team-pill-slot" id="team-pill-tournament"></div>
       </div>
       <div class="home-actions">
         <button class="btn btn-primary" id="btn-new-tournament">+ New Tournament</button>
@@ -849,6 +850,31 @@
         <button class="btn btn-primary" type="submit" id="btn-bug-report-send">Send report</button>
       </div>
     </form>
+  </div>
+
+  <!-- ── Sheet: Team switcher (multi-team) ────────────────────────────────── -->
+  <div class="form-overlay" id="team-switcher-overlay" hidden>
+    <div class="form-card team-switcher-card">
+      <h3>Your teams<span class="beta-badge">Beta</span></h3>
+      <ul class="team-switcher-list" id="team-switcher-list"></ul>
+      <div class="team-switcher-actions">
+        <button class="btn btn-primary btn-full" type="button" id="btn-team-add">+ Add a team</button>
+        <button class="btn btn-secondary btn-full" type="button" id="btn-team-switcher-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Remove team confirmation ──────────────────────────────────── -->
+  <div class="form-overlay" id="team-remove-overlay" hidden>
+    <div class="form-card">
+      <h3>Remove this team?</h3>
+      <p class="settings-hint">This permanently deletes <strong id="team-remove-name">this team</strong> and every player, match and tournament in it. <strong>This cannot be undone.</strong></p>
+      <p class="settings-msg" id="team-remove-msg" hidden></p>
+      <div class="form-actions">
+        <button class="btn btn-secondary" type="button" id="btn-team-remove-cancel">Cancel</button>
+        <button class="btn btn-danger" type="button" id="btn-team-remove-confirm">Remove team</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Modal: Delete Player confirmation ────────────────────────────────── -->

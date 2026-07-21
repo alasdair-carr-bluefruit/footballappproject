@@ -65,6 +65,15 @@ def get_current_squad(
 
 
 # ── Ownership guards (IDOR defence) ─────────────────────────────────────────────
+def owned_squad(squad_id: int, account: AccountDB, session: Session) -> SquadDB:
+    """The squad iff it belongs to the account — the single access check for the
+    teams router. (When co-coach lands, swap the check here for a membership join.)"""
+    squad = session.get(SquadDB, squad_id)
+    if not squad or squad.account_id != account.id:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return squad
+
+
 def owned_match(match_id: int, squad: SquadDB, session: Session) -> MatchDB:
     match = session.get(MatchDB, match_id)
     if not match or match.squad_id != squad.id:
