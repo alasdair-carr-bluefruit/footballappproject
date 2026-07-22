@@ -37,12 +37,13 @@ Earlier: the **Refactor Phase (C.1–C.7)** and **Phase D.1 "Review the plan" sc
 are done; D.2 (tinker undo/redo) + D.3 (export revisit) remain (now tracked as
 Forward Roadmap **T3.3**).
 
-**Tier 1 progress:** T1.1 multi-team ✅ (shipped 2026-07-21 — `SquadDB.account_id` owner +
-`teams` router + header pill switcher), T1.2 signed-out→marketing link ✅ (live), T1.4
-clear-squad-&-data ✅ (shipped 2026-07-20), T1.3 mostly done ✅ — Settings screen + update-email
-(re-verify) shipped 2026-07-20; only **invite-a-friend** remains. **Next up = T1.3
-invite-a-friend.** See DEVELOPMENT_PLAN.md (reprioritised 2026-07-18); the roadmap is ordered by
-value × effort × demand (Tiers 1–4), not by dependency phases.
+**Tier 1 progress: COMPLETE ✅** — T1.1 multi-team ✅ (shipped 2026-07-21 — `SquadDB.account_id`
+owner + `teams` router + header pill switcher; wider pill visibility + landing callout 2026-07-22),
+T1.2 signed-out→marketing link ✅ (live), T1.3 Settings + account self-service ✅ (update-email
+2026-07-20, **invite-a-friend shipped 2026-07-22**), T1.4 clear-squad-&-data ✅ (2026-07-20).
+**Next up = Tier 2** (share-image/growth surfaces, FA-season SEO content). See DEVELOPMENT_PLAN.md
+(reprioritised 2026-07-18); the roadmap is ordered by value × effort × demand (Tiers 1–4), not by
+dependency phases.
 **Live refactor tracker: `docs/refactor/NEXT_STEPS.md`.**
 
 Completed phases:

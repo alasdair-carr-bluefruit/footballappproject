@@ -3412,6 +3412,10 @@ html, body {
 .settings-inline-form .auth-input { margin-bottom: 10px; }
 .settings-msg { margin: 12px 0 0; font-size: 14px; color: var(--chalk); }
 .settings-hint { font-size: 13px; color: var(--text-dim); margin: 8px 0 0; line-height: 1.5; }
+.invite-result { margin-top: 12px; }
+.invite-link-input { margin-bottom: 10px; font-size: 13px; }
+.invite-actions { display: flex; gap: 8px; }
+.invite-actions .btn { flex: 1; }
 .settings-soon { margin-top: 10px; }
 .settings-soon-badge {
   display: inline-block;

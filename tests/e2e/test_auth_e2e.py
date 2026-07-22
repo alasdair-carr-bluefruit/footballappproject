@@ -137,6 +137,21 @@ def test_multi_team_pill_add_and_switch(auth_server, page: Page):
     expect(page.locator("#team-pill-home .team-pill")).to_contain_text("First FC")
 
 
+def test_invite_a_friend_generates_a_link(auth_server, page: Page):
+    """A signed-in coach can mint a shareable invite link from Settings."""
+    base = auth_server
+    _redeem_and_setup(base, page, "Invite FC", "inviter@example.com")
+
+    page.click("#btn-settings")
+    expect(page.locator("#screen-settings")).to_be_visible()
+    # Expand the collapsible "Invite a friend" section, then create a link.
+    page.locator("summary", has_text="Invite a friend").click()
+    page.click("#btn-invite-create")
+    link = page.locator("#invite-link")
+    expect(link).to_be_visible()
+    assert "invite=" in link.input_value()
+
+
 def test_unauthenticated_api_calls_are_blocked(auth_server, page: Page):
     """A direct API call without a session is refused (the gate isn't the only guard)."""
     resp = page.request.get(auth_server + "/api/matches/")

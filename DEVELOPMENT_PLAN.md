@@ -123,12 +123,14 @@ roles are still deferred to T3.2 (co-coach) — the single access check lives in
 **T1.2 ⚡ Signed-out → marketing site.** ✅ **SHIPPED (live).** Unauthenticated visitors on
 `app.keepthingslevel.com` get a link back to `keepthingslevel.com` from the login screen.
 
-**T1.3 Settings screen + account self-service.** ✅ **Mostly done (2026-07-20).** Settings
+**T1.3 Settings screen + account self-service.** ✅ **DONE (2026-07-22).** Settings
 screen shipped (landing header, auth-on only): account email shown, multi-team teaser,
 danger zone. Update-email with re-verify-to-new-address + old-address "reclaim your squad"
-notice (`session_epoch` sign-out-all-devices) shipped. **Remaining:**
-- **Invite a friend** — ⏳ reuse the invite-token flow for a shareable one-time link (currently
-  admin-key gated — needs a non-admin variant). *(growth loop)*
+notice (`session_epoch` sign-out-all-devices) shipped.
+- **Invite a friend** — ✅ **SHIPPED (2026-07-22).** Self-service `POST /auth/invite-a-friend`
+  (authed, non-admin variant of admin `create_invite`; same one-time `InviteDB` token, attributed
+  to the inviter in the note). Settings "Invite a friend" section mints a link with native
+  share-sheet + copy fallback. Tests: integration (auth-gated, redeemable, single-use) + e2e. *(growth loop)*
 
 **T1.4 ⚡ Clear squad & data (destructive).** ✅ **SHIPPED (2026-07-20).**
 `/auth/account/clear-data` behind a type-to-confirm "DELETE" modal; backs the Privacy

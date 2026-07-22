@@ -37,6 +37,7 @@ from backend.db.models import (
 )
 from backend.db.repositories import delete_squad_data, get_or_create_squad
 from backend.settings import (
+    INVITE_TTL_DAYS,
     LOGIN_TOKEN_TTL_MINUTES,
     RECLAIM_TOKEN_TTL_DAYS,
     SESSION_COOKIE,
@@ -345,6 +346,34 @@ def reclaim_account(
     # Drop the caller's own cookie too, for good measure (they'll sign in fresh).
     response.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True, "email": row.prior_email}
+
+
+@router.post("/invite-a-friend")
+def invite_a_friend(
+    session: Session = Depends(get_session),
+    account: AccountDB = Depends(get_current_account),
+) -> dict:
+    """Mint a one-time invite link a signed-in coach can share with another coach.
+
+    The non-admin counterpart of admin `create_invite`: same `InviteDB` one-time
+    token (only its hash is stored), but self-service and attributed to the
+    inviting account in the note. The raw link is returned so the coach can share
+    it however they like (WhatsApp, text, etc.) — the growth loop.
+    """
+    raw = new_token()
+    invite = InviteDB(
+        token_hash=hash_token(raw),
+        created_at=now_iso(),
+        expires_at=iso_in(days=INVITE_TTL_DAYS),
+        note=f"friend invite from {account.email}",
+    )
+    session.add(invite)
+    session.commit()
+    return {
+        "link": f"{app_base_url()}/?invite={raw}",
+        "expires_at": invite.expires_at,
+        "expires_in_days": INVITE_TTL_DAYS,
+    }
 
 
 @router.post("/account/clear-data")

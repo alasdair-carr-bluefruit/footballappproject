@@ -305,6 +305,24 @@
         <p class="settings-hint">Switch the active team from any home screen using the team pill at the top. Removing a team deletes all its data.</p>
       </section>
 
+      <!-- Invite a friend (growth loop) -->
+      <details class="settings-section settings-collapsible">
+        <summary class="settings-heading">Invite a friend</summary>
+        <div class="settings-body">
+          <p class="settings-hint">Know another grassroots coach who'd find Level useful? Create a one-time invite link and send it their way.</p>
+          <button type="button" class="btn btn-secondary btn-full" id="btn-invite-create">Create invite link</button>
+          <div class="invite-result" id="invite-result" hidden>
+            <input type="text" class="auth-input invite-link-input" id="invite-link" readonly aria-label="Invite link" />
+            <div class="invite-actions">
+              <button type="button" class="btn btn-primary" id="btn-invite-share" hidden>Share</button>
+              <button type="button" class="btn btn-secondary" id="btn-invite-copy">Copy link</button>
+            </div>
+          </div>
+          <p class="settings-msg" id="invite-msg" hidden></p>
+          <p class="settings-hint" id="invite-expiry-hint" hidden></p>
+        </div>
+      </details>
+
       <!-- Account -->
       <details class="settings-section settings-collapsible">
         <summary class="settings-heading">Account</summary>

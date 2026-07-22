@@ -18,6 +18,13 @@ async function openSettings() {
   document.getElementById("settings-email").textContent =
     (state.account && state.account.email) || "—";
 
+  // Reset the invite-a-friend block (don't surface a link minted in a prior visit).
+  document.getElementById("invite-result").hidden = true;
+  document.getElementById("invite-link").value = "";
+  hide("invite-msg");
+  hide("invite-expiry-hint");
+  document.getElementById("btn-invite-create").textContent = "Create invite link";
+
   // Multi-team list (also sets the "Current team" name from the active row).
   renderSettingsTeams();
 }
@@ -58,6 +65,54 @@ document.getElementById("email-change-form").addEventListener("submit", async (e
   } finally {
     btn.disabled = false;
   }
+});
+
+// ── Invite a friend (growth loop) ─────────────────────────────────────────────────
+const INVITE_SHARE_TEXT =
+  "I'm using Level to sort fair player rotation for our grassroots team — here's a one-time invite to try it:";
+
+document.getElementById("btn-invite-create").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-invite-create");
+  btn.disabled = true;
+  hide("invite-msg");
+  try {
+    const res = await api.inviteAFriend();
+    document.getElementById("invite-link").value = res.link;
+    document.getElementById("invite-result").hidden = false;
+    // Native share sheet only exists on supported (mostly mobile) browsers.
+    document.getElementById("btn-invite-share").hidden = typeof navigator.share !== "function";
+    const days = res.expires_in_days;
+    showMsg("invite-expiry-hint",
+      `This link works once, for one coach${days ? `, and expires in ${days} days` : ""}. Create another any time.`);
+    btn.textContent = "Create another link";
+  } catch (err) {
+    showMsg("invite-msg", (err && err.message) || "Couldn't create an invite link — please try again.");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("btn-invite-copy").addEventListener("click", async () => {
+  const link = document.getElementById("invite-link").value;
+  if (!link) return;
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast("Invite link copied.");
+  } catch (_) {
+    // Clipboard API blocked (insecure context / permissions) — select for manual copy.
+    const input = document.getElementById("invite-link");
+    input.focus();
+    input.select();
+    showToast("Press ⌘/Ctrl+C to copy the link.");
+  }
+});
+
+document.getElementById("btn-invite-share").addEventListener("click", async () => {
+  const link = document.getElementById("invite-link").value;
+  if (!link || typeof navigator.share !== "function") return;
+  try {
+    await navigator.share({ title: "Try Level", text: INVITE_SHARE_TEXT, url: link });
+  } catch (_) { /* user dismissed the share sheet — no-op */ }
 });
 
 // ── Clear squad & data (type-to-confirm) ──────────────────────────────────────────

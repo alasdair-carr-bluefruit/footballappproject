@@ -162,6 +162,37 @@ def test_invite_is_single_use(clients):
     assert c2.post("/api/auth/redeem", json={"token": token, "email": "second@example.com"}).status_code == 400
 
 
+def test_invite_a_friend_requires_auth(clients):
+    c = clients()
+    assert c.post("/api/auth/invite-a-friend").status_code == 401
+
+
+def test_invite_a_friend_creates_a_redeemable_one_time_link(clients):
+    # A signed-in coach mints a shareable invite (no admin key needed)...
+    coach = clients()
+    _redeem(coach, "coach@example.com")
+    resp = coach.post("/api/auth/invite-a-friend")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert "invite=" in body["link"]
+    assert body["expires_in_days"] == 14
+    token = body["link"].split("invite=")[1]
+
+    # ...a new coach redeems it into their own separate account...
+    friend = clients()
+    assert friend.post(
+        "/api/auth/redeem",
+        json={"token": token, "email": "friend@example.com", "display_name": "Friend"},
+    ).status_code == 200
+    assert friend.get("/api/auth/me").json()["email"] == "friend@example.com"
+
+    # ...and the link is single-use.
+    third = clients()
+    assert third.post(
+        "/api/auth/redeem", json={"token": token, "email": "third@example.com"}
+    ).status_code == 400
+
+
 def test_invalid_and_expired_invites_rejected(clients, session):
     c = clients()
     assert c.post("/api/auth/redeem", json={"token": "nope", "email": "x@example.com"}).status_code == 400
