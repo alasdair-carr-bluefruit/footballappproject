@@ -46,6 +46,7 @@
     .pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-family: var(--mono); }
     .pill.redeemed { background: rgba(164,204,70,.15); color: var(--signal-lime); }
     .pill.pending { background: rgba(157,179,166,.15); color: var(--muted); }
+    .pill.warn { background: rgba(192,57,43,.16); color: #e07a6f; }
     .keystate { font-size: 12px; color: var(--muted); }
     .hide { display: none; }
   </style>
@@ -92,7 +93,7 @@
       </div>
       <div class="msg" id="list-msg"></div>
       <table id="invite-table" class="hide">
-        <thead><tr><th>Note</th><th>Created by</th><th>Created</th><th>Expires</th><th>Status</th></tr></thead>
+        <thead><tr><th>Note</th><th>Created by</th><th>Created</th><th>Expires</th><th>Status</th><th></th></tr></thead>
         <tbody id="invite-rows"></tbody>
       </table>
     </div>
@@ -106,7 +107,7 @@
       <p class="sub" style="margin:10px 0 0;">Impersonate opens the app in a new tab as that coach. Use <strong>Sign out</strong> in the app to return to yourself.</p>
       <div class="msg" id="accounts-msg"></div>
       <table id="accounts-table" class="hide">
-        <thead><tr><th>Coach</th><th>Team</th><th>Last login</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Coach</th><th>Team</th><th>Status</th><th>Last login</th><th>Actions</th></tr></thead>
         <tbody id="account-rows"></tbody>
       </table>
     </div>
@@ -194,6 +195,21 @@
     });
 
     async function loadInvites() { $("btn-refresh").click(); }
+
+    async function revokeInvite(id, btn) {
+      const listMsg = $("list-msg");
+      if (!confirm("Revoke this invite link? Anyone who already has it will no longer be able to use it.")) return;
+      btn.disabled = true;
+      try {
+        await apiPost("/api/admin/invites/" + id + "/revoke", {});
+        listMsg.className = "msg ok"; listMsg.textContent = "Invite revoked.";
+        loadInvites();
+      } catch (e) {
+        listMsg.className = "msg warn"; listMsg.textContent = e.message || "Revoke failed.";
+        btn.disabled = false;
+      }
+    }
+
     $("btn-refresh").addEventListener("click", async () => {
       const listMsg = $("list-msg"), table = $("invite-table"), rows = $("invite-rows");
       listMsg.className = "msg"; listMsg.textContent = "";
@@ -210,13 +226,23 @@
           const tr = document.createElement("tr");
           const status = inv.redeemed
             ? '<span class="pill redeemed">redeemed</span>'
-            : '<span class="pill pending">pending</span>';
+            : inv.expired
+              ? '<span class="pill warn">revoked / expired</span>'
+              : '<span class="pill pending">pending</span>';
           const createdBy = inv.created_by === "admin"
             ? '<span class="pill">admin</span>'
             : (inv.created_by || "—");
           tr.innerHTML = "<td>" + (inv.note || "—") + "</td><td>" + createdBy +
                          "</td><td>" + fmt(inv.created_at) +
-                         "</td><td>" + fmt(inv.expires_at) + "</td><td>" + status + "</td>";
+                         "</td><td>" + fmt(inv.expires_at) + "</td><td>" + status + "</td><td></td>";
+          // Only a live, unredeemed link can be revoked.
+          if (!inv.redeemed && !inv.expired) {
+            const rev = document.createElement("button");
+            rev.className = "btn btn-ghost"; rev.textContent = "Revoke";
+            rev.style.cssText = "padding:7px 12px;font-size:13px;";
+            rev.addEventListener("click", () => revokeInvite(inv.id, rev));
+            tr.lastElementChild.appendChild(rev);
+          }
           rows.appendChild(tr);
         }
         table.classList.remove("hide");
@@ -240,10 +266,15 @@
         }
         for (const a of accounts) {
           const tr = document.createElement("tr");
+          const suspended = a.status === "disabled";
+          const statusPill = suspended
+            ? '<span class="pill warn">suspended</span>'
+            : '<span class="pill">' + (a.status || "—") + '</span>';
           tr.innerHTML =
             "<td><div>" + (a.display_name || "—") + "</div>" +
             "<div class='keystate'>" + a.email + "</div></td>" +
             "<td>squad #" + a.squad_id + "</td>" +
+            "<td>" + statusPill + "</td>" +
             "<td>" + fmt(a.last_login_at) + "</td><td></td>";
           const actions = tr.lastElementChild;
           const imp = document.createElement("button");
@@ -252,9 +283,14 @@
           imp.addEventListener("click", () => impersonate(a.id, a.display_name, imp));
           const dump = document.createElement("button");
           dump.className = "btn btn-ghost"; dump.textContent = "Dump";
-          dump.style.cssText = "padding:7px 12px;font-size:13px;";
+          dump.style.cssText = "margin-right:6px;padding:7px 12px;font-size:13px;";
           dump.addEventListener("click", () => dumpAccount(a.id, dump));
-          actions.appendChild(imp); actions.appendChild(dump);
+          const mod = document.createElement("button");
+          mod.className = "btn btn-ghost"; mod.textContent = suspended ? "Reactivate" : "Suspend";
+          mod.style.cssText = "padding:7px 12px;font-size:13px;" +
+            (suspended ? "" : "color:#c0392b;");
+          mod.addEventListener("click", () => toggleSuspend(a.id, a.display_name, suspended, mod));
+          actions.appendChild(imp); actions.appendChild(dump); actions.appendChild(mod);
           rows.appendChild(tr);
         }
         table.classList.remove("hide");
@@ -274,6 +310,26 @@
       } catch (e) {
         msg.className = "msg warn"; msg.textContent = e.message || "Impersonate failed.";
       } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function toggleSuspend(id, name, suspended, btn) {
+      const msg = $("accounts-msg");
+      const who = name || ("account " + id);
+      const verb = suspended ? "reactivate" : "suspend";
+      if (!suspended && !confirm("Suspend " + who + "? They'll be signed out and blocked from logging in, using the app, and creating invites. Their outstanding invite links will also be revoked.")) return;
+      btn.disabled = true;
+      try {
+        const r = await apiPost("/api/admin/accounts/" + id + "/" + verb, {});
+        msg.className = "msg ok";
+        msg.textContent = suspended
+          ? ("Reactivated " + who + ".")
+          : ("Suspended " + who + (r.invites_revoked ? " and revoked " + r.invites_revoked + " outstanding invite(s)." : "."));
+        loadAccounts();
+        loadInvites();
+      } catch (e) {
+        msg.className = "msg warn"; msg.textContent = e.message || (verb + " failed.");
         btn.disabled = false;
       }
     }

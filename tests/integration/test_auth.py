@@ -199,6 +199,79 @@ def test_invite_a_friend_creates_a_redeemable_one_time_link(clients):
     ).status_code == 400
 
 
+# ── Admin moderation (suspend / revoke) ─────────────────────────────────────────
+def _account_id(client, email):
+    accts = client.get("/api/admin/accounts", headers={"X-Admin-Key": ADMIN}).json()
+    return next(a["id"] for a in accts if a["email"] == email)
+
+
+def test_admin_suspend_locks_out_and_revokes_outstanding_invites(clients):
+    coach = clients()
+    _redeem(coach, "bad@example.com")
+    token = coach.post("/api/auth/invite-a-friend").json()["link"].split("invite=")[1]
+
+    r = coach.post(f"/api/admin/accounts/{_account_id(coach, 'bad@example.com')}/suspend",
+                   headers={"X-Admin-Key": ADMIN})
+    assert r.status_code == 200
+    assert r.json()["status"] == "disabled"
+    assert r.json()["invites_revoked"] == 1
+
+    # Session is dead: no app access, no more invites.
+    assert coach.get("/api/auth/me").status_code == 401
+    assert coach.post("/api/auth/invite-a-friend").status_code == 401
+    # The already-sent invite link no longer redeems.
+    friend = clients()
+    assert friend.post(
+        "/api/auth/redeem", json={"token": token, "email": "friend@example.com"}
+    ).status_code == 400
+
+
+def test_admin_suspend_blocks_login_link(clients):
+    coach = clients()
+    _redeem(coach, "nolink@example.com")
+    coach.post(f"/api/admin/accounts/{_account_id(coach, 'nolink@example.com')}/suspend",
+               headers={"X-Admin-Key": ADMIN})
+    # request-link silently no-ops for a non-active account (no leak of who exists).
+    resp = coach.post("/api/auth/request-link", json={"email": "nolink@example.com"})
+    assert "dev_link" not in resp.json()
+
+
+def test_admin_reactivate_restores_active_status(clients):
+    coach = clients()
+    _redeem(coach, "back@example.com")
+    aid = _account_id(coach, "back@example.com")
+    coach.post(f"/api/admin/accounts/{aid}/suspend", headers={"X-Admin-Key": ADMIN})
+    r = coach.post(f"/api/admin/accounts/{aid}/reactivate", headers={"X-Admin-Key": ADMIN})
+    assert r.status_code == 200 and r.json()["status"] == "active"
+
+
+def test_admin_revoke_single_invite(clients):
+    coach = clients()
+    _redeem(coach, "rev@example.com")
+    token = coach.post("/api/auth/invite-a-friend").json()["link"].split("invite=")[1]
+    invites = coach.get("/api/admin/invites", headers={"X-Admin-Key": ADMIN}).json()
+    inv_id = next(i["id"] for i in invites if not i["redeemed"])
+
+    assert coach.post(f"/api/admin/invites/{inv_id}/revoke",
+                      headers={"X-Admin-Key": ADMIN}).status_code == 200
+    # Dead link + shows expired in the listing.
+    friend = clients()
+    assert friend.post(
+        "/api/auth/redeem", json={"token": token, "email": "x@example.com"}
+    ).status_code == 400
+    after = coach.get("/api/admin/invites", headers={"X-Admin-Key": ADMIN}).json()
+    assert next(i for i in after if i["id"] == inv_id)["expired"] is True
+
+
+def test_moderation_endpoints_gated_by_admin_key(clients):
+    coach = clients()
+    _redeem(coach, "gate@example.com")
+    aid = _account_id(coach, "gate@example.com")
+    assert coach.post(f"/api/admin/accounts/{aid}/suspend").status_code == 403
+    assert coach.post(f"/api/admin/accounts/{aid}/reactivate").status_code == 403
+    assert coach.post("/api/admin/invites/1/revoke").status_code == 403
+
+
 def test_invalid_and_expired_invites_rejected(clients, session):
     c = clients()
     assert c.post("/api/auth/redeem", json={"token": "nope", "email": "x@example.com"}).status_code == 400

@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 
 from backend.auth.email import send_login_link
 from backend.auth.session import set_session_cookie
-from backend.auth.tokens import hash_token, iso_in, new_token, now_iso
+from backend.auth.tokens import hash_token, is_expired, iso_in, new_token, now_iso
 from backend.db.database import get_session
 from backend.db.models import AccountDB, InviteDB, MatchDB, PlayerDB, SquadDB, TournamentDB
 from backend.settings import INVITE_TTL_DAYS, admin_key, app_base_url, resend_api_key
@@ -81,6 +81,8 @@ def list_invites(session: Session = Depends(get_session)) -> list[dict]:
             "expires_at": inv.expires_at,
             "redeemed": inv.redeemed_at is not None,
             "redeemed_at": inv.redeemed_at,
+            # Unredeemed + past-expiry = expired or admin-revoked (a dead link).
+            "expired": inv.redeemed_at is None and is_expired(inv.expires_at),
             "account_id": inv.account_id,
             "invited_by_account_id": inv.invited_by_account_id,
             # "admin" for admin-minted invites; the coach's email for self-service ones.
@@ -152,3 +154,63 @@ def impersonate_account(
         raise HTTPException(status_code=404, detail="Account not found")
     set_session_cookie(response, account.id, account.session_epoch)  # type: ignore[arg-type]
     return {"impersonating": account.id, "email": account.email, "squad_id": account.squad_id}
+
+
+# ── Moderation (suspend / revoke) ────────────────────────────────────────────────
+# A disabled account is already locked out everywhere: get_current_account (deps)
+# only resolves status=="active", and login only mails links to active accounts —
+# so suspending blocks login, all app access AND invite creation in one flip.
+_REVOKED_EXPIRY = "2000-01-01T00:00:00+00:00"  # far-past = a dead invite link
+
+
+@router.post("/accounts/{account_id}/suspend", dependencies=[Depends(require_admin)])
+def suspend_account(account_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Suspend an account (e.g. abusing invites): sets status=disabled and bumps
+    session_epoch to kill any live session immediately. Also revokes the coach's
+    still-outstanding (unredeemed) invite links so ones already sent stop working."""
+    account = session.get(AccountDB, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    account.status = "disabled"
+    account.session_epoch += 1
+    session.add(account)
+
+    revoked = 0
+    minted = session.exec(
+        select(InviteDB).where(InviteDB.invited_by_account_id == account_id)
+    ).all()
+    for inv in minted:
+        if inv.redeemed_at is None and not is_expired(inv.expires_at):
+            inv.expires_at = _REVOKED_EXPIRY
+            session.add(inv)
+            revoked += 1
+    session.commit()
+    return {"id": account_id, "status": account.status, "invites_revoked": revoked}
+
+
+@router.post("/accounts/{account_id}/reactivate", dependencies=[Depends(require_admin)])
+def reactivate_account(account_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Lift a suspension — the coach can log in and use the app again. Already-revoked
+    invite links stay dead (mint fresh ones); this only restores account access."""
+    account = session.get(AccountDB, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    account.status = "active"
+    session.add(account)
+    session.commit()
+    return {"id": account_id, "status": account.status}
+
+
+@router.post("/invites/{invite_id}/revoke", dependencies=[Depends(require_admin)])
+def revoke_invite(invite_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Kill a single outstanding invite link without suspending the account —
+    the lighter tool for one bad link."""
+    inv = session.get(InviteDB, invite_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    if inv.redeemed_at is not None:
+        raise HTTPException(status_code=400, detail="Already redeemed — nothing to revoke")
+    inv.expires_at = _REVOKED_EXPIRY
+    session.add(inv)
+    session.commit()
+    return {"id": invite_id, "revoked": True}
