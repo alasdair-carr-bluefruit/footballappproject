@@ -114,6 +114,10 @@ roles are still deferred to T3.2 (co-coach) — the single access check lives in
   reset + refetch on switch/add/remove** (season + tournament).
 - **Tests:** `tests/integration/test_teams.py` (list/activate/delete/IDOR/last-team), e2e
   `test_multi_team_pill_add_and_switch` (parity via shared render). All green.
+- **Wider visibility (2026-07-22):** team pill now also on the **landing** + **squad-management**
+  screens (shared render); switching from squad reloads it; rename/first-setup re-render the pill.
+  Prominent one-time **"multiple teams is live" landing banner** (`gaffer_multiteam_landing_seen`,
+  separate key from the small pill hint). SW v45.
 - **Deferred:** co-coach (T3.2), export/transfer a team to another coach.
 
 **T1.2 ⚡ Signed-out → marketing site.** ✅ **SHIPPED (live).** Unauthenticated visitors on
