@@ -3484,6 +3484,73 @@ html, body {
    and the Settings "Teams" section. */
 .team-pill-slot { margin-left: auto; position: relative; }
 
+/* Landing variant: centered, in normal flow above the mode cards (the corner
+   Settings/Sign-out buttons own the top edge, so this sits centred under them). */
+.team-pill-slot--landing {
+  align-self: center;   /* override .landing's stretch so the slot hugs the pill */
+  margin: 0 0 14px;
+  z-index: 1;           /* above the decorative pitch bg */
+}
+.team-pill-slot--landing:empty { margin: 0; }  /* no dead space when auth off / no teams */
+
+/* One-time landing announcement that multi-team is live. Dark card + lime accent
+   so it reads as distinct from the lime assistant-coach teaser lower on the screen. */
+.multiteam-callout {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  margin: 0 0 14px;
+  border-radius: 14px;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--matchday) 22%, var(--pitch-deep)), var(--pitch-deep));
+  border: 1px solid color-mix(in srgb, var(--matchday) 55%, transparent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+}
+.multiteam-callout-main {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 13px 6px 13px 14px;
+  background: none;
+  border: none;
+  color: var(--chalk);
+  text-align: left;
+  cursor: pointer;
+}
+.multiteam-callout-main:active { transform: scale(0.99); }
+.multiteam-callout-icon { flex: 0 0 auto; font-size: 22px; line-height: 1; }
+.multiteam-callout-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.multiteam-callout-titlerow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.multiteam-callout-titlerow strong { font-size: 15px; font-weight: 800; color: var(--matchday); }
+.multiteam-callout-badge {
+  background: var(--amber);
+  color: var(--slate);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+.multiteam-callout-text small { font-size: 12.5px; line-height: 1.45; color: rgba(255, 255, 255, 0.82); }
+.multiteam-callout-x {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+.multiteam-callout-x:active { color: var(--chalk); }
+
 /* "Beta" tag next to the multi-team UI (switcher sheet + Settings heading). */
 .beta-badge {
   display: inline-block;

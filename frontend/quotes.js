@@ -81,7 +81,7 @@ export function showGenerating(title = "Generating game plan…") {
   pickQuote();
   overlay.hidden = false;
   clearInterval(quoteTimer);
-  quoteTimer = setInterval(pickQuote, 4000);  // rotate the quote on a long wait
+  quoteTimer = setInterval(pickQuote, 7000);  // rotate slowly enough to actually read each one
 }
 
 export function hideGenerating() {

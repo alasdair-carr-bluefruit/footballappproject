@@ -130,6 +130,25 @@
         <div class="squad-onboarding-arrow">↓</div>
       </div>
 
+      <!-- Active-team pill (multi-team): shows/switches the team these modes act on -->
+      <div class="team-pill-slot team-pill-slot--landing" id="team-pill-landing"></div>
+
+      <!-- One-time announcement that multi-team is live (shown only when authed
+           with the switcher available; dismissed via gaffer_multiteam_landing_seen) -->
+      <div class="multiteam-callout" id="multiteam-callout" hidden>
+        <button type="button" class="multiteam-callout-main" id="btn-multiteam-callout">
+          <span class="multiteam-callout-icon" aria-hidden="true">🎉</span>
+          <span class="multiteam-callout-text">
+            <span class="multiteam-callout-titlerow">
+              <strong>New: manage multiple teams</strong>
+              <span class="multiteam-callout-badge">Beta</span>
+            </span>
+            <small>Coach more than one side? Tap your team name above to switch — or add a new team. Tap here to try it →</small>
+          </span>
+        </button>
+        <button type="button" class="multiteam-callout-x" id="btn-multiteam-callout-dismiss" aria-label="Dismiss">✕</button>
+      </div>
+
       <div class="landing-modes">
         <button class="mode-card" id="btn-season-mode">
           <span class="mode-icon"><svg class="mode-svg" viewBox="0 0 24 24" fill="none" stroke="var(--chalk)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="13" y2="17"/><circle cx="18" cy="17" r="1.8" fill="var(--matchday)" stroke="none"/></svg></span>
@@ -527,6 +546,7 @@
     <header class="header header-sub">
       <button class="btn-back" id="btn-squad-back">◀ Matches</button>
       <h2>Squad</h2>
+      <div class="team-pill-slot" id="team-pill-squad"></div>
     </header>
 
     <!-- Team info section -->

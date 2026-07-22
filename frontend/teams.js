@@ -38,7 +38,13 @@ export function renderTeamPill(containerId) {
     <span class="team-pill-caret" aria-hidden="true">▾</span>
   </button>`;
   el.querySelector(".team-pill").addEventListener("click", openTeamSwitcher);
-  maybeShowNewFeatureCallout(el);
+  if (containerId === "team-pill-landing") {
+    // Landing gets the bigger standalone announcement banner instead of the
+    // small pill popover — avoid showing both on the same screen.
+    maybeShowLandingCallout();
+  } else {
+    maybeShowNewFeatureCallout(el);
+  }
 }
 
 // One-time "what's new" callout pointing at the pill — highlights how to add /
@@ -63,10 +69,29 @@ function dismissNewFeatureCallout() {
   document.querySelectorAll(".team-pill-callout").forEach(el => el.remove());
 }
 
-// Re-render both pills (whichever is on screen). Call after any team change.
+// ── Landing "multi-team is live" announcement banner ─────────────────────────
+// A more prominent, one-time callout on the landing screen (separate key from the
+// pill popover so a coach who dismissed the small hint still gets the big news).
+const MULTITEAM_LANDING_KEY = "gaffer_multiteam_landing_seen";
+function maybeShowLandingCallout() {
+  const el = document.getElementById("multiteam-callout");
+  if (!el) return;
+  // Only when the switcher is actually usable (auth on + owned team) and not yet seen.
+  el.hidden = !switcherEnabled() || !!localStorage.getItem(MULTITEAM_LANDING_KEY);
+}
+
+function dismissLandingCallout() {
+  localStorage.setItem(MULTITEAM_LANDING_KEY, "1");
+  const el = document.getElementById("multiteam-callout");
+  if (el) el.hidden = true;
+}
+
+// Re-render every pill slot (whichever is on screen). Call after any team change.
 export function renderTeamPills() {
   renderTeamPill("team-pill-home");
   renderTeamPill("team-pill-tournament");
+  renderTeamPill("team-pill-landing");
+  renderTeamPill("team-pill-squad");
 }
 
 // ── Switcher sheet ───────────────────────────────────────────────────────────
@@ -212,6 +237,7 @@ function refreshActiveViews() {
   const current = document.querySelector(".screen:not([hidden])")?.id;
   if (current === "screen-tournament-home") loadTournamentHome();
   else if (current === "screen-home") loadHome();
+  else if (current === "screen-squad") loadSquad();
   else if (current === "screen-settings") renderSettingsTeams();
   renderTeamPills();
 }
@@ -227,6 +253,9 @@ document.getElementById("btn-team-switcher-close")?.addEventListener("click", cl
 document.getElementById("btn-team-add")?.addEventListener("click", addTeam);
 document.getElementById("btn-settings-add-team")?.addEventListener("click", addTeam);
 document.getElementById("btn-team-remove-cancel")?.addEventListener("click", () => { removeOverlay().hidden = true; });
+// Landing announcement: tapping the body opens the switcher (and retires the banner); ✕ just dismisses.
+document.getElementById("btn-multiteam-callout")?.addEventListener("click", () => { dismissLandingCallout(); openTeamSwitcher(); });
+document.getElementById("btn-multiteam-callout-dismiss")?.addEventListener("click", dismissLandingCallout);
 document.getElementById("btn-team-remove-confirm")?.addEventListener("click", confirmRemoveTeam);
 // Tap the backdrop to dismiss the switcher (matches other form-overlays' feel).
 switcherOverlay()?.addEventListener("click", (e) => { if (e.target === switcherOverlay()) closeSwitcher(); });

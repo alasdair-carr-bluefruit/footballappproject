@@ -4,6 +4,7 @@ import { showScreen } from "./pitch.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
 import { withSaveToast, showToast } from "./toast.js";
+import { renderTeamPill, renderTeamPills } from "./teams.js";
 
 // ── First-launch tutorial ─────────────────────────────────────────────────────
 // Check server first — if a team name exists the DB already has data (e.g. a
@@ -12,7 +13,11 @@ import { withSaveToast, showToast } from "./toast.js";
 // so a logged-out coach never briefly sees the app behind the login screen.
 export async function bootApp() {
   maybeDismissSquadTip();  // players-exist check, now post-auth
-  refreshTeams();  // multi-team: populate the switcher (no-op when auth off)
+  // multi-team: populate the switcher, then render the landing pill once the
+  // list resolves (it's fire-and-forget, so render in the .then, not inline).
+  // The landing/home/etc. slots persist in the DOM across screen switches, so a
+  // single render here holds until the next team mutation re-renders via renderTeamPills.
+  refreshTeams().then(() => renderTeamPills()).catch(() => {});
   try {
     const info = await api.getTeamInfo();
     if (info) state.teamInfo = info;
@@ -60,6 +65,7 @@ document.getElementById("btn-tutorial-start").addEventListener("click", async ()
   state.teamInfo = { team_name: name, team_logo: logo };
   localStorage.setItem("gaffer_onboarded", "1");
   showScreen("screen-landing");
+  renderTeamPills();  // reflect the just-named team on the landing pill
   showSquadTip();
 });
 
@@ -166,6 +172,7 @@ document.getElementById("bug-report-form").addEventListener("submit", async e =>
 // ── Squad screen ──────────────────────────────────────────────────────────────
 export async function loadSquad() {
   showScreen("screen-squad");
+  renderTeamPill("team-pill-squad");  // multi-team: switch which team you're editing
   closePlayerForm();
 
   // Populate team info fields
@@ -335,6 +342,7 @@ document.getElementById("btn-save-team-info").addEventListener("click", async ()
   btn.textContent = "Saving…";
   try {
     state.teamInfo = await api.updateTeamInfo({ team_name: name, team_logo: logo });
+    renderTeamPills();  // a rename here should update the squad/landing/home pills
     btn.textContent = "Saved ✓";
     setTimeout(() => { btn.textContent = "Save"; }, 1500);
   } catch {
