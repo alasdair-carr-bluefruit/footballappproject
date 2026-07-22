@@ -342,16 +342,14 @@ document.getElementById("btn-generate-all-matches").addEventListener("click", as
     const currentCount = plannedMatches.length;
 
     if (state.pendingNumMatches > currentCount) {
-      // Generate additional matches
-      const existing = (tData?.matches || []).filter(m => m.stage === "group").length;
-      for (let i = existing + 1; i <= existing + (state.pendingNumMatches - currentCount); i++) {
-        btn.textContent = `Adding match ${i - existing} of ${state.pendingNumMatches - currentCount}…`;
-        await api.addTournamentMatch(state.activeTournamentId, {
-          opponent: `Match ${i}`,
-          stage: "group",
-          available_player_ids: availablePlayerIds,
-        }).catch(() => {});
-      }
+      // Generate the additional matches in one batched request.
+      const toAdd = state.pendingNumMatches - currentCount;
+      btn.textContent = `Adding ${toAdd} match${toAdd === 1 ? "" : "es"}…`;
+      await api.addTournamentMatchesBatch(state.activeTournamentId, {
+        count: toAdd,
+        stage: "group",
+        available_player_ids: availablePlayerIds,
+      }).catch(err => { alert("Could not add matches: " + (err?.message || "please try again")); });
     } else if (state.pendingNumMatches < currentCount) {
       // Delete excess planned matches from the end
       const toDelete = plannedMatches.slice(state.pendingNumMatches);
@@ -363,14 +361,14 @@ document.getElementById("btn-generate-all-matches").addEventListener("click", as
 
     state.editingTournamentId = null;
   } else {
-    for (let i = 1; i <= state.pendingNumMatches; i++) {
-      btn.textContent = `Generating ${i} of ${state.pendingNumMatches}…`;
-      await api.addTournamentMatch(state.activeTournamentId, {
-        opponent: `Match ${i}`,
-        stage: "group",
-        available_player_ids: availablePlayerIds,
-      }).catch(() => {});
-    }
+    // One request generates all matches server-side (ordered, prior-slot aware)
+    // instead of one round-trip per match — much faster over the network.
+    btn.textContent = `Generating ${state.pendingNumMatches} match${state.pendingNumMatches === 1 ? "" : "es"}…`;
+    await api.addTournamentMatchesBatch(state.activeTournamentId, {
+      count: state.pendingNumMatches,
+      stage: "group",
+      available_player_ids: availablePlayerIds,
+    }).catch(err => { alert("Could not generate matches: " + (err?.message || "please try again")); });
   }
 
   btn.disabled = false;

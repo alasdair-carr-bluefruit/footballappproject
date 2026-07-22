@@ -81,6 +81,7 @@ export const api = {
   getTournament:        (id)      => request(`/tournaments/${id}`),
   deleteTournament:     (id)      => request(`/tournaments/${id}`,        { method: "DELETE" }),
   addTournamentMatch:   (id, data)=> request(`/tournaments/${id}/matches`,{ method: "POST",   body: data }),
+  addTournamentMatchesBatch: (id, data) => request(`/tournaments/${id}/matches/batch`, { method: "POST", body: data }),
   addGuestPlayer:       (id, data)=> request(`/tournaments/${id}/players`,{ method: "POST",   body: data }),
   removeGuestPlayer:    (id, pid) => request(`/tournaments/${id}/players/${pid}`, { method: "DELETE" }),
   getTournamentStats:   (id)      => request(`/tournaments/${id}/stats`),

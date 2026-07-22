@@ -197,6 +197,103 @@ def test_add_multiple_matches_increments_match_number(
     assert numbers == [1, 2, 3]
 
 
+def test_batch_creates_all_matches(
+    client: TestClient, tournament: dict, squad_ids: list[int]
+) -> None:
+    resp = client.post(
+        f"/api/tournaments/{tournament['id']}/matches/batch",
+        json={"count": 4, "stage": "group", "available_player_ids": squad_ids},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["count"] == 4
+    assert len(data["matches"]) == 4
+    # Each match has a generated plan (5v5 no-halftime = 2 slots).
+    assert all(len(m["slots"]) == 2 for m in data["matches"])
+    # Match numbers are sequential and each has its own generated rotation.
+    stored = client.get(f"/api/tournaments/{tournament['id']}").json()
+    assert [m["match_number"] for m in stored["matches"]] == [1, 2, 3, 4]
+
+
+def test_batch_appends_after_existing_matches(
+    client: TestClient, tournament: dict, squad_ids: list[int]
+) -> None:
+    client.post(
+        f"/api/tournaments/{tournament['id']}/matches",
+        json={"opponent": "Lions FC", "stage": "group", "available_player_ids": squad_ids},
+    )
+    client.post(
+        f"/api/tournaments/{tournament['id']}/matches/batch",
+        json={"count": 2, "stage": "group", "available_player_ids": squad_ids},
+    )
+    stored = client.get(f"/api/tournaments/{tournament['id']}").json()
+    assert [m["match_number"] for m in stored["matches"]] == [1, 2, 3]
+
+
+@pytest.mark.parametrize("count", [0, 31])
+def test_batch_rejects_out_of_range_count(
+    client: TestClient, tournament: dict, squad_ids: list[int], count: int
+) -> None:
+    resp = client.post(
+        f"/api/tournaments/{tournament['id']}/matches/batch",
+        json={"count": count, "stage": "group", "available_player_ids": squad_ids},
+    )
+    assert resp.status_code == 422
+
+
+def test_batch_too_few_players_creates_no_matches(
+    client: TestClient, tournament: dict, squad_ids: list[int]
+) -> None:
+    # 5v5 needs 5 players; sending 3 must fail up front and leave no orphan rows.
+    resp = client.post(
+        f"/api/tournaments/{tournament['id']}/matches/batch",
+        json={"count": 3, "stage": "group", "available_player_ids": squad_ids[:3]},
+    )
+    assert resp.status_code == 400
+    stored = client.get(f"/api/tournaments/{tournament['id']}").json()
+    assert stored["matches"] == []
+
+
+def test_batch_matches_sequential_fairness_exactly(
+    client: TestClient, squad_ids: list[int]
+) -> None:
+    """Batch generation must be byte-for-byte identical to the old one-request-per-
+    match flow — proving cross-match fairness (prior_slots), the sit-out floor and
+    specialist-GK sharing are unaffected. Both feed each match the same committed
+    DB state, so with the same RNG seed the resulting plans must be identical."""
+    import random
+
+    def lineups_of(matches_slots: list[list[dict]]) -> list[list[dict]]:
+        return [[s["lineup"] for s in slots] for slots in matches_slots]
+
+    n = 5
+
+    # Sequential: one single-match request per match (the old flow).
+    random.seed(20260722)
+    t_seq = client.post("/api/tournaments/", json=TOURNAMENT_BASE).json()
+    seq = []
+    for i in range(1, n + 1):
+        resp = client.post(
+            f"/api/tournaments/{t_seq['id']}/matches",
+            json={"opponent": f"Match {i}", "stage": "group",
+                  "available_player_ids": squad_ids},
+        )
+        assert resp.status_code == 200
+        seq.append(resp.json()["slots"])
+
+    # Batch: one request for all matches (the new flow).
+    random.seed(20260722)
+    t_batch = client.post("/api/tournaments/", json=TOURNAMENT_BASE).json()
+    resp = client.post(
+        f"/api/tournaments/{t_batch['id']}/matches/batch",
+        json={"count": n, "stage": "group", "available_player_ids": squad_ids},
+    )
+    assert resp.status_code == 200
+    batch = [m["slots"] for m in resp.json()["matches"]]
+
+    assert lineups_of(batch) == lineups_of(seq)
+
+
 def test_knockout_match_stage(
     client: TestClient, tournament: dict, squad_ids: list[int]
 ) -> None:

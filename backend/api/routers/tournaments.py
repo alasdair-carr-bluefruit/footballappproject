@@ -632,56 +632,22 @@ def remove_guest_player(
 
 # ── Tournament matches ────────────────────────────────────────────────────────
 
-@router.post("/{tournament_id}/matches")
-def add_tournament_match(
-    tournament_id: int,
-    body: TournamentMatchCreate,
-    session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
-) -> dict[str, Any]:
-    """Create a match for this tournament and immediately generate its rotation."""
-    t = owned_tournament(tournament_id, squad, session)
+def _resolve_tournament_players(
+    session: Session, t: TournamentDB, squad: SquadDB, available_player_ids: list[int],
+) -> tuple[list[PlayerDB], Any]:
+    """Load + position-override the available players and build the game config.
 
-    quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
-    fv, fairness = tournament_service.resolve_fairness(t, body.stage, body.knockout_fairness_value)
-
-    # Auto-assign match_number
-    existing_count = len(list(session.exec(
-        select(MatchDB).where(MatchDB.tournament_id == tournament_id)
-    ).all()))
-    match_number = existing_count + 1
-
-    db_match = MatchDB(
-        squad_id=squad.id,
-        date=t.date,
-        opponent=body.opponent,
-        quarters=quarters,
-        quarter_length_mins=quarter_length_mins,
-        team_size=t.team_size,
-        formation=t.formation,
-        show_timer=t.show_timer,
-        fairness=fairness,
-        fairness_value=fv,
-        rotation_intensity=t.rotation_intensity,
-        share_gk=t.share_gk,
-        max_subs=t.max_subs,
-        home_away="home",
-        tournament_id=tournament_id,
-        tournament_stage=body.stage,
-        match_number=match_number,
-    )
-    session.add(db_match)
-    session.commit()
-    session.refresh(db_match)
-
-    # Load available players (squad + guests for this tournament)
+    Shared by the single- and batch-match endpoints so both validate identically.
+    Raises HTTPException (422/400) on a bad config or too few players.
+    """
     all_players = get_players(session, squad.id)
-    available_ids = set(body.available_player_ids)
+    available_ids = set(available_player_ids)
     players_db = [p for p in all_players if p.id in available_ids]
     position_overrides = get_position_overrides(t)
     if position_overrides:
         players_db = tournament_service.apply_position_overrides(players_db, position_overrides)
 
+    quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
     total_duration = quarters * quarter_length_mins
     try:
         config = build_tournament_config(
@@ -695,9 +661,120 @@ def add_tournament_match(
             status_code=400,
             detail=f"Need at least {config.players_per_slot} players for {t.team_size}v{t.team_size}",
         )
+    return players_db, config
+
+
+def _create_and_generate_match(
+    session: Session,
+    t: TournamentDB,
+    squad: SquadDB,
+    players_db: list[PlayerDB],
+    *,
+    opponent: str,
+    stage: str,
+    knockout_fairness_value: int | None,
+) -> dict[str, Any]:
+    """Create one tournament match row and generate + save its rotation.
+
+    Committing before generation means the next match in a batch sees this one's
+    slots for cross-match fairness (``prior_slots``) — identical to the old
+    one-request-per-match flow, just without the network round-trips.
+    """
+    quarters, quarter_length_mins = tournament_service.derive_period_structure(t)
+    fv, fairness = tournament_service.resolve_fairness(t, stage, knockout_fairness_value)
+
+    # Auto-assign match_number from the current match count (grows as a batch runs)
+    existing_count = len(list(session.exec(
+        select(MatchDB).where(MatchDB.tournament_id == t.id)
+    ).all()))
+    match_number = existing_count + 1
+
+    db_match = MatchDB(
+        squad_id=squad.id,
+        date=t.date,
+        opponent=opponent,
+        quarters=quarters,
+        quarter_length_mins=quarter_length_mins,
+        team_size=t.team_size,
+        formation=t.formation,
+        show_timer=t.show_timer,
+        fairness=fairness,
+        fairness_value=fv,
+        rotation_intensity=t.rotation_intensity,
+        share_gk=t.share_gk,
+        max_subs=t.max_subs,
+        home_away="home",
+        tournament_id=t.id,
+        tournament_stage=stage,
+        match_number=match_number,
+    )
+    session.add(db_match)
+    session.commit()
+    session.refresh(db_match)
 
     match_service.generate_and_save_rotation(session, db_match, players_db)
 
     id_to_player = {p.id: p for p in players_db if p.id is not None}
     plan_data = build_plan_response(session, db_match.id, id_to_player)
     return _match_response(db_match, plan_data["slots"], plan_data["warnings"])
+
+
+@router.post("/{tournament_id}/matches")
+def add_tournament_match(
+    tournament_id: int,
+    body: TournamentMatchCreate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> dict[str, Any]:
+    """Create a match for this tournament and immediately generate its rotation."""
+    t = owned_tournament(tournament_id, squad, session)
+    players_db, _ = _resolve_tournament_players(session, t, squad, body.available_player_ids)
+    return _create_and_generate_match(
+        session, t, squad, players_db,
+        opponent=body.opponent,
+        stage=body.stage,
+        knockout_fairness_value=body.knockout_fairness_value,
+    )
+
+
+class TournamentMatchBatchCreate(BaseModel):
+    count: int                         # how many group matches to create
+    available_player_ids: list[int]    # required: coach must select players
+    stage: str = "group"
+
+
+@router.post("/{tournament_id}/matches/batch")
+def add_tournament_matches_batch(
+    tournament_id: int,
+    body: TournamentMatchBatchCreate,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> dict[str, Any]:
+    """Create + generate several matches in one request.
+
+    Replaces the frontend's one-HTTP-request-per-match loop: the same ordered,
+    prior-slot-aware generation runs server-side, so a whole tournament is set up
+    in a single round-trip instead of N. Players/config are validated once up
+    front so a bad request can't leave orphan match rows behind.
+    """
+    if body.count < 1 or body.count > 30:
+        raise HTTPException(status_code=422, detail="count must be between 1 and 30")
+
+    t = owned_tournament(tournament_id, squad, session)
+    # Validate once — every match in the batch shares these players + config.
+    players_db, _ = _resolve_tournament_players(session, t, squad, body.available_player_ids)
+
+    matches = []
+    for _ in range(body.count):
+        # Opponent auto-named "Match N" from the running match number (parity with
+        # the previous per-match frontend naming).
+        match_number = len(list(session.exec(
+            select(MatchDB).where(MatchDB.tournament_id == tournament_id)
+        ).all())) + 1
+        matches.append(_create_and_generate_match(
+            session, t, squad, players_db,
+            opponent=f"Match {match_number}",
+            stage=body.stage,
+            knockout_fairness_value=None,
+        ))
+    return {"matches": matches, "count": len(matches)}
