@@ -178,6 +178,12 @@ def test_invite_a_friend_creates_a_redeemable_one_time_link(clients):
     assert body["expires_in_days"] == 14
     token = body["link"].split("invite=")[1]
 
+    # The admin portal can see who created it (attribution).
+    admin = coach.get("/api/admin/invites", headers={"X-Admin-Key": ADMIN}).json()
+    mine = next(i for i in admin if i["note"] == "friend invite from coach@example.com")
+    assert mine["created_by"] == "coach@example.com"
+    assert mine["invited_by_account_id"] is not None
+
     # ...a new coach redeems it into their own separate account...
     friend = clients()
     assert friend.post(

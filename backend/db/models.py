@@ -47,6 +47,7 @@ class InviteDB(SQLModel, table=True):
     expires_at: str = ""  # ISO datetime, e.g. +14 days
     redeemed_at: str | None = None
     note: str = ""  # free text, e.g. "Dave – U10s"
+    invited_by_account_id: int | None = None  # coach self-service invites; None = admin-minted
 
 
 # A one-time magic-link login token — hashed, short-lived, single-use. Same shape

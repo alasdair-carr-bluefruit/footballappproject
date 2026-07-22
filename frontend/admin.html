@@ -92,7 +92,7 @@
       </div>
       <div class="msg" id="list-msg"></div>
       <table id="invite-table" class="hide">
-        <thead><tr><th>Note</th><th>Created</th><th>Expires</th><th>Status</th></tr></thead>
+        <thead><tr><th>Note</th><th>Created by</th><th>Created</th><th>Expires</th><th>Status</th></tr></thead>
         <tbody id="invite-rows"></tbody>
       </table>
     </div>
@@ -211,7 +211,11 @@
           const status = inv.redeemed
             ? '<span class="pill redeemed">redeemed</span>'
             : '<span class="pill pending">pending</span>';
-          tr.innerHTML = "<td>" + (inv.note || "—") + "</td><td>" + fmt(inv.created_at) +
+          const createdBy = inv.created_by === "admin"
+            ? '<span class="pill">admin</span>'
+            : (inv.created_by || "—");
+          tr.innerHTML = "<td>" + (inv.note || "—") + "</td><td>" + createdBy +
+                         "</td><td>" + fmt(inv.created_at) +
                          "</td><td>" + fmt(inv.expires_at) + "</td><td>" + status + "</td>";
           rows.appendChild(tr);
         }

@@ -366,6 +366,7 @@ def invite_a_friend(
         created_at=now_iso(),
         expires_at=iso_in(days=INVITE_TTL_DAYS),
         note=f"friend invite from {account.email}",
+        invited_by_account_id=account.id,
     )
     session.add(invite)
     session.commit()

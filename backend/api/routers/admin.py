@@ -71,6 +71,8 @@ def create_invite(body: InviteCreate, session: Session = Depends(get_session)) -
 def list_invites(session: Session = Depends(get_session)) -> list[dict]:
     """List invites (status only — never the token) so you can see who's outstanding."""
     invites = session.exec(select(InviteDB).order_by(InviteDB.id.desc())).all()  # type: ignore[attr-defined]
+    # Resolve inviter account ids → emails so the portal shows who created each.
+    email_by_id = {a.id: a.email for a in session.exec(select(AccountDB)).all()}
     return [
         {
             "id": inv.id,
@@ -80,6 +82,10 @@ def list_invites(session: Session = Depends(get_session)) -> list[dict]:
             "redeemed": inv.redeemed_at is not None,
             "redeemed_at": inv.redeemed_at,
             "account_id": inv.account_id,
+            "invited_by_account_id": inv.invited_by_account_id,
+            # "admin" for admin-minted invites; the coach's email for self-service ones.
+            "created_by": email_by_id.get(inv.invited_by_account_id, "admin")
+            if inv.invited_by_account_id else "admin",
         }
         for inv in invites
     ]
