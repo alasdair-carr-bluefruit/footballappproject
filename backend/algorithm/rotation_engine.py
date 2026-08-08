@@ -16,7 +16,7 @@ from collections import defaultdict
 from backend.algorithm.gk_selector import select_gk_for_slots
 from backend.algorithm.skill_balancer import balance_skills
 from backend.algorithm.time_balancer import compute_target_slots
-from backend.algorithm.validator import validate
+from backend.algorithm.validator import soft_warnings, validate
 from backend.models.game_config import DEFAULT_CONFIG, GameConfig
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier, Player
@@ -31,6 +31,15 @@ from backend.models.rotation import (
 
 def _resolve_config(match: Match) -> GameConfig:
     return match.game_config or DEFAULT_CONFIG
+
+
+def _fairness_value_for(match: Match) -> int:
+    """The 0-100 slider position, deriving one for matches that only carry the
+    legacy `fairness` string."""
+    fairness_value = getattr(match, "fairness_value", 0)
+    if fairness_value == 0 and match.fairness == "competitive":
+        fairness_value = 60
+    return fairness_value
 
 
 def generate_rotation(
@@ -87,10 +96,7 @@ def generate_rotation(
     # Step 2: Compute target slot counts per player
     total_player_slots = num_slots * config.players_per_slot
     # Parse fairness_value from the slider (stored as 0-100 on match)
-    fairness_value = getattr(match, "fairness_value", 0)
-    # If match only has string fairness, derive a value
-    if fairness_value == 0 and match.fairness == "competitive":
-        fairness_value = 60
+    fairness_value = _fairness_value_for(match)
 
     # Pre-allocate specialist GK slots so the time balancer distributes
     # only the remaining outfield slots among non-specialist players.
@@ -144,10 +150,11 @@ def generate_rotation(
     if rotation_intensity < 70:
         plan = _align_mid_quarter_positions(plan, config)
 
-    # Step 5: Validate
+    # Step 5: Validate — hard violations first, then the soft coaching flags
     violations = validate(plan, players, config, previous_match_zero_slot_players)
     if violations:
         plan.warnings.extend(["VIOLATION: " + v for v in violations])
+    plan.warnings.extend(soft_warnings(plan, players, config, fairness_value))
 
     return plan
 
@@ -203,16 +210,16 @@ def adjust_rotation(
         # Everything is locked — just validate and return
         plan = RotationPlan(slots=new_slots, warnings=list(original_plan.warnings))
         violations = validate(plan, players, config, previous_match_zero_slot_players)
-        if violations:
-            plan.warnings = ["VIOLATION: " + v for v in violations]
+        plan.warnings = ["VIOLATION: " + v for v in violations]
+        plan.warnings.extend(
+            soft_warnings(plan, players, config, _fairness_value_for(match))
+        )
         return plan, _fairness_diff(original_counts, plan, players)
 
     rotation_intensity = match.rotation_intensity
     num_slots = config.total_slots
     total_player_slots = num_slots * config.players_per_slot
-    fairness_value = getattr(match, "fairness_value", 0)
-    if fairness_value == 0 and match.fairness == "competitive":
-        fairness_value = 60
+    fairness_value = _fairness_value_for(match)
 
     gk_assignments_orig, _ = select_gk_for_slots(
         players, num_slots, squad_size=len(players),
@@ -272,6 +279,7 @@ def adjust_rotation(
     violations = validate(plan, players, config, previous_match_zero_slot_players)
     if violations:
         plan.warnings.extend(["VIOLATION: " + v for v in violations])
+    plan.warnings.extend(soft_warnings(plan, players, config, fairness_value))
 
     fairness_warnings = _fairness_diff(original_counts, plan, players)
     return plan, fairness_warnings

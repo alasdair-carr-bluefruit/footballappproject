@@ -107,6 +107,10 @@ def _rotation_response(m: MatchDB, slots: list[Any], warnings: list[str]) -> dic
             "team_size": m.team_size,
             "formation": m.formation,
             "fairness": m.fairness,
+            # Needed by the review screen: the game-time-gap flag widens its
+            # threshold and softens its wording as the coach moves the slider
+            # towards competitive (see validator.slot_spread_tolerance).
+            "fairness_value": m.fairness_value,
             "rotation_intensity": m.rotation_intensity,
             "share_gk": m.share_gk,
             "period_label": period_label,

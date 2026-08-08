@@ -104,6 +104,168 @@ function underSlotted(md = state.matchData) {
   return { items: counts.filter(c => c.count < fairShare - 1), fairShare };
 }
 
+// ── Plan flags ────────────────────────────────────────────────────────────────
+// Three things a coach should see before kick-off, derived from the plan the API
+// returned. Mirrors `backend/algorithm/validator.soft_warnings` — the backend
+// copy is the tested domain rule and the persisted record, this one exists
+// because the UI needs structured, per-player data (which rows to mark, which
+// chips to outline), not prose. Keep these in step with validator.py if you
+// change them: MAX_BENCH_STREAK / MIN_NOTABLE_SPREAD / slot_spread_tolerance().
+const MAX_BENCH_STREAK = 2;    // more than this many slots in a row on the bench
+const MIN_NOTABLE_SPREAD = 2;  // most-used minus least-used, in slots
+const EQUAL_FAIRNESS_MAX = 15; // slider at or below this = the coach wants equal play
+
+// How wide a game-time gap the slider says the coach is asking for. Equal → 1;
+// widens towards competitive, and scales with match length so a 4-slot 9v9 isn't
+// held to a stricter standard than an 8-slot quarters match.
+function slotSpreadTolerance(fairnessValue, totalSlots) {
+  if (fairnessValue <= EQUAL_FAIRNESS_MAX) return 1;
+  const reach = Math.max(1, Math.floor(totalSlots / 3));
+  const frac = (Math.min(100, fairnessValue) - EQUAL_FAIRNESS_MAX) / (100 - EQUAL_FAIRNESS_MAX);
+  return 1 + Math.max(1, Math.round(frac * reach));
+}
+
+function planFlags(md = state.matchData) {
+  const { players, perSlot, slotLabels, totalSlots } = planGridData(md);
+  const empty = { outOfPos: [], benched: [], spread: null, names: new Set(), any: false };
+  if (!players.length) return empty;
+
+  // 1. Out of position — a player used in a type they didn't pick. An empty
+  //    picks list means "happy anywhere", so it never flags.
+  const outOfPos = [];
+  players.forEach(p => {
+    const prefs = p.preferred_positions || [];
+    if (!prefs.length) return;
+    const counts = {};
+    perSlot[p.name].forEach(pos => {
+      if (pos && !prefs.includes(pos)) counts[pos] = (counts[pos] || 0) + 1;
+    });
+    Object.entries(counts).sort().forEach(([pos, count]) => {
+      outOfPos.push({ name: p.name, pos, count, prefs });
+    });
+  });
+
+  // 2. Long bench spell — an unbroken run of more than MAX_BENCH_STREAK slots off.
+  const benched = [];
+  players.forEach(p => {
+    const on = perSlot[p.name];
+    let streak = 0, longest = 0, start = 0;
+    on.forEach((pos, i) => {
+      if (pos) { streak = 0; return; }
+      streak += 1;
+      if (streak > longest) { longest = streak; start = i - streak + 1; }
+    });
+    if (longest > MAX_BENCH_STREAK) {
+      benched.push({
+        name: p.name, streak: longest,
+        from: slotLabels[start], to: slotLabels[start + longest - 1],
+      });
+    }
+  });
+
+  // 3. Game-time gap between the most- and least-used player. Reported in one of
+  //    two tones: over what the slider asked for it's a warning; within it, on a
+  //    competitive setting, it's the cost of a choice the coach already made.
+  const counts = players.map(p => ({ name: p.name, count: slotCountForPlayer(p.name, md) }));
+  const most = Math.max(...counts.map(c => c.count));
+  const fewest = Math.min(...counts.map(c => c.count));
+  const gap = most - fewest;
+  const fairnessValue = md.match.fairness_value ?? 0;
+  const spread = gap >= MIN_NOTABLE_SPREAD
+    ? {
+        gap, most, fewest, totalSlots,
+        short: counts.filter(c => c.count === fewest).map(c => c.name),
+        expected: gap <= slotSpreadTolerance(fairnessValue, totalSlots),
+      }
+    : null;
+
+  const names = new Set([
+    ...outOfPos.map(o => o.name),
+    ...benched.map(b => b.name),
+    ...(spread ? spread.short : []),
+  ]);
+  // "info" when the only thing to report is a gap the coach asked for — the
+  // banner then states a consequence rather than raising an alarm.
+  const level = (outOfPos.length || benched.length || (spread && !spread.expected))
+    ? "warn"
+    : "info";
+  return { outOfPos, benched, spread, names, level, any: names.size > 0 };
+}
+
+// Coach-facing lines for the warning banner. Deliberately plain and specific —
+// no "violation", no scolding: the coach may well have meant to do this (a
+// competitive plan is a legitimate choice), they just need to see it.
+// Past this many out-of-position lines the banner stops being a warning and
+// starts being a wall the coach scrolls past. Only THIS group is capped — a
+// squeezed squad can produce one line per player, whereas the bench and
+// game-time flags are few and are the ones that make a plan unfair, so they
+// always show in full.
+const MAX_OFF_PREF_LINES = 5;
+
+function _andList(items) {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+function planFlagLines(flags) {
+  // One line per player, not per player+position.
+  const byPlayer = new Map();
+  flags.outOfPos.forEach(o => {
+    if (!byPlayer.has(o.name)) byPlayer.set(o.name, { count: 0, positions: [], prefs: o.prefs });
+    const entry = byPlayer.get(o.name);
+    entry.count += o.count;
+    entry.positions.push(displayPos(o.pos));
+  });
+  const offPref = [...byPlayer.entries()].map(([name, { count, positions, prefs }]) =>
+    `<b>${name}</b> plays ${_andList(positions)} for ${count} slot${count !== 1 ? "s" : ""} — they only picked ${_andList(prefs.map(displayPos))}`
+  );
+  const lines = offPref.slice(0, MAX_OFF_PREF_LINES);
+  if (offPref.length > lines.length) {
+    lines.push(
+      `<span class="review-warning-more">+${offPref.length - lines.length} more out of position — dashed cells in the grid below</span>`
+    );
+  }
+
+  flags.benched.forEach(b => lines.push(
+    `<b>${b.name}</b> sits out ${b.streak} slots in a row (${b.from}–${b.to})`
+  ));
+
+  if (flags.spread) {
+    const s = flags.spread;
+    const who = `<b>${_andList(s.short)}</b> play${s.short.length === 1 ? "s" : ""} ${s.fewest} of ${s.totalSlots} slots`;
+    lines.push(s.expected
+      // The coach moved the slider here on purpose — state the cost, don't scold.
+      ? `<span class="review-warning-expected">As you'd expect on a competitive plan: ${who}, a ${s.gap}-slot gap to the most-used player (${s.most}).</span>`
+      : `${who} — a ${s.gap}-slot gap to the most-used player (${s.most})`);
+  }
+  return lines;
+}
+
+// Renders the flags into `el` (a .review-warning container). Returns true if
+// anything was shown. Shared by the season review screen and each tournament
+// review card so the two flows can't drift.
+function renderPlanFlags(el, flags, { compact = false } = {}) {
+  const lines = planFlagLines(flags);
+  if (!lines.length) { el.hidden = true; el.innerHTML = ""; return false; }
+  const info = flags.level === "info";
+  const head = info
+    ? "Competitive plan — how the time falls"
+    : compact
+      ? `⚠ ${lines.length} thing${lines.length !== 1 ? "s" : ""} to check`
+      : "⚠ Worth a look before kick-off";
+  el.classList.toggle("review-warning-info", info);
+  // The "why" only belongs on the warning tone, and only on the full-size
+  // banner — on an info card it would read as a rebuke for a setting the coach
+  // chose, and on a stacked tournament card it would repeat per match.
+  const why = (!info && !compact)
+    ? `<span class="review-warning-why">The FA lists lack of playing time as the number one reason children drop out of football.</span>`
+    : "";
+  el.innerHTML = `<span class="review-warning-head">${head}</span>` +
+    lines.map(l => `<span class="review-warning-item">${l}</span>`).join("") + why;
+  el.hidden = false;
+  return true;
+}
+
 // Fills `listEl` (a <ul>) with the per-player grid for `md`. Options:
 //   underSlotted: Set<name> — rows to flag with a ⚠ marker
 //   markChanges:  bool       — highlight chips where the position changed vs the
@@ -112,15 +274,18 @@ function buildPlanGrid(listEl, md = state.matchData, opts = {}) {
   const { players, perSlot, slotLabels } = planGridData(md);
   const flagged = opts.underSlotted || new Set();
 
-  players.forEach(({ name }) => {
+  players.forEach(({ name, preferred_positions }) => {
     const slots = perSlot[name];
     const count = slots.filter(Boolean).length;
     const goals = state.goalCounts[name] || 0;
+    const prefs = preferred_positions || [];
 
     const chipsHtml = slots.map((pos, i) => {
       const changed = opts.markChanges && i > 0 && pos !== slots[i - 1] ? " chip-changed" : "";
       if (!pos) return `<span class="slot-chip bench${changed}" title="${slotLabels[i]}">–</span>`;
-      return `<span class="slot-chip pos-${pos.toLowerCase()}${changed}" title="${slotLabels[i]}: ${displayPos(pos)}">
+      const offPref = prefs.length && !prefs.includes(pos) ? " chip-offpref" : "";
+      const note = offPref ? ` — not a position ${name} picked` : "";
+      return `<span class="slot-chip pos-${pos.toLowerCase()}${changed}${offPref}" title="${slotLabels[i]}: ${displayPos(pos)}${note}">
         <span class="chip-quarter">${slotLabels[i]}</span>
         <span class="chip-pos">${displayPos(pos)}</span>
       </span>`;
@@ -222,7 +387,10 @@ function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
         const prev = i > 0 ? md.slots[i - 1].lineup[posKey]?.name : p.name;
         const changed = opts.markChanges && i > 0 && prev !== p.name ? " chip-changed" : "";
         const under = flagged.has(p.name) ? " under" : "";
-        grid.appendChild(cell(`plan-cell pos-${band}${changed}${under}`, playerToken(p.name), p.name));
+        const prefs = p.preferred_positions || [];
+        const offPref = prefs.length && !prefs.includes(normalizePos(posKey)) ? " chip-offpref" : "";
+        const title = offPref ? `${p.name} — ${displayPos(posKey)} isn't a position they picked` : p.name;
+        grid.appendChild(cell(`plan-cell pos-${band}${changed}${under}${offPref}`, playerToken(p.name), title));
       }
     });
 
@@ -894,21 +1062,11 @@ function renderReview() {
 
   const grid = document.getElementById("review-grid");
   grid.innerHTML = "";
-  const under = underSlotted(state.matchData);
-  const flagged = new Set(under.items.map(i => i.name));
-  buildPositionGrid(grid, state.matchData, { markChanges: true, underSlotted: flagged });
-  grid.appendChild(buildCountsStrip(state.matchData, flagged));
+  const flags = planFlags(state.matchData);
+  buildPositionGrid(grid, state.matchData, { markChanges: true, underSlotted: flags.names });
+  grid.appendChild(buildCountsStrip(state.matchData, flags.names));
 
-  const warn = document.getElementById("review-warning");
-  if (under.items.length) {
-    warn.innerHTML = `<span class="review-warning-head">⚠ Uneven playing time</span>` +
-      under.items.map(i =>
-        `<span class="review-warning-item">${i.name}: ${i.count} slot${i.count !== 1 ? "s" : ""} (below the ~${under.fairShare} fair share)</span>`
-      ).join("");
-    warn.hidden = false;
-  } else {
-    warn.hidden = true;
-  }
+  renderPlanFlags(document.getElementById("review-warning"), flags);
 }
 
 // Builds one match's review card (header + optional warning + grid + Open button)
@@ -916,21 +1074,18 @@ function renderReview() {
 function buildReviewCard(md, { title, onOpen }) {
   const card = document.createElement("div");
   card.className = "review-card";
-  const under = underSlotted(md);
-  const warnHtml = under.items.length
-    ? `<div class="review-warning review-warning-card"><span class="review-warning-head">⚠ Uneven time</span>` +
-      under.items.map(i => `<span class="review-warning-item">${i.name}: ${i.count}</span>`).join("") + `</div>`
-    : "";
+  const flags = planFlags(md);
   card.innerHTML = `
     <div class="review-card-head">
       <span class="review-card-title">${title}</span>
       <button class="btn btn-sm btn-secondary review-open-btn" type="button">Open ▶</button>
     </div>
-    ${warnHtml}
+    <div class="review-warning review-warning-card" hidden></div>
     <div class="review-card-grid"></div>
   `;
+  renderPlanFlags(card.querySelector(".review-warning"), flags, { compact: true });
   buildPositionGrid(card.querySelector(".review-card-grid"), md,
-    { markChanges: true, underSlotted: new Set(under.items.map(i => i.name)) });
+    { markChanges: true, underSlotted: flags.names });
   card.querySelector(".review-open-btn").addEventListener("click", onOpen);
   return card;
 }
@@ -1535,13 +1690,18 @@ function fillFairnessList(warnings) {
   });
 }
 
-// Non-blocking: after a local tinker edit or a recalculate, flag any player now
-// below fair share (bug #3 heuristic). The edit already applied — this only warns.
+// Non-blocking: after a local tinker edit or a recalculate, surface anything the
+// edit just introduced — someone out of position, a long bench spell, or a widened
+// game-time gap. The edit has already applied; this only tells the coach.
 function warnIfUnderSlotted() {
-  const under = underSlotted();
-  if (under.items.length === 0) return;
-  const names = under.items.map(i => i.name).join(", ");
-  showToast(`⚠ Uneven playing time: ${names}`, { duration: 5000 });
+  const flags = planFlags();
+  if (!flags.any) return;
+  const lines = planFlagLines(flags);
+  const summary = lines.length === 1
+    ? lines[0].replace(/<[^>]+>/g, "")
+    : `${lines.length} things to check — see the plan review`;
+  // No alarm marker when the only thing to report is a gap the coach asked for.
+  showToast(flags.level === "info" ? summary : `⚠ ${summary}`, { duration: 6000 });
 }
 
 // Informational variant: the recalculation has already been applied (e.g. after

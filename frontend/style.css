@@ -929,24 +929,68 @@ html, body {
 .plan-count-chip.under { background: color-mix(in srgb, var(--amber) 18%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 55%, transparent); }
 
 /* Under-slotted / uneven-time warning banner */
+/* Pre-kick-off plan flags. Loud on purpose: an unfair or unintended line-up is
+   the one thing a coach must not scroll past. Amber, not red — none of this is
+   an error, and a competitive plan is a legitimate choice. */
 .review-warning {
   margin: 10px 16px 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--amber) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 50%, transparent);
+  background: color-mix(in srgb, var(--amber) 20%, transparent);
+  border: 2px solid var(--trophy-amber);
+  border-left-width: 6px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 12px;
+  gap: 5px;
+  font-size: 13px;
 }
-.review-warning-head { font-weight: 700; color: var(--trophy-amber); }
-.review-warning-item { color: var(--text-dim); }
-.review-warning-card { margin: 0 0 10px; }
+.review-warning-head {
+  font-weight: 700;
+  color: var(--trophy-amber);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.review-warning-item { color: var(--text); line-height: 1.45; }
+.review-warning-item b { color: var(--trophy-amber); font-weight: 700; }
+.review-warning-more { color: var(--text-dim); font-style: italic; }
+.review-warning-expected { color: var(--text-dim); }
+/* The "why" footnote under the warning tone — quiet, and separated from the
+   per-player lines so it never reads as another thing to fix. */
+.review-warning-why {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--trophy-amber) 30%, transparent);
+}
+/* Informational variant: the only thing to report is a game-time gap the coach
+   deliberately asked for via the slider. Same shape, much quieter — no alarm
+   colour, no uppercase shout. */
+.review-warning-info {
+  background: rgba(255,255,255,0.05);
+  border-color: color-mix(in srgb, var(--text-dim) 40%, transparent);
+  border-left-width: 6px;
+}
+.review-warning-info .review-warning-head {
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.review-warning-card { margin: 0 0 10px; font-size: 12px; }
+.review-warning-card .review-warning-head { font-size: 12px; }
 
 /* Per-player row flag + chip highlight (shared report grid) */
 .report-row-under { box-shadow: inset 3px 0 0 var(--trophy-amber); }
 .report-under-mark { color: var(--trophy-amber); margin-right: 4px; }
+/* A cell where the player is in a position they didn't pick — dashed amber so it
+   reads as "check this", distinct from the solid .chip-changed sub marker. */
+.slot-chip.chip-offpref,
+.plan-cell.chip-offpref {
+  outline: 2px dashed var(--trophy-amber);
+  outline-offset: -2px;
+  font-weight: 700;
+}
 .slot-chip.chip-changed { outline: 1.5px solid color-mix(in srgb, var(--chalk) 80%, transparent); outline-offset: -1.5px; }
 
 /* Combined tournament review — one card per match */
@@ -3139,6 +3183,16 @@ html, body {
 .form-hint-warning {
   color: var(--amber);
   margin-top: 4px;
+}
+
+/* Standing note under the fairness slider (season + tournament). Always shown,
+   never an alarm — it explains what the equal end is for, without arguing with
+   a coach who has deliberately slid towards competitive. */
+.fairness-fa-note {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  margin: 6px 0 0;
 }
 
 .inline-pair {

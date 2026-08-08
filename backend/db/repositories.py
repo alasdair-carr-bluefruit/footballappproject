@@ -343,6 +343,10 @@ def _plan_response_from_data(
             "name": p.name,
             "gk_status": p.gk_status,
             "def_restricted": p.def_restricted,
+            # Carried so the review screen can mark out-of-position chips without
+            # a second /squad/players round-trip (the tournament review stacks
+            # several matches at once).
+            "preferred_positions": json.loads(p.preferred_positions or "[]"),
         }
 
     slots = []

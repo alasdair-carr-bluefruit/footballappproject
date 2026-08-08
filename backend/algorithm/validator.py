@@ -1,7 +1,14 @@
 """Rotation plan validator.
 
-Checks hard constraints and returns a list of violation messages.
-Empty list = plan is valid.
+Two separate concerns live here:
+
+* ``validate()`` — HARD constraints. Anything it returns is a rule the engine
+  was not supposed to break; callers prefix these with "VIOLATION: ".
+* ``soft_warnings()`` — plan-QUALITY flags. The plan is legal but the coach
+  should see it before kick-off: a player stuck in a position they didn't pick,
+  a long unbroken spell on the bench, or a wide spread in total game time.
+  These are informational — they never block a plan, and in competitive mode
+  the spread flag is the expected, opted-into cost of the fairness slider.
 """
 from __future__ import annotations
 
@@ -33,6 +40,157 @@ def validate(
     violations += _check_specialist_never_outfield(plan, all_players)
     violations += _check_consecutive_sit_out(plan, all_players, previous_match_zero_slot_players)
     return violations
+
+
+# A bench spell longer than this many consecutive slots gets flagged. Two slots
+# is one full period off in a quarters match — normal rotation. Three is a kid
+# standing on the touchline long enough to notice.
+MAX_BENCH_STREAK = 2
+
+# A game-time gap this wide is worth mentioning even when the coach asked for a
+# competitive plan — below it, ordinary rotation noise.
+MIN_NOTABLE_SPREAD = 2
+
+# The slider value at or below which the coach is asking for equal play. Matches
+# the same boundary in `time_balancer.compute_target_slots`.
+EQUAL_FAIRNESS_MAX = 15
+
+
+def slot_spread_tolerance(fairness_value: int, total_slots: int) -> int:
+    """Game-time spread (most slots minus fewest) tolerated before it's a warning.
+
+    The fairness slider IS the coach telling us how even they want the match to
+    be, so it sets this threshold. On equal, any real gap is a surprise. Towards
+    competitive, a gap is the entire point of the setting — warning about it
+    every time is how you train someone to ignore a banner.
+
+    Also scales with match length: two slots is a quarter of an 8-slot match but
+    half of a 4-slot 9v9, so a fixed number would be far stricter on the short
+    format.
+
+        8 slots: equal → 1, competitive → 2, max competitive → 3
+        4 slots: equal → 1, competitive → 2
+
+    Deliberately tighter than the hard `_check_playing_time_equality` tolerance:
+    that one only fires on a plan that is broken, this on a plan worth a look.
+    """
+    if fairness_value <= EQUAL_FAIRNESS_MAX:
+        return 1
+    reach = max(1, total_slots // 3)
+    frac = (min(100, fairness_value) - EQUAL_FAIRNESS_MAX) / (100 - EQUAL_FAIRNESS_MAX)
+    return 1 + max(1, round(frac * reach))
+
+
+def soft_warnings(
+    plan: RotationPlan,
+    all_players: list,
+    config: GameConfig | None = None,
+    fairness_value: int = 0,
+) -> list:
+    """Return non-blocking plan-quality warnings. Empty list = nothing to flag.
+
+    Kept separate from `validate()` so hard violations and coaching flags never
+    get mixed into one undifferentiated list.
+
+    `fairness_value` is the 0-100 slider position. It widens the game-time gap
+    the coach is taken to have asked for, and changes how that gap is reported —
+    a gap the coach chose is stated as a consequence, not a warning. It does not
+    touch the other two checks: a child in a position they didn't pick, or stood
+    on the touchline three slots running, is worth flagging whatever the slider
+    says.
+    """
+    warnings: list = []
+    warnings += _warn_out_of_preference(plan, all_players)
+    warnings += _warn_bench_streak(plan, all_players)
+    warnings += _warn_slot_spread(plan, all_players, fairness_value)
+    return warnings
+
+
+def _warn_out_of_preference(plan: RotationPlan, players: list) -> list:
+    """Flag players used in a position type they did not pick.
+
+    `preferred_positions` is a soft constraint — the position assigner falls back
+    to any eligible player when a preferred pool empties (see
+    `_assign_outfield_positions.pool_for`), so this fires more often in squads
+    where everyone picked the same position. Aggregated per player+position type
+    rather than per slot, otherwise a squeezed squad produces dozens of lines.
+    """
+    warnings = []
+    for player in players:
+        prefs = list(player.preferred_positions or [])
+        if not prefs:
+            continue  # no picks recorded = happy anywhere
+        counts: dict[str, int] = {}
+        for slot in plan.slots:
+            for pos, p in slot.lineup.items():
+                if p is not player:
+                    continue
+                norm = normalize_position(pos)
+                if norm not in prefs:
+                    counts[norm] = counts.get(norm, 0) + 1
+        for norm, count in sorted(counts.items()):
+            warnings.append(
+                f"Out of position: {player.name} plays {norm} in {count} "
+                f"slot{'s' if count != 1 else ''} but only picked "
+                f"{', '.join(prefs)}"
+            )
+    return warnings
+
+
+def _warn_bench_streak(plan: RotationPlan, players: list) -> list:
+    """Flag any unbroken run of more than MAX_BENCH_STREAK slots on the bench."""
+    warnings = []
+    total = len(plan.slots)
+    for player in players:
+        on = [player in slot.players for slot in plan.slots]
+        streak = 0
+        longest = 0
+        start_of_longest = 0
+        for i, playing in enumerate(on):
+            if playing:
+                streak = 0
+                continue
+            streak += 1
+            if streak > longest:
+                longest = streak
+                start_of_longest = i - streak + 1
+        if longest > MAX_BENCH_STREAK:
+            warnings.append(
+                f"Long bench spell: {player.name} sits out {longest} slots in a "
+                f"row (slots {start_of_longest + 1}-{start_of_longest + longest} "
+                f"of {total})"
+            )
+    return warnings
+
+
+def _warn_slot_spread(plan: RotationPlan, players: list, fairness_value: int = 0) -> list:
+    """Report the gap between the most- and least-used players.
+
+    Two outcomes rather than one, because the same gap means different things
+    depending on the slider. Over tolerance it's a warning — the plan is more
+    uneven than the coach asked for. Within tolerance but still notable, on a
+    competitive setting, it's stated as the cost of a choice already made
+    ("Expected game-time gap"), so the coach sees who is short without being
+    told off for a setting they deliberately chose.
+    """
+    if not players:
+        return []
+    counts = {p: plan.slot_count_for_player(p) for p in players}
+    most = max(counts.values())
+    fewest = min(counts.values())
+    spread = most - fewest
+    if spread < MIN_NOTABLE_SPREAD:
+        return []
+
+    short = sorted(p.name for p, c in counts.items() if c == fewest)
+    detail = (
+        f"{spread}-slot spread across the squad "
+        f"(most {most}, fewest {fewest} — {', '.join(short)})"
+    )
+    tolerance = slot_spread_tolerance(fairness_value, len(plan.slots))
+    if spread > tolerance:
+        return [f"Uneven game time: {detail}"]
+    return [f"Expected game-time gap: {detail}"]
 
 
 def _check_def_restrictions(plan: RotationPlan, players: list) -> list:
