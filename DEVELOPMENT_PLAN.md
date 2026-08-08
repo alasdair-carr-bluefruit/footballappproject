@@ -145,6 +145,44 @@ draggable coins so a finger-drag swaps instead of scrolling. Tap-to-open-swap-pi
 and long-press-to-score gesture preserved. Shared `pitch.js` path → both flows. *(Touch gesture
 isn't covered by the e2e picker path — needs a real-device check.)*
 
+**Plan-quality flags (pre-kick-off warnings).** ✅ **BUILT (2026-08-07, pending test + push).**
+An audit found the engine already generated `plan.warnings` (incl. hard `VIOLATION:` strings),
+persisted them to `RotationPlanDB.warnings_json` and returned them from the API — and the
+frontend assigned them to `state.matchData.warnings` in three places and **never read them
+back**. Every warning was invisible to the coach. Meanwhile nothing checked position
+preferences or bench streaks at all. Now:
+- `validator.soft_warnings()` — a new, deliberately separate concern from `validate()`'s hard
+  constraints. Three checks: **out of position** (player used in a type they didn't pick,
+  aggregated per player+position), **long bench spell** (`MAX_BENCH_STREAK = 2`, so 3+
+  consecutive slots flags), **game-time gap**. Wired into both `generate_rotation` and
+  `adjust_rotation`.
+- **The game-time gap is slider-aware, in threshold *and* tone.** Audit finding: neither the new
+  flag nor the pre-existing hard `_check_playing_time_equality` read the fairness slider at all —
+  and realised spread *saturates at 2 slots from about fv=30 upward*, so a flat threshold of 2 was
+  effectively binary (silent on equal, always-on for competitive). Now
+  `slot_spread_tolerance(fairness_value, total_slots)`: equal → 1, competitive → 2, max
+  competitive → 3 on an 8-slot match, scaled down for a 4-slot 9v9. Over tolerance → "Uneven game
+  time" warning. Within tolerance but ≥ `MIN_NOTABLE_SPREAD` → "Expected game-time gap", rendered
+  in a quiet grey `.review-warning-info` variant ("Competitive plan — how the time falls"), because
+  a gap the coach deliberately chose should be stated as a consequence, not an alarm. The other two
+  checks stay slider-blind on purpose. `fairness_value` added to the match API response.
+- `preferred_positions` added to the plan response's player dicts so the review screen can
+  mark cells without a second `/squad/players` round-trip.
+- Frontend `planFlags()` / `planFlagLines()` / `renderPlanFlags()` in `pitch.js` — a loud amber
+  banner on the review screen (season **and** each tournament review card) plus dashed-amber
+  `.chip-offpref` outlines on the offending grid cells, and a richer post-tinker toast.
+  Out-of-position lines cap at 5 (`MAX_OFF_PREF_LINES`); bench + game-time lines always show
+  in full, since those are the ones that make a plan unfair.
+- **Copy deliberately avoids "violation"** — competitive is a legitimate choice and the coach
+  may well have meant it; the flags say *look at this*, not *you broke a rule*. The
+  `VIOLATION:` prefix stays internal to the engine and is never rendered.
+- Competitive mode is **unchanged** — still selectable, still just the light-hearted slider
+  quip up front. SW→v48. 12 new unit tests (`tests/unit/algorithm/test_soft_warnings.py`).
+- **Known, not fixed:** `_assign_outfield_positions.pool_for`'s last-resort fallback
+  (`return p if p else unassigned`) drops the *hard* `def_restricted` rule, so a squeezed
+  squad can put a DEF-restricted player at CB. The validator catches it after the fact. Fixing
+  the fallback itself is a separate engine change.
+
 ### 🟠 Tier 2 — Next (retention + product-led growth)
 
 **T2.1 Shareable match-day moments.** The share-image is the viral surface. Progress:
@@ -156,6 +194,32 @@ isn't covered by the e2e picker path — needs a real-device check.)*
 - **Man of the Match on the export** — ⏳ `motm_player_id` (nullable) on `MatchDB`; pick at
   full-time from players who actually played; render on the share image.
 - **Record assists** — ⏳ per-player by id, on-pitch non-scorer, surfaced in stats + export.
+
+**FA-sourced equal-playing-time messaging.** ✅ **BUILT (2026-08-07, pending test + push).** First
+slice of T2.2's content work, on the marketing site + in-app. All figures verified on FA-owned
+domains; non-FA research deliberately excluded.
+- **New page `marketing/why-equal-playing-time.html`** holds the full argument (dropout data,
+  position rotation, how much time is "equal", EPPP, sources list). Article JSON-LD, own canonical/
+  OG, added to `sitemap.xml` (priority 0.8) + `llms.txt`, linked from nav and footer as **"Why it
+  matters"**. Named for the search term rather than "Why Level", which would have collided with
+  the existing `<h2>Why Level</h2>` in `about.html`. **This page is the intended base for the T2.2
+  SEO cornerstone** — expand it there rather than starting a new one.
+- `marketing/index.html` deliberately stays a **product page, not an essay**: it keeps only the
+  compact **trust strip** under the hero CTA (9 in 10 / 52%→26% / #1, each linking its FA source)
+  and a one-line `.why-teaser` pointing at the new page. Footer carries the Respect + Grassroots
+  Code line **with the explicit "independent tool, not an FA product, not endorsed by or
+  affiliated with The FA" disclaimer — keep that sentence.** New CSS: `.trust-strip`, `.reasons`,
+  `.prose blockquote`, `.why-teaser`, `.sources`.
+- **Copy fact to preserve:** it is **four** of the FA's five dropout reasons that are decided by
+  the adult holding the team sheet (1 playing time, 2 winning, 4 fun, 5 adult behaviour) — only
+  "other activities are more interesting" is outside a coach's hands. **Level addresses 1 and 2.**
+- In-app: standing `.fairness-fa-note` under the fairness slider (season **and** tournament),
+  a `.form-hint` under the player position picker, and a `.review-warning-why` footnote under the
+  warning-tone banner only (not the info tone, not the stacked tournament cards).
+- **Accuracy note for future copy:** the U6–U11 / U12–U16 equal-time split is **not an FA
+  mandate** — the source introduces it as "some clubs have adopted the following policy". Say
+  "a policy many clubs adopt, set out in FA county guidance". Sources + the excluded-stats list
+  are in the `reference_fa_equal_playing_time_sources` memory.
 
 **T2.2 FA 2026/27 cornerstone blog + SEO content + reach.** Marketing-site blog
 (`marketing/blog/`, plain HTML, `FAQPage`/`Article` JSON-LD, add to `sitemap.xml`).

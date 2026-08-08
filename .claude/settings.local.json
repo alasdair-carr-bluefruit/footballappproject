@@ -347,7 +347,13 @@
       "Bash(DATABASE_URL=sqlite:///./scratch_migrate.db .venv/bin/python -c ' *)",
       "Bash(awk -F: '{s+=$2} END {print s}')",
       "Bash(ipconfig getifaddr *)",
-      "Bash(git rev-list *)"
+      "Bash(git rev-list *)",
+      "WebFetch(domain:www.thefa.com)",
+      "WebFetch(domain:learn.englandfootball.com)",
+      "Bash(/Users/ali/projects/football-app-project/.venv/bin/python -)",
+      "Bash(uv run --quiet --with pypdf python -c ' *)",
+      "Bash(uv run --quiet --with pdfplumber python -c ' *)",
+      "Bash(pkill -f \"http.server 8899\")"
     ]
   }
 }

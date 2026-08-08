@@ -146,8 +146,61 @@ h2 { font-size: clamp(26px, 4vw, 36px); margin: 0 0 14px; letter-spacing: -0.3px
 .footer-links a:hover { color: var(--signal-lime); }
 .footer .fine { color: var(--muted); font-size: 13px; width: 100%; text-align: center; margin-top: 6px; }
 
+/* ── FA-sourced credibility content ──────────────────── */
+/* Trust strip under the hero CTA: three FA figures, each linking its source. */
+.trust-strip {
+  list-style: none; margin: 44px auto 0; padding: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  max-width: 840px; text-align: center;
+}
+.trust-strip li {
+  padding: 18px 14px; border: 1px solid var(--hairline); border-radius: 12px;
+  background: rgba(255,255,255,0.02);
+}
+.trust-figure {
+  display: block; font-family: var(--mono); font-size: 1.55rem;
+  color: var(--signal-lime); line-height: 1.15; margin-bottom: 8px;
+}
+.trust-label { display: block; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.trust-label a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.trust-label a:hover { color: var(--signal-lime); }
+
+/* One-line evidence pointer on the home page — keeps the argument off the
+   product page while still signalling it exists. */
+.why-teaser { padding: 30px 0; text-align: center; }
+.why-teaser p { margin: 0; color: var(--muted); font-size: 15px; }
+.why-teaser a { color: var(--signal-lime); text-decoration: none; white-space: nowrap; }
+.why-teaser a:hover { text-decoration: underline; }
+
+.sources { padding-left: 20px; color: var(--muted); font-size: 14px; }
+.sources li { margin-bottom: 10px; }
+.sources a { color: var(--muted); }
+.sources a:hover { color: var(--signal-lime); }
+
+/* Numbered dropout-reasons list — #1 carries the argument, so it leads. */
+.reasons { margin: 0 0 20px; padding-left: 22px; }
+.reasons li { margin-bottom: 6px; }
+.reasons li strong { color: var(--signal-lime); }
+
+.prose blockquote {
+  margin: 0 0 20px; border-left: 4px solid var(--signal-lime); padding: 4px 0 4px 22px;
+}
+.prose blockquote p {
+  font-family: var(--mono); font-size: 1.02rem; line-height: 1.55; margin: 0 0 10px;
+}
+.prose blockquote cite { font-style: normal; font-size: 13px; color: var(--muted); }
+.prose blockquote cite a { color: var(--muted); }
+.prose blockquote cite a:hover { color: var(--signal-lime); }
+
+@media (max-width: 720px) {
+  .trust-strip { grid-template-columns: 1fr; gap: 12px; margin-top: 32px; }
+  .trust-strip li { padding: 14px; }
+  .trust-figure { font-size: 1.35rem; }
+}
+
 @media (max-width: 560px) {
   .nav-links { gap: 14px; }
   .nav-links .btn { padding: 9px 16px; font-size: 14px; }
   section { padding: 48px 0; }
+  .prose blockquote p { font-size: 0.96rem; }
 }
