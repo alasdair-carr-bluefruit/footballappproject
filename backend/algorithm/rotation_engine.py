@@ -16,7 +16,7 @@ from collections import defaultdict
 from backend.algorithm.gk_selector import select_gk_for_slots
 from backend.algorithm.skill_balancer import balance_skills
 from backend.algorithm.time_balancer import compute_target_slots
-from backend.algorithm.validator import soft_warnings, validate
+from backend.algorithm.validator import MAX_BENCH_STREAK, soft_warnings, validate
 from backend.models.game_config import DEFAULT_CONFIG, GameConfig
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier, Player
@@ -144,6 +144,9 @@ def generate_rotation(
 
     # Step 4: Skill balance optimisation (soft preference)
     plan = balance_skills(plan, config)
+
+    # Step 4a: Break long bench runs using swaps that leave playing time untouched
+    plan = _break_bench_runs(plan, players, config)
 
     # Step 4b: Restore position consistency — skip only at high rotation.
     # High rotation (70+) intentionally shuffles positions between H1 and H2.
@@ -425,6 +428,180 @@ def _build_slots(
         slots.append(slot)
 
     return RotationPlan(slots=slots)
+
+
+def _players_on_long_runs(plan: RotationPlan, players: list) -> int:
+    """How many players sit out more than MAX_BENCH_STREAK slots in a row."""
+    count = 0
+    for p in players:
+        longest = current = 0
+        for slot in plan.slots:
+            if any(sp is p for sp in slot.players):
+                current = 0
+            else:
+                current += 1
+                longest = max(longest, current)
+        if longest > MAX_BENCH_STREAK:
+            count += 1
+    return count
+
+
+def _bench_run_slots(plan: RotationPlan, player: Player) -> list:
+    """Slot indices making up this player's longest bench run."""
+    best: list = []
+    current: list = []
+    for i, slot in enumerate(plan.slots):
+        if any(sp is player for sp in slot.players):
+            current = []
+        else:
+            current.append(i)
+            if len(current) > len(best):
+                best = list(current)
+    return best
+
+
+def _position_types(plan: RotationPlan, player: Player) -> set:
+    """Distinct normalised position types this player holds across the plan."""
+    return {
+        normalize_position(pos)
+        for slot in plan.slots
+        for pos, pl in slot.lineup.items()
+        if pl is player
+    }
+
+
+def _mid_period_sub_excess(plan: RotationPlan, config: GameConfig) -> int:
+    """Total mid-period changes above the configured sub limit.
+
+    A count rather than a yes/no because ``mid_period_subs`` is a *soft* cap —
+    fielding a full team on fair time legitimately breaches it, so plans arrive
+    here already over budget. Run-breaking swaps are held to "no worse than they
+    found it"; demanding an unbreached plan would disable the pass exactly on the
+    squeezed squads that need it most.
+    """
+    excess = 0
+    for i in range(1, len(plan.slots)):
+        if i % 2 == 0:  # period boundary — a different, looser limit applies
+            continue
+        prev_ids = {id(p) for p in plan.slots[i - 1].players}
+        changes = sum(1 for p in plan.slots[i].players if id(p) not in prev_ids)
+        excess += max(0, changes - config.mid_period_subs)
+    return excess
+
+
+def _eligible_for(player: Player, pos: Position) -> bool:
+    """Position eligibility, including the hard DEF restriction."""
+    if is_def_position(pos) and player.def_restricted:
+        return False
+    return _can_play_position(player, normalize_position(pos))
+
+
+def _break_bench_runs(
+    plan: RotationPlan, players: list, config: GameConfig, locked: set | None = None
+) -> RotationPlan:
+    """Break up long bench runs without moving anyone's total playing time.
+
+    Every change here is a *compensating pair*: if A sits in slot s while B plays,
+    and A plays in slot t while B sits, we exchange them in both slots at once. A
+    gains slot s and loses slot t, B the reverse, so both totals are exactly what
+    they were — the fix cannot cost anyone a minute, which is the whole point in a
+    tool whose promise is equal time.
+
+    Single-slot swaps were tried first and rejected: reordering the selection to
+    favour players on a run cut runs further but pushed 9-player squads from 14% to
+    79% of plans with a >1 slot playing-time gap. Trading equal time for run-breaking
+    is the wrong way round, so this pass only makes moves that are free.
+
+    Runs that survive are genuinely unbreakable at fixed playing time, and
+    ``soft_warnings`` still flags them for the coach.
+    """
+    locked = locked or set()
+    outfield_only = [
+        p for p in players if p.gk_status != GKTier.SPECIALIST
+    ]
+
+    def positions_of(slot: SlotAssignment, player: Player) -> list:
+        return [pos for pos, pl in slot.lineup.items() if pl is player and pos != Position.GK]
+
+    improved = True
+    guard = 0
+    # Each accepted swap can unblock another; a handful of passes is plenty and
+    # the guard keeps this bounded no matter what the squad looks like.
+    while improved and guard < 4:
+        improved = False
+        guard += 1
+        for a in outfield_only:
+            run = _bench_run_slots(plan, a)
+            if len(run) <= MAX_BENCH_STREAK:
+                continue
+            # Prefer breaking the run in the middle — that splits it into two
+            # short runs rather than shaving one slot off the end.
+            for s in sorted(run, key=lambda i: -min(i - run[0], run[-1] - i)):
+                if s in locked:
+                    continue
+                swapped = False
+                for pos_s, b in list(plan.slots[s].lineup.items()):
+                    if pos_s == Position.GK or b is a or b.gk_status == GKTier.SPECIALIST:
+                        continue
+                    if not _eligible_for(a, pos_s):
+                        continue
+                    # A slot where A plays and B does not — the compensating half.
+                    for t, slot_t in enumerate(plan.slots):
+                        if t == s or t in locked:
+                            continue
+                        if any(sp is b for sp in slot_t.players):
+                            continue
+                        a_positions = positions_of(slot_t, a)
+                        if not a_positions:
+                            continue
+                        pos_t = a_positions[0]
+                        if not _eligible_for(b, pos_t):
+                            continue
+                        before = _players_on_long_runs(plan, players)
+                        subs_before = _mid_period_sub_excess(plan, config)
+                        types_before = (_position_types(plan, a), _position_types(plan, b))
+                        plan.slots[s].lineup[pos_s] = a
+                        plan.slots[t].lineup[pos_t] = b
+                        types_after = (_position_types(plan, a), _position_types(plan, b))
+                        if (
+                            _players_on_long_runs(plan, players) < before
+                            and _mid_period_sub_excess(plan, config) <= subs_before
+                            # Don't let run-breaking quietly widen position variety —
+                            # that would override the coach's rotation-intensity setting.
+                            and all(
+                                len(after) <= len(bef)
+                                for bef, after in zip(types_before, types_after, strict=True)
+                            )
+                        ):
+                            improved = swapped = True
+                            break
+                        # Not an improvement (e.g. it just moved the run to B) — undo.
+                        plan.slots[s].lineup[pos_s] = b
+                        plan.slots[t].lineup[pos_t] = a
+                    if swapped:
+                        break
+                if swapped:
+                    break
+    return plan
+
+
+def _bench_streaks(players: list, slots: list) -> dict:
+    """Consecutive immediately-preceding slots each player has spent on the bench.
+
+    Keyed by id(player). Counts back from the most recent slot and stops at the
+    first slot the player appeared in, so it is the *current* unbroken run, not the
+    longest one. Deliberately spans period boundaries: a run of 3 is just as unfair
+    whether or not a break falls in the middle of it.
+    """
+    streaks: dict = {}
+    for p in players:
+        streak = 0
+        for slot in reversed(slots):
+            if any(sp is p for sp in slot.players):
+                break
+            streak += 1
+        streaks[id(p)] = streak
+    return streaks
 
 
 def _eligible_outfield(

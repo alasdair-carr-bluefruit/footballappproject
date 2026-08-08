@@ -221,6 +221,46 @@ domains; non-FA research deliberately excluded.
   "a policy many clubs adopt, set out in FA county guidance". Sources + the excluded-stats list
   are in the `reference_fa_equal_playing_time_sources` memory.
 
+**Bench-run breaking in the engine.** ✅ **BUILT (2026-08-08, pending test + push).** The plan
+flags shipped above could report a child sitting 3+ slots running; the engine had no notion of
+consecutive sit-outs (the existing `must_play` is *cross-match* — players who sat out a whole
+previous tournament match — not within-match). New `_break_bench_runs()` pass in
+`rotation_engine.py`, run after `balance_skills`.
+- **It only makes compensating swaps** — A takes B's slot in one period, B takes A's in another —
+  so **every player's total playing time is provably unchanged**. That is the whole design: a
+  fairness tool must not buy shorter bench runs with unequal minutes. Pinned by
+  `tests/unit/algorithm/test_bench_runs.py`.
+- **A rejected approach is recorded in the code comments, deliberately.** Reordering the *selection*
+  to favour players on a run (the obvious fix) cut runs harder but pushed 9-player squads from
+  **14% → 79%** of plans with a >1 slot playing-time gap. Don't re-try it without re-measuring.
+- Respects the hard rules: `def_restricted`, position variety (so it can't override the coach's
+  rotation-intensity setting), and mid-period subs *no worse than it found them* — the sub cap is
+  soft, so demanding an unbreached plan disabled the pass on exactly the squeezed squads that
+  needed it.
+- **Measured over 200 seeds** (players tripping >2 in a row, before → after): 8 players 46% → 2% of
+  plans, 9 players 97% → 4%, 12-a-side 7v7 65.5% → 19.5%, 7 players 0% → 0%. Playing-time spread
+  identical to baseline in every case.
+- **Two known gaps, both understood.** (1) A *shared keeper* can still sit a long block — they take
+  GK for periods 1–2 then sit the second half; their playing slots are all GK, which can't be
+  swapped mid-period. Fixing it means spreading a non-specialist keeper's periods non-adjacently in
+  `gk_selector` — a `share_gk` change, not a run-breaking one. (2) Squads ≥11 at 5v5 still show runs
+  (11 players 81.5%, 13 players 100%) because each child plays only ~3 of 8 slots and avoiding a
+  3-run needs near-exact spacing. **Cornwall league rules cap a match-day squad at double the team
+  size (10 at 5v5, 14 at 7v7, 18 at 9v9), so those sizes are not legal squads anyway.**
+
+**Cornwall Youth League 2026-27 rules — app-relevant clauses** (`cornwall-youth-league-rules-2026-27.pdf`,
+added 2026-08-08). Not yet built against; the first two are candidate features.
+- **Maximum playing time in one day**, by age group: U7 40min (60 in tournaments), U8/U9 40 (60),
+  U10/U11 60 (90), U12/U13 80 (120), U14/U15 100 (150), U16 100 (150), U17/U18 120 (180).
+  **Tournament mode has no notion of this** — cross-match fairness balances minutes between players
+  but never caps a player's day. A coach can currently breach a league rule without being told.
+- **Match-day squad ≤ double the team size** (Mini-Soccer). 5v5→10, 7v7→14, 9v9→18.
+- **Subs, Mini-Soccer:** unlimited, at any stoppage, return subs allowed — so the engine's sub caps
+  are a coaching preference here, not a league constraint. U11–U18: 5 from 5 return subs. 3v3: none.
+- **Period lengths** are bounded per age group (e.g. U8/U9 quarters 5–10 min, U10/U11 10–12.5).
+- **Formats the app does not support:** 3v3 (U7) and 11v11 (U12+ in this league). Worth knowing
+  before demoing to a club with those age groups.
+
 **T2.2 FA 2026/27 cornerstone blog + SEO content + reach.** Marketing-site blog
 (`marketing/blog/`, plain HTML, `FAQPage`/`Article` JSON-LD, add to `sitemap.xml`).
 Cornerstone + cluster posts on the FA 2026/27 youth changes, equal playing time, fair
