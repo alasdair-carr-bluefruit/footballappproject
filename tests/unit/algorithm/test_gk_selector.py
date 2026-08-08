@@ -79,3 +79,43 @@ class TestNoSpecialist:
             "Preferred should be GK in earlier slots than emergency"
         )
         assert not warnings
+
+
+class TestNoSpecialistAlternates:
+    """Without a specialist, keepers must alternate periods rather than take
+    consecutive ones.
+
+    A keeper who does Q1+Q2 has spent their whole allocation by half time and
+    sits the entire second half. With a keeper and a backup that used to come out
+    as Q1,Q1,Q2,Q2 — *both* children sitting an unbroken half, in every plan.
+    Alternating gives each the same number of goal periods, just spread out, so
+    no one's playing time changes.
+    """
+
+    def test_two_keepers_alternate_rather_than_split_the_match(self):
+        first = make_player("Kaia", GKTier.PREFERRED)
+        backup = make_player("Rowan", GKTier.CAN_PLAY)
+        others = [make_player(f"P{i}") for i in range(8)]
+        assignments, _ = select_gk_for_slots(
+            [first, backup] + others, num_slots=8, squad_size=10
+        )
+        quarters = [assignments[i] for i in range(0, 8, 2)]
+        assert quarters[0] is not quarters[1]
+        assert quarters[1] is not quarters[2]
+        assert quarters[2] is not quarters[3]
+        # Same share of goal time as before, just spread across the match
+        assert quarters.count(first) == 2
+        assert quarters.count(backup) == 2
+
+    def test_lone_preferred_keeper_does_not_keep_back_to_back(self):
+        keeper = make_player("Kaia", GKTier.PREFERRED)
+        others = [make_player(f"P{i}") for i in range(9)]
+        assignments, _ = select_gk_for_slots(
+            [keeper] + others, num_slots=8, squad_size=10
+        )
+        quarters = [assignments[i] for i in range(0, 8, 2)]
+        back_to_back = [
+            i for i in range(1, len(quarters))
+            if quarters[i] is keeper and quarters[i - 1] is keeper
+        ]
+        assert not back_to_back, f"keeper kept consecutive quarters at {back_to_back}"

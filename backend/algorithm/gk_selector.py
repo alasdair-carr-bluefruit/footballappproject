@@ -122,7 +122,10 @@ def select_gk_for_slots(
         gk_per_quarter = []
         q_counts_: dict = {}
         for _ in range(num_quarters):
-            gk = _pick_gk_for_quarter(gk_pool, q_counts_, max_gk_quarters)
+            gk = _pick_gk_for_quarter(
+                gk_pool, q_counts_, max_gk_quarters,
+                avoid=gk_per_quarter[-1] if gk_per_quarter else None,
+            )
             gk_per_quarter.append(gk)
             q_counts_[id(gk)] = q_counts_.get(id(gk), 0) + 1
 
@@ -131,13 +134,27 @@ def select_gk_for_slots(
     return gk_per_slot, warnings
 
 
-def _pick_gk_for_quarter(gk_pool: list, q_counts: dict, max_quarters: int) -> Player:
+def _pick_gk_for_quarter(
+    gk_pool: list, q_counts: dict, max_quarters: int, avoid: Player | None = None,
+) -> Player:
     """Pick the best-tier GK who still has budget remaining.
 
     Within a tier, picks the least-used player (random tiebreak so the same
     player isn't always chosen first). Falls back to least-used overall if all
     players have exhausted their budget.
+
+    ``avoid`` is last quarter's keeper: where anyone else can go in goal, they do.
+    A keeper who takes consecutive periods spends the rest of the match on the
+    bench in one unbroken block — with a keeper and a backup that used to be
+    Q1+Q2 then Q3+Q4, leaving *both* children sitting a full half, every match.
+    Alternating gives each the same number of goal periods, just spread out, so
+    nobody's playing time changes. Mirrors what the specialist branch above
+    already does with Q1/Q3.
     """
+    if avoid is not None:
+        others = [p for p in gk_pool if p is not avoid]
+        if others:
+            return _pick_gk_for_quarter(others, q_counts, max_quarters)
     # Walk tier-by-tier; within each tier pick the least-used eligible player
     seen_tier = None
     tier_candidates: list = []
