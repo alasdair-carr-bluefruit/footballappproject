@@ -240,10 +240,15 @@ previous tournament match — not within-match). New `_break_bench_runs()` pass 
 - **Measured over 200 seeds** (players tripping >2 in a row, before → after): 8 players 46% → 2% of
   plans, 9 players 97% → 4%, 12-a-side 7v7 65.5% → 19.5%, 7 players 0% → 0%. Playing-time spread
   identical to baseline in every case.
-- **Two known gaps, both understood.** (1) A *shared keeper* can still sit a long block — they take
-  GK for periods 1–2 then sit the second half; their playing slots are all GK, which can't be
-  swapped mid-period. Fixing it means spreading a non-specialist keeper's periods non-adjacently in
-  `gk_selector` — a `share_gk` change, not a run-breaking one. (2) Squads ≥11 at 5v5 still show runs
+- **Keeper alternation — FIXED (2026-08-08, same session).** The Q1/Q3 alternation existed only in
+  the **specialist** branch of `gk_selector`; the non-specialist branch gave a keeper consecutive
+  quarters until their budget ran out, so they sat the whole second half. Over 40 seeds at 10
+  players 5v5: a lone preferred keeper had a long bench run in **40/40** plans (`K1,K1,P7,P2`), and
+  with a keeper *plus* a backup — the common real shape — **both** children did (`K1,K1,K2,K2`),
+  each sitting an unbroken half. `_pick_gk_for_quarter` now takes `avoid=` (last quarter's keeper).
+  After: `K1,K2,K1,K2`, long runs **zero**; goal-period counts per keeper unchanged, so no playing
+  time moves. Tests in `test_gk_selector.py::TestNoSpecialistAlternates`.
+- **Remaining gap:** squads ≥11 at 5v5 still show runs
   (11 players 81.5%, 13 players 100%) because each child plays only ~3 of 8 slots and avoiding a
   3-run needs near-exact spacing. **Cornwall league rules cap a match-day squad at double the team
   size (10 at 5v5, 14 at 7v7, 18 at 9v9), so those sizes are not legal squads anyway.**
