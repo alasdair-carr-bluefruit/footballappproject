@@ -80,6 +80,17 @@ Grouped so you can batch-record. ⭐ = highest value, make these first.
 Each brief: the beats to shoot, the gotchas that **must** be said out loud, and
 the line to open on. Keep intros under 8 seconds — no "hey guys, welcome back".
 
+**Full word-for-word shooting scripts live alongside this doc:**
+
+| | Script | Includes |
+|---|---|---|
+| L1 | [`youtube/L1-getting-started-script.md`](youtube/L1-getting-started-script.md) | Pre-flight checklist, 5 beats, shot list, publishing |
+| L2 | [`youtube/L2-planning-a-match-script.md`](youtube/L2-planning-a-match-script.md) | Same, 5 beats + 14-clip shot list |
+| L3 | [`youtube/L3-matchday-script.md`](youtube/L3-matchday-script.md) | Same, 6 beats + 16-clip shot list |
+| L4 | [`youtube/L4-tournament-day-script.md`](youtube/L4-tournament-day-script.md) | Same, 6 beats + 15-clip shot list |
+
+The briefs below are the summary; the scripts are what you read into the mic.
+
 ---
 
 ### L1 — Getting started: your invite, your squad (5:00)
