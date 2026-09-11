@@ -28,6 +28,15 @@ function pickCompetitiveQuip() {
   return COMPETITIVE_QUIPS[i];
 }
 
+// The serious caution ships as the element's own text (season + tournament have
+// one; the knockout slider deliberately doesn't — being competitive for a final
+// is the whole point of that control). Cache it the first time, because the
+// render below replaces the element's contents and would otherwise lose it.
+function cautionFor(warn) {
+  if (warn.dataset.caution === undefined) warn.dataset.caution = warn.textContent.trim();
+  return warn.dataset.caution;
+}
+
 function updateFairnessLabel(value, elId = "fairness-value", warnId = "fairness-warning") {
   const el = document.getElementById(elId);
   const warn = document.getElementById(warnId);
@@ -39,7 +48,16 @@ function updateFairnessLabel(value, elId = "fairness-value", warnId = "fairness-
   else el.textContent = "Win mode — strongest lineup prioritised";
   if (warn) {
     const show = v > 60;
-    if (show && warn.hidden) warn.textContent = pickCompetitiveQuip();
+    // Render the caution AND a quip, not one instead of the other. The quip used
+    // to overwrite the caution's text, so a coach sliding into the competitive
+    // zone only ever saw the joke and never the actual warning. Fresh quip each
+    // time the zone is entered; the caution is constant.
+    if (show && warn.hidden) {
+      const caution = cautionFor(warn);
+      warn.innerHTML =
+        (caution ? `<span class="fairness-warning-caution">${caution}</span>` : "") +
+        `<span class="fairness-warning-quip">${pickCompetitiveQuip()}</span>`;
+    }
     warn.hidden = !show;
   }
 }

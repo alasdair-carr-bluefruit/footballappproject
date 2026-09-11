@@ -2146,6 +2146,20 @@ html, body {
   font-style: italic;
 }
 
+/* The caution carries the weight; the quip sits under it as a lighter aside.
+   Both live in .fairness-warning — see updateFairnessLabel in setup-form.js. */
+.fairness-warning-caution {
+  display: block;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.fairness-warning-quip {
+  display: block;
+  margin-top: 3px;
+  opacity: 0.75;
+}
+
 .rotation-options {
   display: flex;
   gap: 8px;
