@@ -1,0 +1,40 @@
+# Runs on every push to main/staging and on any PR into them. Deliberately does
+# NOT run the Playwright e2e suite — that needs a browser binary and a live
+# uvicorn subprocess, which roughly triples the run time. Run those locally with
+# `pytest -m e2e` before a release; everything else gates here.
+name: CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        # Non-blocking: the repo carries ~61 pre-existing findings (mostly E402 in
+        # pytest-bdd step files, where imports after the feature binding are
+        # idiomatic). A red-from-day-one gate just teaches everyone to ignore CI.
+        # Flip to blocking once the backlog is cleared — see docs/STAGING.md.
+        continue-on-error: true
+        run: ruff check .
+
+      - name: Test
+        # Tests use a throwaway SQLite DB — no DATABASE_URL is set here on
+        # purpose, so a stray connection string can never point CI at Neon.
+        run: pytest -m "not e2e" -q

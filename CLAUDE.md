@@ -298,7 +298,17 @@ GameConfig
   ⇄ `loadTournamentLobby`), and prefer a parity e2e test that parametrizes
   `["season","tournament"]` (see `tests/e2e/`). Do not ship a one-sided fix.
 - Keep commit messages to terse one-line comments
-- Push directly to main — no PRs unless explicitly requested
+- **Branching (since 2026-09-11, ~8 live coaches):** `main` is production and
+  auto-deploys to `app.keepthingslevel.com`; `staging` deploys to
+  `staging.keepthingslevel.com`. Anything that could lose a coach's data or stop
+  them getting a plan out on a Saturday goes via `staging` first — migrations,
+  `backend/algorithm/**`, `backend/api/**`, `backend/db/**`, `backend/auth/**`,
+  `deps.py`. Docs, marketing copy and cosmetic tweaks can go straight to `main`.
+  Full process + one-time setup: **`docs/STAGING.md`**.
+- No PRs unless explicitly requested — merge `staging` → `main` locally and push
+- After any production deploy that touches frontend assets: bump `CACHE` in
+  `frontend/sw.js` **and** purge the Cloudflare cache (it serves stale `.js` for
+  ~4h; incognito won't help)
 
 ---
 
