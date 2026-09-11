@@ -149,6 +149,21 @@
         <button type="button" class="multiteam-callout-x" id="btn-multiteam-callout-dismiss" aria-label="Dismiss">✕</button>
       </div>
 
+      <!-- Getting-started nudge to the YouTube tutorials. Shown to everyone until
+           dismissed (gaffer_youtube_callout_seen; gaffer_ prefix kept on purpose). -->
+      <div class="yt-callout" id="yt-callout" hidden>
+        <a class="yt-callout-main" id="link-yt-callout"
+           href="https://www.youtube.com/@keepthingslevel"
+           target="_blank" rel="noopener noreferrer">
+          <span class="yt-callout-icon" aria-hidden="true">▶</span>
+          <span class="yt-callout-text">
+            <strong>New to Level?</strong>
+            <small>Check out our getting started tutorials over on YouTube →</small>
+          </span>
+        </a>
+        <button type="button" class="yt-callout-x" id="btn-yt-callout-dismiss" aria-label="Dismiss">✕</button>
+      </div>
+
       <div class="landing-modes">
         <button class="mode-card" id="btn-season-mode">
           <span class="mode-icon"><svg class="mode-svg" viewBox="0 0 24 24" fill="none" stroke="var(--chalk)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="13" y2="17"/><circle cx="18" cy="17" r="1.8" fill="var(--matchday)" stroke="none"/></svg></span>

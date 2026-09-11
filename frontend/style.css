@@ -3623,6 +3623,64 @@ html, body {
 }
 .multiteam-callout-x:active { color: var(--chalk); }
 
+/* Getting-started nudge to the YouTube tutorials. Same shape as the multi-team
+   callout but amber-accented, so two callouts on screen never read as one block. */
+.yt-callout {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  margin: 0 0 14px;
+  border-radius: 14px;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--amber) 18%, var(--pitch-deep)), var(--pitch-deep));
+  border: 1px solid color-mix(in srgb, var(--amber) 50%, transparent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+}
+.yt-callout-main {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 13px 6px 13px 14px;
+  background: none;
+  border: none;
+  color: var(--chalk);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.yt-callout-main:active { transform: scale(0.99); }
+.yt-callout-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--amber);
+  color: var(--slate);
+  font-size: 13px;
+  line-height: 1;
+}
+.yt-callout-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.yt-callout-text strong { font-size: 15px; font-weight: 800; color: var(--amber); }
+.yt-callout-text small { font-size: 12.5px; line-height: 1.45; color: rgba(255, 255, 255, 0.82); }
+.yt-callout-x {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+.yt-callout-x:active { color: var(--chalk); }
+
 /* "Beta" tag next to the multi-team UI (switcher sheet + Settings heading). */
 .beta-badge {
   display: inline-block;

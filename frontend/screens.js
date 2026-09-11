@@ -92,6 +92,24 @@ export function maybeDismissSquadTip() {
   }).catch(() => {});
 }
 
+// ── Getting-started YouTube nudge ─────────────────────────────────────────────
+// Lives in the landing markup, so unhiding it at boot is enough — it only becomes
+// visible when the landing screen itself is shown.
+const YT_CALLOUT_KEY = "gaffer_youtube_callout_seen";
+
+function dismissYoutubeCallout() {
+  localStorage.setItem(YT_CALLOUT_KEY, "1");
+  const el = document.getElementById("yt-callout");
+  if (el) el.hidden = true;
+}
+
+const ytCallout = document.getElementById("yt-callout");
+if (ytCallout && !localStorage.getItem(YT_CALLOUT_KEY)) ytCallout.hidden = false;
+
+// Clicking through counts as dismissing — they've found the tutorials.
+document.getElementById("link-yt-callout")?.addEventListener("click", dismissYoutubeCallout);
+document.getElementById("btn-yt-callout-dismiss")?.addEventListener("click", dismissYoutubeCallout);
+
 document.getElementById("btn-season-mode").addEventListener("click", () => loadHome());
 document.getElementById("btn-tournament-mode").addEventListener("click", () => loadTournamentHome());
 document.getElementById("btn-squad-management").addEventListener("click", () => {
