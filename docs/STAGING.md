@@ -115,7 +115,7 @@ Set these on the **staging environment only**:
 | Variable | Value | Why it matters |
 |---|---|---|
 | `DATABASE_URL` | the Neon **staging branch** string from step 1 | Never prod |
-| `APP_BASE_URL` | `https://staging.keepthingslevel.com` | Magic links are built from this — point it at prod and your staging sign-in emails send people to the live app |
+| `APP_BASE_URL` | `https://staging.keepthingslevel.com` | Magic links are built from this — point it at prod and your staging sign-in emails send people to the live app. **Include the `https://`** — without a scheme the link is treated as relative and the Dev-link button 404s |
 | `FRONTEND_ORIGIN` | `https://staging.keepthingslevel.com` | CORS |
 | `SECRET_KEY` | the **new** value you generated | A leaked staging key must not be able to sign production sessions |
 | `ADMIN_KEY` | the **new** value you generated | Same |
@@ -133,9 +133,23 @@ Set these on the **staging environment only**:
 Note `validate_config()` fails fast on boot if `AUTH_ENABLED=true` and either
 secret is missing — so a boot crash here means you missed one.
 
+> **Ordering:** DNS doesn't exist until step 5, so set `APP_BASE_URL` and
+> `FRONTEND_ORIGIN` to the **Railway URL** for now and swap them to
+> `staging.keepthingslevel.com` once step 5 is green. Set them to the real
+> hostname too early and the Dev link lands on a domain that doesn't resolve.
+
 **Verify:** redeploy, open the Railway URL, and you should get the **Coach
-sign-in** screen. Enter any email → the **Dev link** button appears → tap it →
-you're in, on an empty squad. That proves the DB, secrets and auth are all wired.
+sign-in** screen. Enter **an email that already has an account** — your own —
+→ the **Dev link** button appears → tap it → you're in, looking at that
+account's squad. That proves the DB, secrets and auth are all wired.
+
+Not *any* email: `request-link` only returns `dev_link` when an active account
+matches, and deliberately returns a bare `200 {"ok": true}` otherwise so the
+endpoint can't be used to enumerate accounts. An unknown email looks like
+nothing happening — that's correct behaviour, not a broken deploy. Because the
+Neon staging branch clones production, every real coach's email works here, so
+you can reproduce a reported bug signed in as them, against their own data,
+without touching production.
 
 ---
 
