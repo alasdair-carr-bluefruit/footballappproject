@@ -213,6 +213,13 @@ with a 4-or-5-slot run to 5.5%, worst case 3–4. Playing-time spread is unchang
 in every shape. Remaining gap: ~36% of that squad's plans still have a **3**-slot run,
 mostly a keeper whose goal period sits at one end — needs 3-way swaps, deferred.
 
+**Keeper exemption (coach-requested).** A keeper who is in goal for *every* slot —
+"Rotate keeper?" off, or a squad too small to cover goal while they rest — plays more than
+everyone else by design, so they're excluded from the *most-used* side of the game-time gap.
+The fewest-used side is untouched: a child genuinely short of minutes is still named, and the
+gap is quoted against the outfield. Mirrored in `validator._always_in_goal` (domain rule) and
+`pitch.js` `alwaysInGoal` (the banner) — keep the two in step.
+
 **Plan-flag tone.** A generated plan now shows its flags in the quiet info tone
 ("Worth knowing before kick-off"); the ⚠ banner and the FA dropout line return once the
 coach has tinkered (`state.planTinkered` / `matchData.tinkered`). The engine's best effort

@@ -258,6 +258,51 @@ def test_competitive_still_warns_once_the_gap_exceeds_what_was_asked_for():
     assert len(warnings) == 1
 
 
+def test_keeper_in_goal_all_match_is_not_counted_as_the_most_used():
+    """A keeper in goal for every slot plays more than everyone else by design —
+    the coach turned "Rotate keeper?" off (or the squad is too small to cover goal
+    while they rest). Reported against them, every outfielder looks short of game
+    time on a plan nobody can improve. Asked for by the coach who hit it."""
+    plan, players = _plan_from_counts({"Keeper": 8, "A": 6, "B": 6, "C": 6})
+
+    assert _messages(plan, players, "Uneven game time") == []
+    assert _messages(plan, players, "Expected game-time gap") == []
+
+
+def test_a_genuinely_short_player_still_flags_behind_an_ever_present_keeper():
+    """Only the most-used side is adjusted: a child actually short of game time is
+    still named, and the gap is quoted against the outfield, not the keeper."""
+    plan, players = _plan_from_counts({"Keeper": 8, "A": 6, "B": 6, "Short": 4})
+
+    warnings = _messages(plan, players, "Uneven game time")
+    assert len(warnings) == 1
+    assert "Short" in warnings[0]
+    assert "most 6" in warnings[0], warnings[0]
+
+
+def test_an_outfielder_who_plays_every_slot_is_still_counted():
+    """The exemption is for goal duty, not for playing a lot. A player on the pitch
+    for all eight slots who only keeps goal for some of them is an ordinary
+    most-used player, and a squad short against them is still uneven."""
+    ever, short, keeper2 = _p("Ever"), _p("Short"), _p("Keeper2")
+    slots = []
+    for i in range(8):
+        # Goal alternates between two players, so nobody is in goal all match.
+        lineup = {Position.GK: ever if i % 2 == 0 else keeper2, Position.CB: short}
+        if i % 2 == 0:
+            lineup[Position.LM] = keeper2
+        else:
+            lineup[Position.LM] = ever
+        if i >= 4:
+            del lineup[Position.CB]
+        slots.append(SlotAssignment(slot_index=i, lineup=lineup))
+    plan = RotationPlan(slots=slots)
+
+    warnings = _messages(plan, [ever, short, keeper2], "Uneven game time")
+    assert len(warnings) == 1
+    assert "most 8" in warnings[0], warnings[0]
+
+
 def test_slot_spread_names_every_player_on_the_fewest_slots():
     plan, players = _plan_from_counts(
         {"Ever1": 8, "Ever2": 8, "Ann": 5, "Bob": 5}, total=8,

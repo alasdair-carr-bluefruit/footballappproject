@@ -163,6 +163,15 @@ def _warn_bench_streak(plan: RotationPlan, players: list) -> list:
     return warnings
 
 
+def _always_in_goal(plan: RotationPlan):
+    """The player who keeps goal in every slot, if there is one (else None)."""
+    keepers = {id(slot.lineup.get(Position.GK)): slot.lineup.get(Position.GK) for slot in plan.slots}
+    if len(keepers) != 1:
+        return None
+    keeper = next(iter(keepers.values()))
+    return keeper if keeper is not None else None
+
+
 def _warn_slot_spread(plan: RotationPlan, players: list, fairness_value: int = 0) -> list:
     """Report the gap between the most- and least-used players.
 
@@ -176,7 +185,15 @@ def _warn_slot_spread(plan: RotationPlan, players: list, fairness_value: int = 0
     if not players:
         return []
     counts = {p: plan.slot_count_for_player(p) for p in players}
-    most = max(counts.values())
+    # A keeper who is in goal for every slot plays more than everyone else BY
+    # DESIGN — the coach turned "Rotate keeper?" off, or the squad is too small to
+    # cover goal while they rest. Measuring the spread against them turns that
+    # deliberate choice into a warning about a plan nobody can improve, so the
+    # most-used figure is taken from the rest of the squad. The fewest-used side
+    # is untouched: a child short of game time still matters.
+    ever_present = _always_in_goal(plan)
+    outfield_counts = {p: c for p, c in counts.items() if p is not ever_present}
+    most = max(outfield_counts.values()) if outfield_counts else max(counts.values())
     fewest = min(counts.values())
     spread = most - fewest
     if spread < MIN_NOTABLE_SPREAD:

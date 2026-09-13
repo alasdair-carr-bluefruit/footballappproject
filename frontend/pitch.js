@@ -132,6 +132,13 @@ function slotSpreadTolerance(fairnessValue, totalSlots) {
   return 1 + Math.max(1, Math.round(frac * reach));
 }
 
+// The player who keeps goal in every slot, if there is one. Mirrors
+// `validator._always_in_goal` — keep the two in step.
+function alwaysInGoal(md) {
+  const names = new Set(md.slots.map(s => s.lineup.GK?.name));
+  return names.size === 1 && !names.has(undefined) ? [...names][0] : null;
+}
+
 function planFlags(md = state.matchData) {
   const { players, perSlot, slotLabels, totalSlots } = planGridData(md);
   const empty = { outOfPos: [], benched: [], spread: null, names: new Set(), any: false };
@@ -174,7 +181,14 @@ function planFlags(md = state.matchData) {
   //    two tones: over what the slider asked for it's a warning; within it, on a
   //    competitive setting, it's the cost of a choice the coach already made.
   const counts = players.map(p => ({ name: p.name, count: slotCountForPlayer(p.name, md) }));
-  const most = Math.max(...counts.map(c => c.count));
+  // A keeper who is in goal for every slot plays more than everyone else BY
+  // DESIGN — the coach turned "Rotate keeper?" off, or the squad is too small to
+  // cover goal while they rest. Measuring the gap against them turns that
+  // deliberate choice into a warning about a plan nobody can improve. The
+  // fewest-used side is untouched: a child short of game time still matters.
+  const keeper = alwaysInGoal(md);
+  const field = keeper ? counts.filter(c => c.name !== keeper) : counts;
+  const most = Math.max(...(field.length ? field : counts).map(c => c.count));
   const fewest = Math.min(...counts.map(c => c.count));
   const gap = most - fewest;
   const fairnessValue = md.match.fairness_value ?? 0;
