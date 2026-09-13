@@ -7,6 +7,7 @@ attempt reordered the *selection* to favour players on a run, which cut runs
 further but pushed 9-player squads from 14% to 79% of plans with a >1 slot
 playing-time gap — the wrong trade for a tool whose promise is equal time.
 """
+import random
 from datetime import date
 
 import pytest
@@ -61,8 +62,12 @@ class TestRunsAreBroken:
     def test_outfield_players_do_not_sit_three_slots_running(self, n, team_size):
         """Squad sizes where a bench run is avoidable — these should come out clean.
 
-        Measured over 200 seeds after this pass: 8 players 2% of plans, 9 players
-        4%, 12-a-side 7v7 19.5% (from 46%, 97% and 65.5% before it).
+        Measured over 200 seeds: every one of 8, 9, 10 and 11 players at 5v5 and
+        12 at 7v7 now comes out clean (they were 2%, 4% and 19.5% when this pass
+        was the only defence, and 46%, 97% and 65.5% before it existed). Two later
+        changes did most of that: goal periods are spread so a keeper isn't left
+        sitting the middle of the match, and equal game time is broken by "who has
+        been sitting longest" in the selection itself.
         """
         squad, plan = _plan_for(n, team_size)
         offenders = {
@@ -79,15 +84,33 @@ class TestRunsAreBroken:
     def test_big_squads_can_still_produce_runs(self):
         """Known limit, pinned so a future change has to notice it.
 
-        At 5v5 with 13 players each child plays only ~3 of 8 slots, so keeping every
-        bench run to 2 needs near-exact spacing (play slots 0, 3, 6). The pairwise
-        swaps here are greedy and won't find that, so runs survive: 11 players 81.5%
-        of plans, 13 players 100%. Playing time stays equal throughout — the spread
-        is 1 slot at both sizes — so this is a scheduling gap, not a fairness one.
+        At 5v5 with 13 players each child plays only ~3 of 8 slots, and two of those
+        three come as a pair whenever they keep goal — so a >2 bench run is often
+        arithmetically forced, not a scheduling failure: 13 players still hits it in
+        100% of plans. (11 players used to be 81.5% and is now clean.) Playing time
+        stays equal throughout — the spread is 1 slot — so this is a squad-size
+        limit, not a fairness one, and the coach is told about it in the plan flags.
         """
         squad, plan = _plan_for(13)
         counts = [plan.slot_count_for_player(p) for p in squad.available]
         assert max(counts) - min(counts) <= 1
+
+    @pytest.mark.parametrize("n,team_size", [(10, 5), (11, 5), (12, 7)])
+    def test_common_squad_shapes_come_out_clean(self, n, team_size):
+        """Regression pin for the coach-reported case: an 11-player 5-a-side squad
+        (a very ordinary grassroots shape) produced a 4-slot bench run in most
+        plans. Runs a spread of seeds rather than one, because the engine shuffles.
+        """
+        config = _config(team_size)
+        for seed in range(20):
+            random.seed(seed)
+            squad = _squad(n)
+            plan = generate_rotation(squad, Match(date=date(2026, 3, 23), game_config=config))
+            for player in squad.available:
+                run = _bench_run_slots(plan, player)
+                assert len(run) <= MAX_BENCH_STREAK, (
+                    f"seed {seed}: {player.name} sits out {len(run)} slots in a row"
+                )
 
 
 class TestHardConstraintsSurvive:

@@ -146,7 +146,7 @@ def generate_rotation(
     plan = balance_skills(plan, config)
 
     # Step 4a: Break long bench runs using swaps that leave playing time untouched
-    plan = _break_bench_runs(plan, players, config)
+    plan = _break_bench_runs(plan, players, config, rotation_intensity=rotation_intensity)
 
     # Step 4b: Restore position consistency — skip only at high rotation.
     # High rotation (70+) intentionally shuffles positions between H1 and H2.
@@ -409,17 +409,22 @@ def _build_slots(
         is_mid_period = slot_index % 2 == 1
         prev_slot = slots[-1] if slots else None
 
+        # How long each player has been sitting *right now* — used only to break
+        # ties between players on equal game time (see _select_outfield).
+        streaks = _bench_streaks(players, slots)
+
         if is_mid_period and prev_slot is not None:
             outfield_players = _select_outfield_mid_period(
                 players, gk_player, prev_slot, targets, slot_counts, remaining_gk,
-                outfield_count, config.mid_period_subs, must_play,
+                outfield_count, config.mid_period_subs, must_play, streaks,
             )
         else:
             outfield_candidates = _eligible_outfield(
                 players, gk_player, targets, slot_counts, remaining_gk
             )
             outfield_players = _select_outfield(
-                outfield_candidates, targets, slot_counts, remaining_gk, outfield_count, must_play,
+                outfield_candidates, targets, slot_counts, remaining_gk, outfield_count,
+                must_play, streaks,
             )
 
         _assign_outfield_positions(
@@ -431,8 +436,15 @@ def _build_slots(
 
 
 def _players_on_long_runs(plan: RotationPlan, players: list) -> int:
-    """How many players sit out more than MAX_BENCH_STREAK slots in a row."""
-    count = 0
+    """How far this plan's bench runs overshoot MAX_BENCH_STREAK, summed over players.
+
+    A total rather than a headcount: a headcount rates a 5-slot run exactly as bad
+    as a 3-slot one, so the run-breaker rejected every swap that *shortened* a run
+    without fully curing it and left the worst runs untouched. Weighing the
+    overshoot means a 5 → 3 move is progress and gets taken, and the objective
+    still reaches 0 only when no one sits out more than MAX_BENCH_STREAK.
+    """
+    total = 0
     for p in players:
         longest = current = 0
         for slot in plan.slots:
@@ -441,9 +453,8 @@ def _players_on_long_runs(plan: RotationPlan, players: list) -> int:
             else:
                 current += 1
                 longest = max(longest, current)
-        if longest > MAX_BENCH_STREAK:
-            count += 1
-    return count
+        total += max(0, longest - MAX_BENCH_STREAK)
+    return total
 
 
 def _bench_run_slots(plan: RotationPlan, player: Player) -> list:
@@ -461,12 +472,20 @@ def _bench_run_slots(plan: RotationPlan, player: Player) -> list:
 
 
 def _position_types(plan: RotationPlan, player: Player) -> set:
-    """Distinct normalised position types this player holds across the plan."""
+    """Distinct normalised OUTFIELD position types this player holds across the plan.
+
+    Goal is excluded deliberately. This feeds the run-breaker's "don't widen
+    position variety" guard, which exists to respect the coach's rotation-intensity
+    setting — an outfield concern. Counting GK as a type made keepers the hardest
+    players to move: a keeper who plays one outfield position already has two
+    "types", so every compensating swap looked like a widening and was refused,
+    which is precisely why keepers were the ones left sitting out long blocks.
+    """
     return {
         normalize_position(pos)
         for slot in plan.slots
         for pos, pl in slot.lineup.items()
-        if pl is player
+        if pl is player and pos != Position.GK
     }
 
 
@@ -496,8 +515,19 @@ def _eligible_for(player: Player, pos: Position) -> bool:
     return _can_play_position(player, normalize_position(pos))
 
 
+def _max_pos_types(config: GameConfig, rotation_intensity: int) -> int:
+    """Position types one player may accumulate at this rotation-intensity setting.
+
+    Same formula as ``_assign_outfield_positions`` — 0 (specialist) → 1 type,
+    50 → ~2, 100 (all-rounder) → every type in the formation.
+    """
+    types = {normalize_position(k) for k in config.formation.outfield_positions()}
+    return max(1, round(1 + (len(types) - 1) * rotation_intensity / 100))
+
+
 def _break_bench_runs(
-    plan: RotationPlan, players: list, config: GameConfig, locked: set | None = None
+    plan: RotationPlan, players: list, config: GameConfig, locked: set | None = None,
+    rotation_intensity: int = 50,
 ) -> RotationPlan:
     """Break up long bench runs without moving anyone's total playing time.
 
@@ -516,6 +546,12 @@ def _break_bench_runs(
     ``soft_warnings`` still flags them for the coach.
     """
     locked = locked or set()
+    # What the coach's rotation setting says a player may accumulate. The guard
+    # below used to freeze each player's variety at whatever the plan happened to
+    # produce, which on "All-rounder" refused swaps the coach had explicitly asked
+    # for — and left keepers (one goal period + one outfield position = already
+    # "two types") sitting out the longest blocks of anyone.
+    type_cap = _max_pos_types(config, rotation_intensity)
     outfield_only = [
         p for p in players if p.gk_status != GKTier.SPECIALIST
     ]
@@ -566,10 +602,11 @@ def _break_bench_runs(
                         if (
                             _players_on_long_runs(plan, players) < before
                             and _mid_period_sub_excess(plan, config) <= subs_before
-                            # Don't let run-breaking quietly widen position variety —
-                            # that would override the coach's rotation-intensity setting.
+                            # Variety may grow up to the coach's rotation-intensity
+                            # cap, never past it — and never past where a player
+                            # already sits if the plan put them over.
                             and all(
-                                len(after) <= len(bef)
+                                len(after) <= max(len(bef), type_cap)
                                 for bef, after in zip(types_before, types_after, strict=True)
                             )
                         ):
@@ -622,13 +659,23 @@ def _eligible_outfield(
 
 def _select_outfield(
     candidates: list, targets: dict, slot_counts: dict, remaining_gk: dict,
-    outfield_count: int, must_play: set | None = None,
+    outfield_count: int, must_play: set | None = None, streaks: dict | None = None,
 ) -> list:
-    """Select outfield players for a regular (period-start) slot."""
+    """Select outfield players for a regular (period-start) slot.
+
+    ``streaks`` (from ``_bench_streaks``) breaks ties *below* ``slot_counts``:
+    among players who have had exactly the same amount of game time, the one who
+    has been sitting longest goes on. Ranking by streak any higher than this was
+    tried and rejected — it pushed 9-player squads from 14% to 79% of plans with
+    an uneven playing-time spread. As a tiebreak it costs nothing: every player it
+    reorders has the same slot count, so no one's total moves.
+    """
+    streaks = streaks or {}
+
     def sort_key(p: Player) -> tuple:
         must_play_bonus = 0 if (must_play and p in must_play) else 1
         outfield_budget = targets.get(p, 0) - slot_counts[p] - remaining_gk.get(id(p), 0)
-        return (must_play_bonus, slot_counts[p], -outfield_budget)
+        return (must_play_bonus, slot_counts[p], -streaks.get(id(p), 0), -outfield_budget)
 
     shuffled = list(candidates)
     random.shuffle(shuffled)
@@ -646,6 +693,7 @@ def _select_outfield_mid_period(
     outfield_count: int,
     mid_period_subs: int,
     must_play: set | None = None,
+    streaks: dict | None = None,
 ) -> list:
     """Select outfield players for a mid-period slot (limited new players vs previous slot).
 
@@ -683,9 +731,12 @@ def _select_outfield_mid_period(
     ]
     random.shuffle(bench_candidates)
 
+    # Same tiebreak as _select_outfield: equal game time → longest sitter first.
+    streak_of = (streaks or {})
+
     def bench_sort_key(p: Player) -> tuple:
         must_play_bonus = 0 if (must_play and p in must_play) else 1
-        return (must_play_bonus, slot_counts[p], -budget(p))
+        return (must_play_bonus, slot_counts[p], -streak_of.get(id(p), 0), -budget(p))
 
     bench_sorted = sorted(bench_candidates, key=bench_sort_key)
     slots_needed = outfield_count - len(carry_over)

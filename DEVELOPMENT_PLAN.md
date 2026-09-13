@@ -183,11 +183,55 @@ preferences or bench streaks at all. Now:
   squad can put a DEF-restricted player at CB. The validator catches it after the fact. Fixing
   the fallback itself is a separate engine change.
 
+### Engine quality fixes — ✅ BUILT (2026-09-13, pending test + push)
+
+From a coach testing an 11-player 5-a-side squad — the plan kept putting children
+who hadn't picked GK in goal, and left others sitting out 4 slots in a row.
+
+- **Volunteers keep goal** (`gk_selector.py`). The per-keeper budget `floor(fair_share/2)`
+  rounds an 11-player squad's 3-slot fair share down to ONE goal period, so three willing
+  keepers could only staff three of four quarters and the fourth fell to an emergency-tier
+  player. A willing keeper may now take one period over budget, but only to keep a
+  non-volunteer out of goal, only within fair share + 1 slot, and never past half the match
+  in goal. Separately the "don't repeat last period's keeper" preference was applied across
+  the whole pool, outranking tier — it now applies within a tier only.
+- **Goal periods are spread** (`_spread_gk_quarters`). A keeper holding two of four periods
+  has spent their whole fair share in goal, so Q1+Q4 benched them through the entire middle
+  of the match. Periods are permuted (never reassigned) so each keeper's pattern alternates;
+  tier priority is kept as a tiebreak.
+- **Selection knows who's been sitting.** `_bench_streaks` existed but was never called.
+  It now breaks ties *below* playing time (equal game time → longest sitter goes on), so no
+  total moves — the rejected version ranked streak above time and wrecked the spread.
+- **Run-breaker objective + guard.** It counted *how many* players were on long runs, so
+  shortening a 5-run to a 3 scored as no progress; it now weighs the overshoot. Its
+  "don't widen position variety" guard froze variety even on All-rounder, which made keepers
+  the hardest players to move — it now respects the coach's rotation-intensity cap.
+
+Measured over 150–200 plans: 8/9/10/11-player 5v5 and 12-player 7v7 all come out clean
+(11-player was 81.5% with a >2 run); the reporting coach's own squad went from 85% of plans
+with a 4-or-5-slot run to 5.5%, worst case 3–4. Playing-time spread is unchanged (1 slot)
+in every shape. Remaining gap: ~36% of that squad's plans still have a **3**-slot run,
+mostly a keeper whose goal period sits at one end — needs 3-way swaps, deferred.
+
+**Plan-flag tone.** A generated plan now shows its flags in the quiet info tone
+("Worth knowing before kick-off"); the ⚠ banner and the FA dropout line return once the
+coach has tinkered (`state.planTinkered` / `matchData.tinkered`). The engine's best effort
+shouldn't shout at the coach; a manual edit that costs a child minutes should.
+
 ### 🟠 Tier 2 — Next (retention + product-led growth)
 
 **T2.1 Shareable match-day moments.** The share-image is the viral surface. Progress:
 - **"Level" branding on the shared match report** — ✅ **DONE.** Wordmark/spirit-level mark on
   the share image so every WhatsApp post is a soft ad.
+- **Share the team sheet (pre-match)** — ✅ **BUILT (2026-09-13, pending test + push).** Came
+  straight from watching a coach screenshot the plan grid and paste it into the co-coaches'
+  WhatsApp group. `frontend/plan-image.js` renders that same grid as a branded PNG (positions ×
+  periods with full names, a per-period BENCH row, slots-per-player totals, `keepthingslevel.com`
+  footer) behind a **Share** button in the review-screen header — so it covers a season match, a
+  single tournament match, and the tournament "Review all plans" page (every match stacked in one
+  image). Native share sheet on mobile, download fallback on desktop. Both flows feed it through
+  `state.reviewShare` / `setReviewShare()`, so season ⇄ tournament parity is structural. SW→v50;
+  e2e `tests/e2e/test_share_plan.py` (parametrized season/tournament + the all-plans page).
 - **Goal celebration** — ✅ **BUILT (2026-07-20, pending test).** Firework-confetti burst
   (`celebrateGoal()` in `pitch.js`) on every goal-add path; `pointer-events:none` so it never
   blocks recording, self-removes, skipped under `prefers-reduced-motion`.

@@ -11,13 +11,14 @@ Priority order (strict tier fallback, not mixing):
   4. emergency_only -- last resort; adds warning to plan
 
 Time budget:
-  max GK quarters per player = floor(fair_share_slots / 2)
+  max GK quarters per player = ceil(fair_share_slots / 2)
   This prevents any one GK player from exceeding their fair share of total slots.
   When a player exhausts their GK quarter budget, the next eligible tier is used.
 """
 from __future__ import annotations
 
 import random
+from itertools import permutations
 
 from backend.models.player import GKTier, Player
 
@@ -63,6 +64,20 @@ def select_gk_for_slots(
     # Max GK quarters one player can take within their fair-share budget.
     # Each GK quarter = 2 slots. Use floor(fair_share / 2) so outfield time is possible.
     max_gk_quarters = max(1, fair_share // 2)
+    # One period of headroom above the strict budget, offered only to a willing
+    # keeper and only when the alternative is a child who never picked GK (see
+    # _pick_gk_for_quarter). Withheld unless that extra period still leaves the
+    # keeper within fair share + 1 slots — the tolerance equal time already allows.
+    # Two guards, both needed: the extra period must keep the keeper within fair
+    # share + 1 slots (the tolerance equal time already allows), and must not leave
+    # one child in goal for more than half the match — stretching past that isn't
+    # sharing goal duty, it's the opposite of what the coach asked for.
+    stretch_gk_quarters = (
+        max_gk_quarters + 1
+        if (max_gk_quarters + 1) * 2 <= fair_share + 1
+        and (max_gk_quarters + 1) * 2 <= num_slots // 2
+        else max_gk_quarters
+    )
 
     warnings: list = []
     specialist = next((p for p in players if p.gk_status == GKTier.SPECIALIST), None)
@@ -92,7 +107,9 @@ def select_gk_for_slots(
                     gk_per_quarter.append(specialist)
                     spec_used += 1
                 elif backup_pool:
-                    gk = _pick_gk_for_quarter(backup_pool, q_counts, max_gk_quarters)
+                    gk = _pick_gk_for_quarter(
+                        backup_pool, q_counts, max_gk_quarters, stretch=stretch_gk_quarters,
+                    )
                     gk_per_quarter.append(gk)
                     q_counts[id(gk)] = q_counts.get(id(gk), 0) + 1
                 else:
@@ -110,7 +127,9 @@ def select_gk_for_slots(
                 if q % 2 == 0:  # Q1, Q3
                     gk_per_quarter.append(specialist)
                 else:           # Q2, Q4
-                    gk = _pick_gk_for_quarter(gk_pool, q_counts, max_gk_quarters)
+                    gk = _pick_gk_for_quarter(
+                        gk_pool, q_counts, max_gk_quarters, stretch=stretch_gk_quarters,
+                    )
                     gk_per_quarter.append(gk)
                     q_counts[id(gk)] = q_counts.get(id(gk), 0) + 1
     else:
@@ -125,17 +144,84 @@ def select_gk_for_slots(
             gk = _pick_gk_for_quarter(
                 gk_pool, q_counts_, max_gk_quarters,
                 avoid=gk_per_quarter[-1] if gk_per_quarter else None,
+                stretch=stretch_gk_quarters,
             )
             gk_per_quarter.append(gk)
             q_counts_[id(gk)] = q_counts_.get(id(gk), 0) + 1
+        gk_per_quarter = _spread_gk_quarters(gk_per_quarter)
 
     # Expand: each quarter produces 2 slots with the same GK
     gk_per_slot = [gk for gk in gk_per_quarter for _ in range(2)]
     return gk_per_slot, warnings
 
 
+def _spread_gk_quarters(gk_per_quarter: list) -> list:
+    """Reorder WHO keeps goal in WHICH period so no keeper is left sitting a block.
+
+    A keeper taking two of four periods has spent their whole fair share in goal,
+    so whatever periods they don't keep, they sit. Q1+Q4 leaves them benched for
+    the entire middle of the match; Q1+Q2 leaves them benched for the whole second
+    half. Only the alternating patterns (Q1+Q3, Q2+Q4) keep their bench spells
+    short — and the greedy per-period pick, which only knows about the period
+    before, lands on a bad pattern often enough that it was the single biggest
+    source of long bench runs in an 11-player 5-a-side squad.
+
+    This permutes the periods only: every keeper ends up with exactly the number of
+    periods they were already given, so playing time and GK budgets are untouched.
+    Tier priority is preserved as a tiebreak — among arrangements that bench people
+    equally well, the better-tier keeper still takes the earlier period — and the
+    original order wins outright ties.
+    """
+    n = len(gk_per_quarter)
+    if n < 3:
+        return gk_per_quarter
+
+    tier_rank = {
+        GKTier.SPECIALIST: 0, GKTier.PREFERRED: 1,
+        GKTier.CAN_PLAY: 2, GKTier.EMERGENCY_ONLY: 3,
+    }
+
+    def score(order: list) -> tuple:
+        # Bench cost: only keepers with 2+ periods are "fully booked" — a keeper
+        # with a single period still has outfield slots left for the balancer.
+        bench = 0
+        for keeper in {id(g): g for g in order if g is not None}.values():
+            quarters = [i for i, g in enumerate(order) if g is keeper]
+            if len(quarters) < 2:
+                continue
+            on = {i * 2 + h for i in quarters for h in (0, 1)}
+            longest = run = 0
+            for slot in range(n * 2):
+                run = 0 if slot in on else run + 1
+                longest = max(longest, run)
+            bench += longest
+        # Tier cost: minimised when the best available tier keeps goal earliest.
+        # Weight is (worst_rank - rank) so a better tier keeping goal EARLIER scores
+        # lower — the plain rank would have done exactly the opposite.
+        tier = sum(
+            i * (3 - tier_rank.get(g.gk_status, 3))
+            for i, g in enumerate(order) if g is not None
+        )
+        return (bench, tier)
+
+    best = list(gk_per_quarter)
+    best_score = score(best)
+    seen = {tuple(id(g) for g in best)}
+    for idx in permutations(range(n)):
+        candidate = [gk_per_quarter[i] for i in idx]
+        key = tuple(id(g) for g in candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        candidate_score = score(candidate)
+        if candidate_score < best_score:
+            best, best_score = candidate, candidate_score
+    return best
+
+
 def _pick_gk_for_quarter(
     gk_pool: list, q_counts: dict, max_quarters: int, avoid: Player | None = None,
+    stretch: int | None = None,
 ) -> Player:
     """Pick the best-tier GK who still has budget remaining.
 
@@ -143,7 +229,8 @@ def _pick_gk_for_quarter(
     player isn't always chosen first). Falls back to least-used overall if all
     players have exhausted their budget.
 
-    ``avoid`` is last quarter's keeper: where anyone else can go in goal, they do.
+    ``avoid`` is last quarter's keeper: where another keeper *of the same tier* can
+    go in goal, they do — the preference never reaches down a tier.
     A keeper who takes consecutive periods spends the rest of the match on the
     bench in one unbroken block — with a keeper and a backup that used to be
     Q1+Q2 then Q3+Q4, leaving *both* children sitting a full half, every match.
@@ -151,10 +238,6 @@ def _pick_gk_for_quarter(
     nobody's playing time changes. Mirrors what the specialist branch above
     already does with Q1/Q3.
     """
-    if avoid is not None:
-        others = [p for p in gk_pool if p is not avoid]
-        if others:
-            return _pick_gk_for_quarter(others, q_counts, max_quarters)
     # Walk tier-by-tier; within each tier pick the least-used eligible player
     seen_tier = None
     tier_candidates: list = []
@@ -169,10 +252,45 @@ def _pick_gk_for_quarter(
         if q_counts.get(id(p), 0) < max_quarters:
             tier_candidates.append(p)
 
+    # About to put a child who never picked GK in goal? Let a willing keeper take
+    # one period more than the strict fair-share budget first. That budget is
+    # floor(fair_share / 2), which rounds a 3-slot fair share down to a single goal
+    # period — so an 11-player 5v5 squad with three volunteer keepers could only
+    # staff three of its four quarters and the fourth fell to an emergency-tier
+    # player. The coach reads that as the app ignoring the positions their players
+    # chose, and they're right. One period over is 1 slot above fair share, which
+    # equal time already tolerates, and it is only ever spent to keep a
+    # non-volunteer out of goal — never to hand a keeper a bigger share for its own
+    # sake, since the strict budget above is always tried first, for everyone.
+    willing_pool = [p for p in gk_pool if p.gk_status != GKTier.EMERGENCY_ONLY]
+    stretch_to = stretch if stretch is not None else max_quarters
+    if (
+        tier_candidates
+        and tier_candidates[0].gk_status == GKTier.EMERGENCY_ONLY
+        and stretch_to > max_quarters
+    ):
+        for tier in (GKTier.SPECIALIST, GKTier.PREFERRED, GKTier.CAN_PLAY):
+            willing = [
+                p for p in willing_pool
+                if p.gk_status == tier and q_counts.get(id(p), 0) < stretch_to
+            ]
+            if willing:
+                tier_candidates = willing
+                break
+
     if not tier_candidates:
         # All exhausted — pick least-used overall (random tiebreak)
         min_count = min(q_counts.get(id(p), 0) for p in gk_pool)
         tier_candidates = [p for p in gk_pool if q_counts.get(id(p), 0) == min_count]
+
+    # Alternation, but only ever *within* the tier we just settled on. Applying it
+    # to the whole pool (as this used to) meant "anyone but last period's keeper"
+    # outranked "someone who actually chose GK": a squad with one willing keeper
+    # put a non-keeper in goal every other period, whatever the coach had picked.
+    if avoid is not None and len(tier_candidates) > 1:
+        others = [p for p in tier_candidates if p is not avoid]
+        if others:
+            tier_candidates = others
 
     # Among candidates, pick least-used; shuffle first so ties are broken randomly
     random.shuffle(tier_candidates)
