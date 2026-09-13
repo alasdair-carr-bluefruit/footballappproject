@@ -34,6 +34,13 @@ function formationPositions(notation) {
   return [...(DEF_KEYS[defense] || []), ...(MID_KEYS[midfield] || []), ...(FWD_KEYS[forward] || [])];
 }
 
+// The grid's row order for a formation: GK first, then each outfield position,
+// paired with the band that colours it. Shared by the on-screen review grid and
+// the shareable plan image (plan-image.js) so the two can't drift.
+function positionRows(notation) {
+  return ["GK", ...formationPositions(notation)].map(key => ({ key, band: normalizePos(key) }));
+}
+
 function normalizePos(pos) {
   if (_DEF_SET.has(pos)) return "DEF";
   if (_MID_SET.has(pos)) return "MID";
@@ -244,20 +251,29 @@ function planFlagLines(flags) {
 // Renders the flags into `el` (a .review-warning container). Returns true if
 // anything was shown. Shared by the season review screen and each tournament
 // review card so the two flows can't drift.
-function renderPlanFlags(el, flags, { compact = false } = {}) {
+//
+// `tinkered` sets the volume. A plan straight out of the engine is its best
+// effort — it has already spread goal periods, broken the bench runs it could
+// break and kept game time level — so anything left is usually the squad's
+// arithmetic rather than a mistake, and a loud ⚠ there just trains coaches to
+// scroll past. Once the coach has moved players themselves, the same facts are
+// worth raising properly: that's the edit that can quietly cost a child minutes.
+function renderPlanFlags(el, flags, { compact = false, tinkered = false } = {}) {
   const lines = planFlagLines(flags);
   if (!lines.length) { el.hidden = true; el.innerHTML = ""; return false; }
-  const info = flags.level === "info";
-  const head = info
+  const expected = flags.level === "info";
+  const quiet = expected || !tinkered;
+  const count = `${lines.length} thing${lines.length !== 1 ? "s" : ""}`;
+  const head = expected
     ? "Competitive plan — how the time falls"
     : compact
-      ? `⚠ ${lines.length} thing${lines.length !== 1 ? "s" : ""} to check`
-      : "⚠ Worth a look before kick-off";
-  el.classList.toggle("review-warning-info", info);
+      ? (quiet ? `${count} to know` : `⚠ ${count} to check`)
+      : (quiet ? "Worth knowing before kick-off" : "⚠ Worth a look before kick-off");
+  el.classList.toggle("review-warning-info", quiet);
   // The "why" only belongs on the warning tone, and only on the full-size
-  // banner — on an info card it would read as a rebuke for a setting the coach
-  // chose, and on a stacked tournament card it would repeat per match.
-  const why = (!info && !compact)
+  // banner — on a quiet card it would read as a rebuke for a plan the coach
+  // hasn't touched, and on a stacked tournament card it would repeat per match.
+  const why = (!quiet && !compact)
     ? `<span class="review-warning-why">The FA lists lack of playing time as the number one reason children drop out of football.</span>`
     : "";
   el.innerHTML = `<span class="review-warning-head">${head}</span>` +
@@ -347,7 +363,7 @@ function playerToken(name) {
 // `containerEl` is a block element; we build a CSS grid inside it.
 function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
   const formation = md.match.formation || "1-2-1";
-  const positions = ["GK", ...formationPositions(formation)];
+  const positions = positionRows(formation).map(r => r.key);
   const { slotLabels } = planGridData(md);
   const flagged = opts.underSlotted || new Set();
 
@@ -977,6 +993,12 @@ function loadMatchData(data) {
   if (!state.manualRotationMode) state.editMode = false;
   state.manualRotationMode = data.manual_mode || false;
   state.lockedSlots = new Set(data.locked_slots || []);
+  // Derived from the payload, never just reset: enterReviewView re-runs this with
+  // the SAME in-memory object every time the coach taps "◀ Plan", so a plain
+  // reset here would forget an edit made seconds ago. `tinkered` is the marker
+  // applyAdjustResult leaves on that object; a match reopened from the API
+  // instead carries its coach-locked slots back with it.
+  state.planTinkered = !!data.tinkered || (data.locked_slots || []).length > 0;
   state.removedPlayers = data.removed_players || {};
   // Restore stored goals (empty for a planned match). Without this a reopened
   // match shows no scorers and a later save would wipe the real tally.
@@ -1060,13 +1082,38 @@ function renderReview() {
   document.getElementById("review-title").textContent = `${dateStr} · vs ${match.opponent || "Unknown"}`;
   document.getElementById("review-actions-single").hidden = false;
 
+  // What the "Share" button turns into a PNG (see plan-image.js). Set here, not
+  // read from `state.matchData` there, so the tournament "all plans" page can
+  // hand over several matches through the same field.
+  const venue = (match.home_away || "home") === "home" ? "Home" : "Away";
+  setReviewShare({
+    blocks: [{ md: state.matchData }],
+    heading: state.teamInfo.team_name || "My Team",
+    subheading: `${dateStr} · vs ${match.opponent || "Unknown"} · ${venue}`,
+    filename: `team-sheet-${match.date}.png`,
+    shareTitle: `Team sheet — vs ${match.opponent || "Unknown"}, ${dateStr}`,
+  });
+
   const grid = document.getElementById("review-grid");
   grid.innerHTML = "";
   const flags = planFlags(state.matchData);
   buildPositionGrid(grid, state.matchData, { markChanges: true, underSlotted: flags.names });
   grid.appendChild(buildCountsStrip(state.matchData, flags.names));
 
-  renderPlanFlags(document.getElementById("review-warning"), flags);
+  // Coach-edited slots are the signal that this plan has been tinkered with —
+  // a freshly generated one has none (manual-assign mode counts, the coach
+  // placed every player there themselves).
+  const tinkered = state.planTinkered
+    || state.lockedSlots.size > 0
+    || !!state.manualRotationMode;
+  renderPlanFlags(document.getElementById("review-warning"), flags, { tinkered });
+}
+
+// Hands the current review screen's plan(s) to the Share button. Both flows call
+// this while rendering; plan-image.js only ever reads `state.reviewShare`.
+function setReviewShare(payload) {
+  state.reviewShare = payload;
+  document.getElementById("btn-review-share").hidden = !payload?.blocks?.length;
 }
 
 // Builds one match's review card (header + optional warning + grid + Open button)
@@ -1725,6 +1772,10 @@ function showFairnessInfo(warnings) {
 function applyAdjustResult(result) {
   state.matchData.slots = result.slots;
   state.matchData.warnings = result.warnings;
+  // Every caller here is a coach-initiated adjustment. Marked on matchData too,
+  // so re-entering the review screen (which re-reads that object) keeps it.
+  state.planTinkered = true;
+  state.matchData.tinkered = true;
   // NB: `state.lockedSlots` tracks *coach-edited* slots (drives the LOCKED badge),
   // NOT the transport lock set we send to the API. Since every tinker edit now
   // locks all slots on the wire, result.locked_slots is always "all" and must not
@@ -2128,7 +2179,7 @@ document.getElementById("btn-ft-save").addEventListener("click", async () => {
   downloadBlob(blob, `FT-${state.matchData.match.date}.png`);
 });
 
-export { enterPitchView, enterManualAssignMode, openMatch, showScreen, enterReviewView, buildReviewCard, underSlotted };
+export { enterPitchView, enterManualAssignMode, openMatch, showScreen, enterReviewView, buildReviewCard, underSlotted, planGridData, positionRows, setReviewShare };
 
 // ── Screen management (leaf helper, kept here to avoid a circular import
 // between screens.js/season.js/tournament.js — every module needs it, and it

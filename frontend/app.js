@@ -11,6 +11,7 @@
 import "./state.js";
 import "./theme.js";
 import "./pitch.js";
+import "./plan-image.js";
 import "./setup-form.js";
 import "./season.js";
 import "./tournament.js";

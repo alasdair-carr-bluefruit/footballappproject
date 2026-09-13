@@ -1022,6 +1022,23 @@ html, body {
 
 .btn-review-plan { color: var(--coach-blue) !important; border-color: var(--coach-blue) !important; }
 
+/* "Share" in the review sub-header — pushed right, same shape as the stats
+   export button but in Signal Lime (it shares the plan, not a result). */
+.btn-share-plan {
+  margin-left: auto;
+  background: transparent;
+  color: var(--matchday);
+  border: 1px solid var(--matchday);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-share-plan:disabled { opacity: 0.6; cursor: default; }
+
 /* ── Live match indicator (in header) ───────────────────────────── */
 .live-badge {
   display: inline-flex;

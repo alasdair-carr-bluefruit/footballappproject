@@ -48,6 +48,8 @@ export const state = {
   account: null, // /me payload (auth on): { email, squad_id, auth_enabled, ... }
   teams: [], // multi-team: list from GET /api/teams
   activeSquadId: null, // multi-team: the account's active squad id
+  planTinkered: false, // coach has adjusted this plan — sets the plan-flag tone
+  reviewShare: null, // { blocks:[{md,title}], heading, subheading, filename, shareTitle } for the review screen's Share button
 };
 
 // Shared across season.js + tournament.js (both need the formation/team-size

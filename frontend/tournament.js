@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { state, ensureGameConfigs, refreshShirtNumbers, displayPos } from "./state.js";
-import { showScreen, openMatch, enterReviewView, buildReviewCard } from "./pitch.js";
+import { showScreen, openMatch, enterReviewView, buildReviewCard, setReviewShare } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast, withSaveToast } from "./toast.js";
 import { exportSpreadsheet } from "./share.js";
@@ -767,6 +767,7 @@ async function enterTournamentReview(id) {
   document.getElementById("review-warning").hidden = true;
   const grid = document.getElementById("review-grid");
   grid.innerHTML = "<p class='review-loading'>Generating plans…</p>";
+  setReviewShare(null); // nothing to share until the plans are in
 
   let data;
   try {
@@ -797,18 +798,30 @@ async function enterTournamentReview(id) {
   }
 
   grid.innerHTML = "";
-  let rendered = 0;
+  const shareBlocks = [];
   plans.forEach(({ m, md }, i) => {
     if (!md || !md.slots || md.slots.length === 0) return;
     const stage = m.tournament_stage === "knockout" ? "Knockout" : `Match ${m.match_number || i + 1}`;
     const title = m.opponent ? `${stage} · vs ${m.opponent}` : stage;
     grid.appendChild(buildReviewCard(md, { title, onOpen: () => openMatch(m.id, "tournament") }));
-    rendered++;
+    shareBlocks.push({ md, title });
   });
 
-  if (!rendered) {
+  if (!shareBlocks.length) {
     grid.innerHTML = "<p class='empty-state'>No match plans yet — add a match first.</p>";
+    return;
   }
+
+  // Share every match's grid in one image — a tournament co-coach wants the
+  // whole day in a single WhatsApp message, not one picture per match.
+  const tName = data.tournament.name || "Tournament";
+  setReviewShare({
+    blocks: shareBlocks,
+    heading: state.teamInfo.team_name || "My Team",
+    subheading: `${tName} · ${shareBlocks.length} match${shareBlocks.length !== 1 ? "es" : ""}`,
+    filename: `team-sheets-${tName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "tournament"}.png`,
+    shareTitle: `Team sheets — ${tName}`,
+  });
 }
 
 document.getElementById("btn-tournament-review").addEventListener("click", () => {
