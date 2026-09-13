@@ -11,6 +11,7 @@ export const BRAND = {
   amber:     "#F5B544", // --amber
   slate:     "#1A1F1C", // --slate
   chalk:     "#F2F4EE", // --chalk      : primary text / scoreline
+  gold:      "#FFD700", // --gold       : goals + the skill-total row
 };
 
 // Token colours at an arbitrary opacity — for canvas fills/tints.

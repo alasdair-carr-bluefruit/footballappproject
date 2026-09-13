@@ -36,6 +36,7 @@ const BENCH_LINE_H = 13;  // one benched name per line inside a bench cell
 const CELL_GAP = 4;
 const HEAD_H = 22;
 const CHUNK_GAP = 14;   // between stacked period tables
+const SKILL_H = 24;     // the ⚡ skill-total row
 
 function roundRect(ctx, x, y, w, h, r) {
   const rr = Math.min(r, w / 2, h / 2);
@@ -143,6 +144,27 @@ function drawChunk(ctx, md, { x, y, colW, start, end }) {
     y += ROW_H;
   });
 
+  // Skill-total row — the same ⚡ row the review grid shows, so a co-coach can see
+  // the sides are balanced period to period rather than taking it on trust.
+  ctx.font = "700 11px " + FONT_BODY;
+  ctx.fillStyle = BRAND.gold;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("⚡", x, y + SKILL_H / 2);
+  for (let i = start; i < end; i++) {
+    const cx = x + LABEL_W + (i - start) * colW;
+    const cw = colW - CELL_GAP;
+    ctx.fillStyle = chalkAlpha(0.08);
+    roundRect(ctx, cx, y + 2, cw, SKILL_H - 4, 6);
+    ctx.fill();
+    ctx.fillStyle = BRAND.gold;
+    ctx.font = "700 11px " + FONT_BODY;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(md.slots[i]?.skill_total ?? "?"), cx + cw / 2, y + SKILL_H / 2 + 0.5);
+  }
+  y += SKILL_H;
+
   // Bench row — who's off in each period. The on-screen grid leaves this to the
   // pitch view, but a team sheet in a group chat has to answer "when am I on?"
   // without anyone opening the app.
@@ -234,7 +256,7 @@ function drawBlock(ctx, md, { title, x, y, colW, contentW }) {
 function measureBlock(meas, md, { title, contentW }) {
   let h = title ? 26 : 0;
   const chunks = Math.ceil(md.slots.length / CHUNK);
-  h += chunks * (HEAD_H + blockRows(md).length * ROW_H + benchRowHeight(md));
+  h += chunks * (HEAD_H + blockRows(md).length * ROW_H + SKILL_H + benchRowHeight(md));
   h += (chunks - 1) * CHUNK_GAP;
   h += 12 + 18; // strip title
 

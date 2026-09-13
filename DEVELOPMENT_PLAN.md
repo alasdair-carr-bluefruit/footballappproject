@@ -238,7 +238,7 @@ shouldn't shout at the coach; a manual edit that costs a child minutes should.
 - **Share the team sheet (pre-match)** — ✅ **BUILT (2026-09-13, pending test + push).** Came
   straight from watching a coach screenshot the plan grid and paste it into the co-coaches'
   WhatsApp group. `frontend/plan-image.js` renders that same grid as a branded PNG (positions ×
-  periods with full names, a per-period BENCH row, slots-per-player totals, `keepthingslevel.com`
+  periods with full names, a per-period BENCH row, the ⚡ skill-total row, slots-per-player totals, `keepthingslevel.com`
   footer) behind a **Share** button in the review-screen header. **Portrait by design** — the
   grid wraps after 4 periods and stacks (same split the review screen uses on mobile), so the
   image reads on a phone in a group chat rather than shrinking to a landscape strip — so it covers a season match, a
