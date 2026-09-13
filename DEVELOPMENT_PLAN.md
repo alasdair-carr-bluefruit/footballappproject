@@ -239,7 +239,9 @@ shouldn't shout at the coach; a manual edit that costs a child minutes should.
   straight from watching a coach screenshot the plan grid and paste it into the co-coaches'
   WhatsApp group. `frontend/plan-image.js` renders that same grid as a branded PNG (positions ×
   periods with full names, a per-period BENCH row, slots-per-player totals, `keepthingslevel.com`
-  footer) behind a **Share** button in the review-screen header — so it covers a season match, a
+  footer) behind a **Share** button in the review-screen header. **Portrait by design** — the
+  grid wraps after 4 periods and stacks (same split the review screen uses on mobile), so the
+  image reads on a phone in a group chat rather than shrinking to a landscape strip — so it covers a season match, a
   single tournament match, and the tournament "Review all plans" page (every match stacked in one
   image). Native share sheet on mobile, download fallback on desktop. Both flows feed it through
   `state.reviewShare` / `setReviewShare()`, so season ⇄ tournament parity is structural. SW→v50;

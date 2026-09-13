@@ -23,13 +23,19 @@ const SCALE = 2;
 const MARGIN = 18;        // backdrop around the card
 const PAD = 20;           // card padding
 const LABEL_W = 58;       // position-label column
-const COL_MIN = 74;       // per-slot column
-const COL_MAX = 104;
+const COL_MIN = 84;       // per-slot column
+const COL_MAX = 116;
+// Periods per stacked table. The image is read on a phone in a group chat, so the
+// grid wraps after four periods and stacks downwards rather than running off to
+// the right — the same split the review screen uses on mobile, which also means
+// the picture matches what the coach was looking at when they hit Share.
+const CHUNK = 4;
 const MIN_CONTENT_W = 460; // a 2-slot tournament grid mustn't squeeze the header
 const ROW_H = 30;
 const BENCH_LINE_H = 13;  // one benched name per line inside a bench cell
 const CELL_GAP = 4;
 const HEAD_H = 22;
+const CHUNK_GAP = 14;   // between stacked period tables
 
 function roundRect(ctx, x, y, w, h, r) {
   const rr = Math.min(r, w / 2, h / 2);
@@ -95,31 +101,19 @@ function benchRowHeight(md) {
 
 // ── Drawing ──────────────────────────────────────────────────────────────────
 
-// One match block: title, the position × slot grid, then a slots-per-player
-// strip. Returns the y position after the block.
-function drawBlock(ctx, md, { title, x, y, colW, cols, contentW }) {
+// One four-period table: header row of period labels, a row per position, then
+// the bench row. Returns the y after it.
+function drawChunk(ctx, md, { x, y, colW, start, end }) {
   const rows = blockRows(md);
-  const { slotLabels, players, perSlot } = planGridData(md);
+  const { slotLabels } = planGridData(md);
 
-  // Block title (e.g. "Match 2 · vs Rovers"). Omitted for a single-match share,
-  // where the card header already says which match this is.
-  if (title) {
-    ctx.font = "700 14px " + FONT_BODY;
-    ctx.fillStyle = BRAND.chalk;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.fillText(title, x, y + 9);
-    y += 26;
-  }
-
-  // Header row — period labels (Q1a, Q1b, …).
   ctx.font = "700 11px " + FONT_MONO;
   ctx.fillStyle = chalkAlpha(0.55);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  slotLabels.forEach((label, i) => {
-    ctx.fillText(label, x + LABEL_W + i * colW + (colW - CELL_GAP) / 2, y + HEAD_H / 2);
-  });
+  for (let i = start; i < end; i++) {
+    ctx.fillText(slotLabels[i], x + LABEL_W + (i - start) * colW + (colW - CELL_GAP) / 2, y + HEAD_H / 2);
+  }
   y += HEAD_H;
 
   // One row per position: a dim row label, then the player filling that position
@@ -132,19 +126,14 @@ function drawBlock(ctx, md, { title, x, y, colW, cols, contentW }) {
     ctx.textBaseline = "middle";
     ctx.fillText(displayPos(key), x, y + ROW_H / 2);
 
-    for (let i = 0; i < cols; i++) {
-      const cx = x + LABEL_W + i * colW;
+    for (let i = start; i < end; i++) {
+      const cx = x + LABEL_W + (i - start) * colW;
       const cw = colW - CELL_GAP;
       const p = md.slots[i]?.lineup[key];
-      if (!p) {
-        ctx.fillStyle = chalkAlpha(0.05);
-        roundRect(ctx, cx, y + 2, cw, ROW_H - 4, 6);
-        ctx.fill();
-        continue;
-      }
-      ctx.fillStyle = colors.bg;
+      ctx.fillStyle = p ? colors.bg : chalkAlpha(0.05);
       roundRect(ctx, cx, y + 2, cw, ROW_H - 4, 6);
       ctx.fill();
+      if (!p) continue;
       ctx.fillStyle = colors.fg;
       ctx.font = "600 12px " + FONT_BODY;
       ctx.textAlign = "center";
@@ -164,8 +153,8 @@ function drawBlock(ctx, md, { title, x, y, colW, cols, contentW }) {
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText("BENCH", x, y + benchH / 2);
-    for (let i = 0; i < cols; i++) {
-      const cx = x + LABEL_W + i * colW;
+    for (let i = start; i < end; i++) {
+      const cx = x + LABEL_W + (i - start) * colW;
       const cw = colW - CELL_GAP;
       ctx.fillStyle = chalkAlpha(0.05);
       roundRect(ctx, cx, y + 2, cw, benchH - 4, 6);
@@ -182,6 +171,29 @@ function drawBlock(ctx, md, { title, x, y, colW, cols, contentW }) {
       });
     }
     y += benchH;
+  }
+  return y;
+}
+
+// One match: title, its stacked period tables, then a slots-per-player strip.
+// Returns the y position after the block.
+function drawBlock(ctx, md, { title, x, y, colW, contentW }) {
+  const { players, perSlot } = planGridData(md);
+
+  // Block title (e.g. "Match 2 · vs Rovers"). Omitted for a single-match share,
+  // where the card header already says which match this is.
+  if (title) {
+    ctx.font = "700 14px " + FONT_BODY;
+    ctx.fillStyle = BRAND.chalk;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(title, x, y + 9);
+    y += 26;
+  }
+
+  for (let start = 0; start < md.slots.length; start += CHUNK) {
+    if (start > 0) y += CHUNK_GAP;
+    y = drawChunk(ctx, md, { x, y, colW, start, end: Math.min(start + CHUNK, md.slots.length) });
   }
 
   // Slots-per-player strip — the fairness read-out, same numbers as on screen.
@@ -219,9 +231,11 @@ function drawBlock(ctx, md, { title, x, y, colW, cols, contentW }) {
 
 // Height of one block, measured without drawing (so the canvas can be sized up
 // front). Mirrors drawBlock — keep the two in step.
-function measureBlock(meas, md, { title, cols, contentW }) {
+function measureBlock(meas, md, { title, contentW }) {
   let h = title ? 26 : 0;
-  h += HEAD_H + blockRows(md).length * ROW_H + benchRowHeight(md);
+  const chunks = Math.ceil(md.slots.length / CHUNK);
+  h += chunks * (HEAD_H + blockRows(md).length * ROW_H + benchRowHeight(md));
+  h += (chunks - 1) * CHUNK_GAP;
   h += 12 + 18; // strip title
 
   const { players, perSlot } = planGridData(md);
@@ -243,8 +257,10 @@ async function buildPlanBlob(blocks, { heading, subheading }) {
 
   // Column width is driven by the widest match in the set so stacked grids line
   // up, and clamped so a 2-slot tournament match doesn't stretch to a billboard.
-  const cols = Math.max(...blocks.map(b => b.md.slots.length));
-  const colW = Math.max(COL_MIN, Math.min(COL_MAX, Math.round(760 / cols)));
+  // Never more than CHUNK columns across — the grid stacks downwards instead, so
+  // the image comes out portrait and readable at phone width.
+  const cols = Math.min(CHUNK, Math.max(...blocks.map(b => b.md.slots.length)));
+  const colW = Math.max(COL_MIN, Math.min(COL_MAX, Math.round(440 / cols)));
   const gridW = LABEL_W + cols * colW - CELL_GAP;
   const contentW = Math.max(gridW, MIN_CONTENT_W);
   const cardW = contentW + PAD * 2;
@@ -254,7 +270,7 @@ async function buildPlanBlob(blocks, { heading, subheading }) {
   const headerH = 54;
   const footerH = 26;
   const blockGap = 24;
-  const blockHs = blocks.map(b => measureBlock(meas, b.md, { title: b.title, cols, contentW }));
+  const blockHs = blocks.map(b => measureBlock(meas, b.md, { title: b.title, contentW }));
   const cardH = PAD + headerH + blockHs.reduce((a, h) => a + h, 0)
     + blockGap * (blocks.length - 1) + 18 + footerH + PAD;
   const H = cardH + MARGIN * 2;
@@ -333,7 +349,7 @@ async function buildPlanBlob(blocks, { heading, subheading }) {
   y += headerH;
 
   blocks.forEach((b, i) => {
-    y = drawBlock(ctx, b.md, { title: b.title, x, y, colW, cols, contentW });
+    y = drawBlock(ctx, b.md, { title: b.title, x, y, colW, contentW });
     if (i < blocks.length - 1) y += blockGap;
   });
 
