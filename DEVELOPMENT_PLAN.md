@@ -220,6 +220,11 @@ The fewest-used side is untouched: a child genuinely short of minutes is still n
 gap is quoted against the outfield. Mirrored in `validator._always_in_goal` (domain rule) and
 `pitch.js` `alwaysInGoal` (the banner) — keep the two in step.
 
+**Banner trimmed (coach-requested).** "Too much info." Slot ranges dropped from the bench line
+(the grid below already shows which periods), bench players grouped one line per streak length
+rather than one per player, out-of-position lines capped at 3 (worst first) with a "+N more"
+summary. The wording of each line is unchanged otherwise.
+
 **Plan-flag tone.** A generated plan now shows its flags in the quiet info tone
 ("Worth knowing before kick-off"); the ⚠ banner and the FA dropout line return once the
 coach has tinkered (`state.planTinkered` / `matchData.tinkered`). The engine's best effort

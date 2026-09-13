@@ -217,11 +217,9 @@ function planFlags(md = state.matchData) {
 // no "violation", no scolding: the coach may well have meant to do this (a
 // competitive plan is a legitimate choice), they just need to see it.
 // Past this many out-of-position lines the banner stops being a warning and
-// starts being a wall the coach scrolls past. Only THIS group is capped — a
-// squeezed squad can produce one line per player, whereas the bench and
-// game-time flags are few and are the ones that make a plan unfair, so they
-// always show in full.
-const MAX_OFF_PREF_LINES = 5;
+// starts being a wall the coach scrolls past. A squeezed squad can produce one
+// line per player; the rest are summarised in a single trailing line.
+const MAX_OFF_PREF_LINES = 3;
 
 function _andList(items) {
   if (items.length <= 1) return items.join("");
@@ -237,19 +235,34 @@ function planFlagLines(flags) {
     entry.count += o.count;
     entry.positions.push(displayPos(o.pos));
   });
-  const offPref = [...byPlayer.entries()].map(([name, { count, positions, prefs }]) =>
-    `<b>${name}</b> plays ${_andList(positions)} for ${count} slot${count !== 1 ? "s" : ""} — they only picked ${_andList(prefs.map(displayPos))}`
-  );
+  // Longest-running problems first, so a capped list keeps the worst offenders.
+  const offPref = [...byPlayer.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([name, { count, positions, prefs }]) =>
+      `<b>${name}</b> plays ${_andList(positions)} for ${count} slot${count !== 1 ? "s" : ""} — picked ${_andList(prefs.map(displayPos))}`
+    );
   const lines = offPref.slice(0, MAX_OFF_PREF_LINES);
   if (offPref.length > lines.length) {
     lines.push(
       `<span class="review-warning-more">+${offPref.length - lines.length} more out of position — dashed cells in the grid below</span>`
     );
+
   }
 
-  flags.benched.forEach(b => lines.push(
-    `<b>${b.name}</b> sits out ${b.streak} slots in a row (${b.from}–${b.to})`
-  ));
+  // One line per streak LENGTH, not per player, and without the slot range: the
+  // coach wants to know who's sitting too long, not to audit which periods —
+  // the grid below already shows that, and a line each turned the banner into a
+  // wall of text on exactly the squads that have the most to read.
+  const byStreak = new Map();
+  flags.benched.forEach(b => {
+    if (!byStreak.has(b.streak)) byStreak.set(b.streak, []);
+    byStreak.get(b.streak).push(b.name);
+  });
+  [...byStreak.entries()].sort((a, b) => b[0] - a[0]).forEach(([streak, names]) => {
+    const who = `<b>${_andList(names)}</b>`;
+    const verb = names.length === 1 ? "sits" : "each sit";
+    lines.push(`${who} ${verb} out ${streak} slots in a row`);
+  });
 
   if (flags.spread) {
     const s = flags.spread;
