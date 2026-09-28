@@ -371,9 +371,16 @@ shared. *(user request 2026-07-19. Smaller than T1.1 — good "otherwise" pick.)
 - **Add an extra player mid-match / power play** — per-slot size override so remaining slots
   recalc without corrupting fairness accounting. Trickiest item; pin with BDD first.
 
-**T3.2 Co-coach plan proposals.** Depends on the T1.1 membership layer. `PlanProposalDB`
-(match_id, proposed_by, slot diffs, status); co-coach tinkers and "Propose to head coach";
-head coach reviews a current-vs-proposed diff and Accepts / Requests changes / Rejects.
+**T3.2 Assistant coach mode.** 📋 **PLANNED (2026-09-28)** — full plan + locked decisions in
+**`docs/ASSISTANT_COACH_PLAN.md`**. `SquadMembershipDB` with per-team roles (one `head`, many
+`assistant`s; an account can be head on its own team and assistant on another), with
+capability-based guards in `deps.py` plus a deny-by-default route-coverage test.
+- **P1 read-only:** assistants see stats, reports and plans (drafts included). Skill ratings are
+  redacted server-side, while pooled slot totals stay visible. Assistant invites admit new people.
+- **P2 run matchday:** one controlling device per match ("started on [Name]'s device — Take control?"); head coach or any assistant can take control.
+  Needs the match timer moved from localStorage to the server first.
+- **P3 comments + proposals:** `PlanCommentDB`, `PlanProposalDB`. The head coach accepts, tinkers or rejects.
+- Head-coach transfer deferred. Goes via `staging` (migrations/auth/deps).
 
 **T3.3 Export revisit.** Revisit CSV/Sheets export against the review-screen data.
 *(Tinker undo/redo — formerly here — is **deprioritised altogether** and dropped from the roadmap.)*
