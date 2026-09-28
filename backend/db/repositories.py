@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from backend.db.models import (
     GoalRecordDB,
+    InviteDB,
     MatchAvailabilityDB,
     MatchDB,
     PlayerDB,
@@ -16,6 +17,7 @@ from backend.db.models import (
     SlotAssignmentDB,
     SlotDB,
     SquadDB,
+    SquadMembershipDB,
     TournamentDB,
 )
 from backend.models.game_config import build_tournament_config, season_config
@@ -237,6 +239,11 @@ def delete_squad_data(
     session.execute(sql_delete(TournamentDB).where(TournamentDB.squad_id == squad_id))
     session.execute(sql_delete(PlayerDB).where(PlayerDB.squad_id == squad_id))
     if drop_squad_row:
+        # Removing the team ends everyone's access to it (assistants included) and
+        # voids any unredeemed assistant invites. Callers re-point affected accounts'
+        # active squad (see memberships.repoint_active_squad).
+        session.execute(sql_delete(SquadMembershipDB).where(SquadMembershipDB.squad_id == squad_id))
+        session.execute(sql_delete(InviteDB).where(InviteDB.squad_id == squad_id, InviteDB.redeemed_at == None))  # noqa: E711
         session.execute(sql_delete(SquadDB).where(SquadDB.id == squad_id))
 
 

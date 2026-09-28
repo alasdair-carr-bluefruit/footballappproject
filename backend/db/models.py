@@ -48,6 +48,25 @@ class InviteDB(SQLModel, table=True):
     redeemed_at: str | None = None
     note: str = ""  # free text, e.g. "Dave – U10s"
     invited_by_account_id: int | None = None  # coach self-service invites; None = admin-minted
+    # Assistant-coach invites (T3.2): set = "join this squad as `role`" rather than
+    # "create a new coach with their own team". Plain invites leave both empty.
+    squad_id: int | None = None
+    role: str = ""  # "" (plain invite) | "assistant"
+
+
+# Who can access a squad, and as what (T3.2). Roles are per team, so one account
+# can be head coach of its own team and an assistant on someone else's. Exactly one
+# "head" per squad (SquadDB.account_id mirrors it during the transition).
+class SquadMembershipDB(SQLModel, table=True):
+    __tablename__ = "squad_memberships"  # type: ignore[assignment]
+    __table_args__ = (UniqueConstraint("squad_id", "account_id", name="uq_membership_squad_account"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    squad_id: int = Field(index=True)  # plain column, same convention as SquadDB.account_id
+    account_id: int = Field(index=True)
+    role: str = "head"  # "head" | "assistant"
+    created_at: str = ""
+    invited_by_account_id: int | None = None
 
 
 # A one-time magic-link login token — hashed, short-lived, single-use. Same shape

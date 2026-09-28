@@ -27,6 +27,7 @@ from backend.auth.tokens import (
     tokens_match,
 )
 from backend.db.database import get_session
+from backend.db.memberships import ASSISTANT, HEAD, add_membership, get_membership
 from backend.db.models import (
     AccountDB,
     EmailChangeTokenDB,
@@ -53,13 +54,17 @@ def _norm_email(email: str) -> str:
     return (email or "").strip().lower()
 
 
-def _account_public(account: AccountDB) -> dict:
+def _account_public(account: AccountDB, session: Session) -> dict:
+    membership = get_membership(session, account.squad_id, account.id)  # type: ignore[arg-type]
+    if session.info.pop("memberships_changed", False):
+        session.commit()
     return {
         "authenticated": True,
         "auth_enabled": auth_enabled(),
         "display_name": account.display_name,
         "email": account.email,
         "squad_id": account.squad_id,
+        "role": membership.role if membership else HEAD,  # role on the ACTIVE team
         "seen_tutorial": bool(account.seen_tutorial),
     }
 
@@ -74,12 +79,21 @@ class RedeemBody(BaseModel):
 def redeem_invite(
     body: RedeemBody, response: Response, session: Session = Depends(get_session)
 ) -> dict:
-    """Redeem a one-time invite: create the account + its empty squad, log in."""
+    """Redeem a one-time invite: create the account + its empty squad, log in.
+
+    An assistant-coach invite (T3.2) instead joins the inviting team as an assistant
+    and creates no team of their own — they can add one later from the app.
+    """
     invite = session.exec(
         select(InviteDB).where(InviteDB.token_hash == hash_token(body.token))
     ).first()
     if not invite or invite.redeemed_at is not None or is_expired(invite.expires_at):
         raise HTTPException(status_code=400, detail="This invite link is invalid or expired")
+    assist_squad = None
+    if invite.role == ASSISTANT:
+        assist_squad = session.get(SquadDB, invite.squad_id) if invite.squad_id else None
+        if assist_squad is None:
+            raise HTTPException(status_code=400, detail="This invite link is invalid or expired")
 
     email = _norm_email(body.email)
     if not email or "@" not in email:
@@ -90,10 +104,13 @@ def redeem_invite(
             detail="An account already exists for that email — request a sign-in link instead",
         )
 
-    squad = SquadDB(name="My Squad")
-    session.add(squad)
-    session.commit()
-    session.refresh(squad)
+    if assist_squad is not None:
+        squad = assist_squad
+    else:
+        squad = SquadDB(name="My Squad")
+        session.add(squad)
+        session.commit()
+        session.refresh(squad)
 
     account = AccountDB(
         squad_id=squad.id,  # type: ignore[arg-type]
@@ -104,11 +121,16 @@ def redeem_invite(
         last_login_at=now_iso(),
     )
     session.add(account)
-    session.commit()  # assign account.id so we can set the squad owner
+    session.commit()  # assign account.id so we can record the membership
     session.refresh(account)
 
-    squad.account_id = account.id  # every squad created from now on has an owner
-    session.add(squad)
+    if assist_squad is not None:
+        add_membership(
+            session, squad, account.id, ASSISTANT,  # type: ignore[arg-type]
+            invited_by_account_id=invite.invited_by_account_id,
+        )
+    else:
+        add_membership(session, squad, account.id, HEAD)  # type: ignore[arg-type]  # sets owner
     invite.account_id = account.id
     invite.redeemed_at = now_iso()
     session.add(invite)
@@ -116,7 +138,7 @@ def redeem_invite(
     session.refresh(account)
 
     set_session_cookie(response, account.id, account.session_epoch)  # type: ignore[arg-type]
-    return _account_public(account)
+    return _account_public(account, session)
 
 
 class RequestLinkBody(BaseModel):
@@ -182,7 +204,7 @@ def verify_login(
     session.refresh(account)
 
     set_session_cookie(response, account.id, account.session_epoch)  # type: ignore[arg-type]
-    return _account_public(account)
+    return _account_public(account, session)
 
 
 @router.post("/logout")
@@ -301,7 +323,7 @@ def confirm_email_change(
     )
 
     set_session_cookie(response, account.id, account.session_epoch)  # type: ignore[arg-type]
-    return _account_public(account)
+    return _account_public(account, session)
 
 
 class ReclaimBody(BaseModel):
@@ -386,6 +408,9 @@ def clear_account_data(
     (guest players included) — while keeping the account, its login and the squad
     shell. Backs the self-service deletion promise in the Privacy Policy.
     """
+    membership = get_membership(session, account.squad_id, account.id)  # type: ignore[arg-type]
+    if membership is None or membership.role != HEAD:
+        raise HTTPException(status_code=403, detail="Only the head coach can do that")
     # Keep the squad shell (and its owner link) — clear only the football data.
     delete_squad_data(session, account.squad_id, drop_squad_row=False)
     session.commit()
@@ -415,4 +440,4 @@ def me(request: Request, session: Session = Depends(get_session)) -> dict:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if (session_epoch_from(cookie) or 0) != account.session_epoch:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return _account_public(account)
+    return _account_public(account, session)

@@ -16,7 +16,13 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
-from backend.api.deps import get_current_squad, owned_tournament
+from backend.api.deps import (
+    SquadAccess,
+    get_current_squad,
+    get_squad_access,
+    owned_tournament,
+    require,
+)
 from backend.db.database import get_session
 from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB, TournamentDB
 from backend.db.repositories import (
@@ -180,7 +186,7 @@ def list_tournaments(
 def create_tournament(
     body: TournamentCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> TournamentRead:
     # Validate formation
     try:
@@ -215,8 +221,10 @@ def create_tournament(
 def get_tournament(
     tournament_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    access: SquadAccess = Depends(get_squad_access),
 ) -> dict[str, Any]:
+    squad = access.squad
+    show_skill = access.can("manage_squad")  # assistants don't see individual ratings
     t = owned_tournament(tournament_id, squad, session)
 
     matches = list(
@@ -264,7 +272,7 @@ def get_tournament(
         return {
             "id": p.id,
             "name": p.name,
-            "skill_rating": p.skill_rating,
+            "skill_rating": p.skill_rating if show_skill else None,
             "gk_status": p.gk_status,
             "preferred_positions": json.loads(p.preferred_positions) if p.preferred_positions else [],
             "best_position": p.best_position or "",
@@ -408,7 +416,7 @@ def update_tournament(
     tournament_id: int,
     body: TournamentUpdate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> TournamentRead:
     t = owned_tournament(tournament_id, squad, session)
     # Snapshot the fields that change a match's structure / rotation so we know
@@ -463,7 +471,7 @@ def set_available_players(
     tournament_id: int,
     body: SetAvailablePlayersBody,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> dict[str, Any]:
     """Update the available player list for all planned matches and regenerate their rotations."""
     t = owned_tournament(tournament_id, squad, session)
@@ -515,7 +523,7 @@ def set_position_overrides(
     tournament_id: int,
     body: SetPositionOverridesBody,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> dict[str, Any]:
     """Store tournament-scoped position overrides for players.
 
@@ -537,7 +545,7 @@ def update_match_opponent(
     match_id: int,
     body: MatchOpponentUpdate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> dict[str, Any]:
     """Update the opponent name for a tournament match."""
     owned_tournament(tournament_id, squad, session)
@@ -554,7 +562,7 @@ def update_match_opponent(
 def delete_tournament(
     tournament_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> None:
     owned_tournament(tournament_id, squad, session)
 
@@ -578,7 +586,7 @@ def add_guest_player(
     tournament_id: int,
     body: GuestPlayerCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("manage_squad")),
 ) -> dict[str, Any]:
     owned_tournament(tournament_id, squad, session)
 
@@ -620,7 +628,7 @@ def remove_guest_player(
     tournament_id: int,
     player_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("manage_squad")),
 ) -> None:
     owned_tournament(tournament_id, squad, session)
     p = session.get(PlayerDB, player_id)
@@ -724,7 +732,7 @@ def add_tournament_match(
     tournament_id: int,
     body: TournamentMatchCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> dict[str, Any]:
     """Create a match for this tournament and immediately generate its rotation."""
     t = owned_tournament(tournament_id, squad, session)
@@ -748,7 +756,7 @@ def add_tournament_matches_batch(
     tournament_id: int,
     body: TournamentMatchBatchCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> dict[str, Any]:
     """Create + generate several matches in one request.
 

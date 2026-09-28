@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
-from backend.api.deps import get_current_squad, owned_match, owned_player
+from backend.api.deps import get_current_squad, owned_match, owned_player, require
 from backend.db.database import get_session
 from backend.db.models import MatchDB, RotationPlanDB, SquadDB
 from backend.db.repositories import (
@@ -160,7 +160,7 @@ def list_matches(
 def create_match(
     match: MatchCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> MatchRead:
     # Validate team_size + formation combo
     try:
@@ -195,7 +195,7 @@ def update_match(
     match_id: int,
     body: MatchUpdate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> MatchRead:
     """Edit a *planned* season match's settings (the caller re-generates after)."""
     db_match = owned_match(match_id, squad, session)
@@ -259,7 +259,7 @@ def generate_match_rotation(
     match_id: int,
     body: RotationRequest | None = None,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> dict[str, Any]:
     db_match = owned_match(match_id, squad, session)
 
@@ -300,7 +300,7 @@ def create_blank_rotation(
     match_id: int,
     body: RotationRequest | None = None,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> dict[str, Any]:
     """Create an empty rotation (all positions unfilled) for manual slot assignment."""
     db_match = owned_match(match_id, squad, session)
@@ -343,7 +343,7 @@ def adjust_match_rotation(
     match_id: int,
     body: AdjustRequest,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> dict[str, Any]:
     """Apply manual edits and re-generate unlocked slots."""
     db_match = owned_match(match_id, squad, session)
@@ -403,7 +403,7 @@ def save_match_goals(
     match_id: int,
     body: GoalsSave,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("run_matchday")),
 ) -> dict[str, str]:
     db_match = owned_match(match_id, squad, session)
 
@@ -467,7 +467,7 @@ def get_player_history(
 def start_match(
     match_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("run_matchday")),
 ) -> dict[str, Any]:
     """Mark match as in_progress. Idempotent if already started."""
     db_match = owned_match(match_id, squad, session)
@@ -483,7 +483,7 @@ def start_match(
 def unstart_match(
     match_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("run_matchday")),
 ) -> dict[str, Any]:
     """Revert an accidentally-started match back to planned. Only allowed when current_slot == 0."""
     db_match = owned_match(match_id, squad, session)
@@ -507,7 +507,7 @@ def update_progress(
     match_id: int,
     body: ProgressUpdate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("run_matchday")),
 ) -> dict[str, Any]:
     """Persist current slot position and optionally update match status."""
     db_match = owned_match(match_id, squad, session)
@@ -529,7 +529,7 @@ def remove_player_from_match(
     match_id: int,
     body: RemovePlayerRequest,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("run_matchday")),
 ) -> dict[str, Any]:
     """Mark a player unavailable from a given slot onward and re-generate remaining slots."""
     db_match = owned_match(match_id, squad, session)
@@ -577,7 +577,7 @@ def reinstate_player_in_match(
     match_id: int,
     body: ReinstatePlayerRequest,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("run_matchday")),
 ) -> dict[str, Any]:
     """Restore a removed player and re-generate slots from current match position."""
     db_match = owned_match(match_id, squad, session)
@@ -620,7 +620,7 @@ def reinstate_player_in_match(
 def delete_match(
     match_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("edit_plan")),
 ) -> None:
     owned_match(match_id, squad, session)
     # Explicit ordered DELETEs — bypasses ORM flush ordering issues with PostgreSQL FKs

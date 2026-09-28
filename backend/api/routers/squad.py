@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from backend.api.deps import get_current_squad, owned_player
+from backend.api.deps import (
+    SquadAccess,
+    get_current_squad,
+    get_squad_access,
+    owned_player,
+    require,
+)
 from backend.db.database import get_session
 from backend.db.models import PlayerDB, SquadDB
 
@@ -27,7 +33,7 @@ def get_team_info(squad: SquadDB = Depends(get_current_squad)) -> TeamInfo:
 def update_team_info(
     info: TeamInfo,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("manage_team")),
 ) -> TeamInfo:
     squad.team_name = info.team_name
     squad.team_logo = info.team_logo
@@ -54,20 +60,20 @@ class PlayerRead(BaseModel):
     name: str
     gk_status: str
     def_restricted: bool
-    skill_rating: int
+    skill_rating: int | None  # None when redacted for an assistant coach (T3.2)
     preferred_positions: list[str] = []
     best_position: str = ""
     shirt_number: int | None = None
 
 
-def _player_to_read(p: PlayerDB) -> PlayerRead:
+def _player_to_read(p: PlayerDB, show_skill: bool = True) -> PlayerRead:
     positions = json.loads(p.preferred_positions) if p.preferred_positions else []
     return PlayerRead(
         id=p.id,  # type: ignore[arg-type]
         name=p.name,
         gk_status=p.gk_status,
         def_restricted=p.def_restricted,
-        skill_rating=p.skill_rating,
+        skill_rating=p.skill_rating if show_skill else None,
         preferred_positions=positions,
         best_position=p.best_position,
         shirt_number=p.shirt_number,
@@ -77,8 +83,9 @@ def _player_to_read(p: PlayerDB) -> PlayerRead:
 @router.get("/players", response_model=list[PlayerRead])
 def list_players(
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    access: SquadAccess = Depends(get_squad_access),
 ) -> list[PlayerRead]:
+    squad = access.squad
     # Exclude tournament guest players (source_tournament_id IS NOT NULL)
     players = list(
         session.exec(
@@ -88,14 +95,17 @@ def list_players(
             )
         ).all()
     )
-    return [_player_to_read(p) for p in players]
+    # Individual skill ratings are the head coach's private judgement — assistants
+    # get null (per-slot pooled totals in the plan stay visible).
+    show_skill = access.can("manage_squad")
+    return [_player_to_read(p, show_skill) for p in players]
 
 
 @router.post("/players", response_model=PlayerRead, status_code=201)
 def add_player(
     player: PlayerCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("manage_squad")),
 ) -> PlayerRead:
     existing = session.exec(
         select(PlayerDB).where(PlayerDB.squad_id == squad.id, PlayerDB.name == player.name)
@@ -116,7 +126,7 @@ def update_player(
     player_id: int,
     player: PlayerCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("manage_squad")),
 ) -> PlayerRead:
     db_player = owned_player(player_id, squad, session)
     data = player.model_dump()
@@ -133,7 +143,7 @@ def update_player(
 def delete_player(
     player_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    squad: SquadDB = Depends(require("manage_squad")),
 ) -> None:
     db_player = owned_player(player_id, squad, session)
     session.delete(db_player)
