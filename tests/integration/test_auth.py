@@ -156,7 +156,9 @@ def test_duplicate_email_redeem_is_rejected(clients):
 def test_invite_is_single_use(clients):
     c = clients()
     token = _mint_invite(c)
-    assert c.post("/api/auth/redeem", json={"token": token, "email": "first@example.com"}).status_code == 200
+    assert c.post(
+        "/api/auth/redeem", json={"token": token, "email": "first@example.com", "display_name": "First"}
+    ).status_code == 200
     # Same token, different email → already redeemed.
     c2 = clients()
     assert c2.post("/api/auth/redeem", json={"token": token, "email": "second@example.com"}).status_code == 400
@@ -513,3 +515,29 @@ def test_accounts_are_isolated(clients):
     # A still sees its own data intact.
     assert len(a.get("/api/matches/").json()) == 1
     assert a.get(f"/api/matches/{a_match}").status_code == 200
+
+
+# ── Coach name ──────────────────────────────────────────────────────────────────
+def test_redeem_requires_a_name(clients):
+    c = clients()
+    token = _mint_invite(c)
+    resp = c.post("/api/auth/redeem", json={"token": token, "email": "noname@example.com", "display_name": "  "})
+    assert resp.status_code == 422
+    # The invite wasn't burned by the rejected attempt.
+    ok = c.post("/api/auth/redeem",
+                json={"token": token, "email": "noname@example.com", "display_name": " Jo   Bloggs "})
+    assert ok.status_code == 200
+    assert ok.json()["display_name"] == "Jo Bloggs"
+
+
+def test_coach_can_set_their_name(clients):
+    c = clients()
+    _redeem(c, "rename@example.com")
+    assert c.post("/api/auth/account/name", json={"display_name": ""}).status_code == 422
+    resp = c.post("/api/auth/account/name", json={"display_name": "Sam Coach"})
+    assert resp.status_code == 200
+    assert c.get("/api/auth/me").json()["display_name"] == "Sam Coach"
+
+
+def test_update_name_requires_auth(clients):
+    assert clients().post("/api/auth/account/name", json={"display_name": "X"}).status_code == 401

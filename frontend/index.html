@@ -247,10 +247,11 @@
         <h2 class="auth-title" id="join-title">Create your team</h2>
         <p class="auth-sub" id="join-sub">You've been invited to Level. Set up your account to get started.</p>
         <form id="join-form" class="auth-form">
-          <input type="text" id="join-name" class="auth-input" placeholder="Your name" autocomplete="name" />
+          <input type="text" id="join-name" class="auth-input" placeholder="Your name" autocomplete="name" maxlength="60" required />
           <input type="email" id="join-email" class="auth-input" placeholder="you@example.com" autocomplete="email" required />
           <button type="submit" class="btn btn-primary btn-full" id="btn-join-create">Create my team</button>
         </form>
+        <button type="button" class="auth-link-btn" id="btn-join-have-account" hidden>Already use Level? Sign in instead</button>
         <p class="auth-msg" id="join-msg" hidden></p>
         <div class="auth-inapp" hidden>
           <p class="auth-inapp-note">Opened inside another app (email/social)? Setup works best in your normal browser (Safari or Chrome).</p>
@@ -327,6 +328,11 @@
         <summary class="settings-heading">Assistant coaches<span class="beta-badge">New</span></summary>
         <div class="settings-body">
           <p class="settings-hint">Give another coach a view of <strong id="settings-assistants-team">this team</strong>: the plans (including drafts), match reports and season stats. They can't change anything, and they won't see individual skill ratings.</p>
+          <form id="assistant-name-needed" class="settings-inline-form" hidden>
+            <label class="settings-field-label" for="assistant-name-input">First, add your name — your assistant will see it</label>
+            <input type="text" id="assistant-name-input" class="auth-input" placeholder="e.g. Sam Smith" autocomplete="name" maxlength="60" required />
+            <button type="submit" class="btn btn-primary btn-full">Save name</button>
+          </form>
           <ul id="settings-assistant-list"></ul>
           <p class="settings-hint" id="settings-assistants-empty">No assistant coaches yet.</p>
           <button type="button" class="btn btn-secondary btn-full" id="btn-assistant-invite-create">Create assistant invite link</button>
@@ -372,6 +378,14 @@
       <details class="settings-section settings-collapsible">
         <summary class="settings-heading">Account</summary>
         <div class="settings-body">
+          <form id="name-form" class="settings-inline-form">
+            <label class="settings-field-label" for="settings-name">Your name</label>
+            <input type="text" id="settings-name" class="auth-input" placeholder="e.g. Sam Smith" autocomplete="name" maxlength="60" required />
+            <button type="submit" class="btn btn-secondary btn-full" id="btn-name-save">Save name</button>
+          </form>
+          <p class="settings-msg" id="name-msg" hidden></p>
+          <p class="settings-hint">Other coaches see this — e.g. when you invite an assistant coach.</p>
+
           <p class="settings-label">Signed in as</p>
           <p class="settings-value" id="settings-email">—</p>
 

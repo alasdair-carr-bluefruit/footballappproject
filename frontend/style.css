@@ -3826,3 +3826,13 @@ body:not(.role-assistant) .assistant-only { display: none !important; }
 }
 .assistant-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .assistant-row-name small { display: block; color: var(--text-dim); }
+.auth-link-btn {
+  display: block;
+  margin: 12px auto 0;
+  background: none;
+  border: none;
+  color: var(--matchday);
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}

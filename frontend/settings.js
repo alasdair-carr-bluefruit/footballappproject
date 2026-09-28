@@ -17,6 +17,8 @@ export async function openSettings({ focus } = {}) {
 
   document.getElementById("settings-email").textContent =
     (state.account && state.account.email) || "—";
+  document.getElementById("settings-name").value = (state.account && state.account.display_name) || "";
+  hide("name-msg");
 
   // Reset the invite-a-friend block (don't surface a link minted in a prior visit).
   document.getElementById("invite-result").hidden = true;
@@ -47,6 +49,44 @@ if (btnSettings) btnSettings.addEventListener("click", () => openSettings());
 
 document.getElementById("btn-settings-back").addEventListener("click", () => {
   showScreen("screen-landing");
+});
+
+// ── Coach name ───────────────────────────────────────────────────────────────────
+async function saveName(name) {
+  const me = await api.updateName(name);
+  state.account = { ...state.account, ...me };
+  return me;
+}
+
+document.getElementById("name-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("settings-name").value.trim();
+  if (!name) return;
+  const btn = document.getElementById("btn-name-save");
+  btn.disabled = true;
+  try {
+    await saveName(name);
+    showMsg("name-msg", "Saved.");
+    renderAssistantsSection();
+  } catch (err) {
+    showMsg("name-msg", (err && err.message) || "Couldn't save your name — please try again.");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("assistant-name-needed").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("assistant-name-input").value.trim();
+  if (!name) return;
+  try {
+    await saveName(name);
+    document.getElementById("settings-name").value = state.account.display_name || name;
+    showToast("Thanks — name saved.");
+    renderAssistantsSection();
+  } catch (err) {
+    showMsg("assistant-invite-msg", (err && err.message) || "Couldn't save your name — please try again.");
+  }
 });
 
 // ── Change email ─────────────────────────────────────────────────────────────────
@@ -90,6 +130,11 @@ async function renderAssistantsSection() {
   hide("assistant-invite-hint");
   hide("leave-team-msg");
   if (isAssistant()) return;
+
+  // The invitee sees the head coach's name, so ask for it once if it's blank.
+  const needsName = !((state.account && state.account.display_name) || "").trim();
+  document.getElementById("assistant-name-needed").hidden = !needsName;
+  document.getElementById("btn-assistant-invite-create").hidden = needsName;
 
   const list = document.getElementById("settings-assistant-list");
   list.innerHTML = "";

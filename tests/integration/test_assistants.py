@@ -349,3 +349,17 @@ def test_migration_backfills_one_head_membership_per_owned_squad(tmp_path, monke
     with engine.connect() as conn:
         n = conn.execute(text("SELECT COUNT(*) FROM squad_memberships")).scalar()
     assert n == 2
+
+
+def test_assistant_invite_needs_head_coach_name(team, session):
+    from sqlmodel import select
+
+    from backend.db.models import AccountDB
+
+    head = session.exec(select(AccountDB).where(AccountDB.email == "head@example.com")).one()
+    head.display_name = ""
+    session.add(head)
+    session.commit()
+    assert team["head"].post("/api/teams/assistant-invite").status_code == 409
+    team["head"].post("/api/auth/account/name", json={"display_name": "Sam"})
+    assert team["head"].post("/api/teams/assistant-invite").status_code == 200

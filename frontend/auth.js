@@ -147,6 +147,17 @@ async function showAssistSignup(token) {
   document.getElementById("join-title").textContent = copy.title;
   document.getElementById("join-sub").textContent = copy.sub + " Enter your details to get started.";
   document.getElementById("btn-join-create").textContent = "Join as assistant coach";
+  const haveAccount = document.getElementById("btn-join-have-account");
+  haveAccount.hidden = false;
+  haveAccount.onclick = () => parkAssistAndSignIn(token, document.getElementById("join-email").value.trim());
+}
+
+// Existing coach, signed out: sign in first; the confirm screen follows the magic link.
+function parkAssistAndSignIn(token, email) {
+  setPendingAssist(token);
+  clearAuthParams();
+  showLogin("Sign in with your Level email. Open the sign-in link on this device and you'll be asked to join the team.");
+  if (email) document.getElementById("login-email").value = email;
 }
 
 // After a successful sign-in, finish a parked assistant invite if there is one.
@@ -338,11 +349,9 @@ document.getElementById("join-form").addEventListener("submit", async (e) => {
   } catch (err) {
     if (assistToken && err && err.status === 409) {
       // They already have a Level account: sign in first, then accept the invite.
-      setPendingAssist(assistToken);
-      clearAuthParams();
-      showLogin("You already have a Level account — enter your email for a sign-in link. "
-        + "Open it on this device and you'll be added to the team.");
-      document.getElementById("login-email").value = email;
+      parkAssistAndSignIn(assistToken, email);
+      document.getElementById("login-msg").textContent = "You already have a Level account — "
+        + "enter your email for a sign-in link. Open it on this device and you'll be asked to join the team.";
       return;
     }
     msg.textContent = (err && err.message) || "That invite link is invalid or expired.";

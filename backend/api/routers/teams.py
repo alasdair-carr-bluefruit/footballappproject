@@ -208,7 +208,12 @@ def create_assistant_invite(
     account: AccountDB = Depends(get_current_account),
 ) -> dict:
     """Mint a one-time link that adds whoever opens it as an assistant coach of the
-    active team. Only the hash is stored; the raw link is returned to share."""
+    active team. Only the hash is stored; the raw link is returned to share.
+    Needs the head coach's name first — it's what the invitee sees."""
+    if not (account.display_name or "").strip():
+        raise HTTPException(
+            status_code=409, detail="Add your name first — your assistant will see it"
+        )
     raw = new_token()
     invite = InviteDB(
         token_hash=hash_token(raw),

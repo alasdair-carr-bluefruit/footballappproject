@@ -54,6 +54,15 @@ def _norm_email(email: str) -> str:
     return (email or "").strip().lower()
 
 
+NAME_MAX_LEN = 60
+
+
+def _clean_name(name: str) -> str:
+    """A coach's display name: trimmed, inner whitespace collapsed, capped. Shown to
+    other coaches (assistant invites, "started on [Name]'s device")."""
+    return " ".join((name or "").split())[:NAME_MAX_LEN]
+
+
 def _account_public(account: AccountDB, session: Session) -> dict:
     membership = get_membership(session, account.squad_id, account.id)  # type: ignore[arg-type]
     if session.info.pop("memberships_changed", False):
@@ -103,6 +112,11 @@ def redeem_invite(
             status_code=409,
             detail="An account already exists for that email — request a sign-in link instead",
         )
+    # Checked after the duplicate-email 409, so an existing coach following an
+    # assistant link is routed to sign-in without having to type a name first.
+    display_name = _clean_name(body.display_name)
+    if not display_name:
+        raise HTTPException(status_code=422, detail="Please add your name")
 
     if assist_squad is not None:
         squad = assist_squad
@@ -115,7 +129,7 @@ def redeem_invite(
     account = AccountDB(
         squad_id=squad.id,  # type: ignore[arg-type]
         email=email,
-        display_name=body.display_name.strip(),
+        display_name=display_name,
         status="active",
         created_at=now_iso(),
         last_login_at=now_iso(),
@@ -214,6 +228,27 @@ def logout(response: Response) -> dict:
 
 
 # ── Account self-service (Settings screen) ──────────────────────────────────────
+
+
+class UpdateNameBody(BaseModel):
+    display_name: str
+
+
+@router.post("/account/name")
+def update_display_name(
+    body: UpdateNameBody,
+    session: Session = Depends(get_session),
+    account: AccountDB = Depends(get_current_account),
+) -> dict:
+    """Set or change the coach's name (Settings → Account)."""
+    name = _clean_name(body.display_name)
+    if not name:
+        raise HTTPException(status_code=422, detail="Please add your name")
+    account.display_name = name
+    session.add(account)
+    session.commit()
+    session.refresh(account)
+    return _account_public(account, session)
 
 
 class RequestEmailChangeBody(BaseModel):

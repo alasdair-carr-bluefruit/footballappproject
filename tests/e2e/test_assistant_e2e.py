@@ -112,6 +112,7 @@ def test_head_coach_manages_assistants_in_settings(auth_server, page: Page):
         token = r.json()["link"].split("invite=")[1]
     page.goto(base + f"/?invite={token}")
     page.fill("#join-email", "settings-head@example.com")
+    page.fill("#join-name", "Jo")
     page.click("#btn-join-create")
     page.fill("#tutorial-team-name", "Hawks")
     page.click("#btn-tutorial-start")
@@ -132,24 +133,36 @@ def test_head_coach_manages_assistants_in_settings(auth_server, page: Page):
     assert "assist=" in link.input_value()
 
 
-def test_existing_coach_signs_in_then_accepts_assistant_invite(auth_server, page: Page):
+@pytest.mark.parametrize("route", ["link", "form"])
+def test_existing_coach_signs_in_then_accepts_assistant_invite(auth_server, page: Page, route: str):
     """Signed-out existing coach: the join form spots their account, parks the invite,
     and after the magic-link sign-in they confirm joining — keeping their own team."""
     base = auth_server
-    token = _head_coach_with_plans(base, "head-existing@example.com")
+    token = _head_coach_with_plans(base, f"head-existing-{route}@example.com")
+    existing = f"existing-{route}@example.com"
     with httpx.Client(base_url=base, timeout=20) as other:
         r = other.post("/api/admin/invites", headers=ADMIN_HEADERS, json={"note": "x"})
         own = r.json()["link"].split("invite=")[1]
-        other.post("/api/auth/redeem", json={"token": own, "email": "existing@example.com"}).raise_for_status()
+        other.post("/api/auth/redeem", json={
+            "token": own, "email": existing, "display_name": "Pat",
+        }).raise_for_status()
         other.put("/api/squad/info", json={"team_name": "My Own XI", "team_logo": ""}).raise_for_status()
 
     page.add_init_script("localStorage.setItem('gaffer_multiteam_seen', '1')")
     page.goto(base + f"/?assist={token}")
     expect(page.locator("#screen-join")).to_be_visible()
-    page.fill("#join-email", "existing@example.com")
-    page.click("#btn-join-create")
-    expect(page.locator("#screen-login")).to_be_visible()
-    expect(page.locator("#login-msg")).to_contain_text("already have a Level account")
+    page.fill("#join-email", existing)
+    if route == "link":
+        # "Already use Level? Sign in instead" — no name needed.
+        page.click("#btn-join-have-account")
+        expect(page.locator("#screen-login")).to_be_visible()
+        expect(page.locator("#login-email")).to_have_value(existing)
+    else:
+        # Filled the form anyway: the server's 409 routes them to sign in.
+        page.fill("#join-name", "Pat")
+        page.click("#btn-join-create")
+        expect(page.locator("#screen-login")).to_be_visible()
+        expect(page.locator("#login-msg")).to_contain_text("already have a Level account")
 
     page.click("#btn-login-send")
     devlink = page.locator("#login-devlink")
