@@ -60,7 +60,7 @@ async function loadHome() {
     // Planned matches can be re-edited (mirrors the tournament edit pencil); a
     // live/finished match's settings are frozen.
     const editBtn = m.status === "planned"
-      ? `<button class="btn-icon match-edit" title="Edit match">✎</button>` : "";
+      ? `<button class="btn-icon match-edit head-only" title="Edit match">✎</button>` : "";
     li.innerHTML = `
       <div class="match-item-main">
         <span class="match-item-date">${dateStr}</span>
@@ -69,7 +69,7 @@ async function loadHome() {
         ${statusBadge}
       </div>
       ${editBtn}
-      <button class="btn-icon match-delete" data-id="${m.id}" title="Delete match">✕</button>
+      <button class="btn-icon match-delete head-only" data-id="${m.id}" title="Delete match">✕</button>
     `;
     li.querySelector(".match-item-main").addEventListener("click", () => openMatch(m.id));
     li.querySelector(".match-edit")?.addEventListener("click", e => {

@@ -4,7 +4,7 @@
 // is OFF (single-user dev/default), /me returns 200 and we boot straight through,
 // so nothing here changes today's behaviour.
 import { api, setUnauthorizedHandler } from "./api.js";
-import { state } from "./state.js";
+import { state, setRole } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { bootApp } from "./screens.js";
 
@@ -65,9 +65,95 @@ async function probeMe() {
 }
 
 function enterApp(me) {
-  if (me) { state.account = me; toggleSignout(me); }
+  if (me) { state.account = me; toggleSignout(me); setRole(me.role); }
   appBooted = true;
   bootApp();
+}
+
+// ── Assistant-coach invites (T3.2) ─────────────────────────────────────────────
+// A `?assist=` link adds whoever opens it as an assistant on the inviting team.
+// Signed in → confirm screen → POST /teams/join. New person → the join form, which
+// redeems the token as a new account. Existing account but signed out → we park the
+// token here, they sign in by magic link, then land on the confirm screen.
+const PENDING_ASSIST_KEY = "gaffer_pending_assist";
+
+function pendingAssist() {
+  try { return localStorage.getItem(PENDING_ASSIST_KEY); } catch (_) { return null; }
+}
+function setPendingAssist(token) {
+  try {
+    if (token) localStorage.setItem(PENDING_ASSIST_KEY, token);
+    else localStorage.removeItem(PENDING_ASSIST_KEY);
+  } catch (_) { /* storage blocked — the link still works if reopened */ }
+}
+
+function assistCopy(preview) {
+  const team = (preview && preview.team_name) || "a team";
+  const head = preview && preview.head_name;
+  return {
+    title: `Join ${team}`,
+    sub: head
+      ? `${head} has invited you to be an assistant coach for ${team} on Level.`
+      : `You've been invited to be an assistant coach for ${team} on Level.`,
+  };
+}
+
+// Signed-in accept. Always an explicit tap (never on load).
+async function showAssistJoin(token, me) {
+  showScreen("screen-assist-join");
+  const msg = document.getElementById("assist-join-msg");
+  const btn = document.getElementById("btn-assist-join-confirm");
+  msg.hidden = true;
+  btn.disabled = false;
+  let preview = null;
+  try { preview = await api.previewAssistInvite(token); } catch (_) {
+    setPendingAssist(null);
+    clearAuthParams();
+    msg.textContent = "That invite link is invalid or has expired — ask the head coach for a new one.";
+    msg.hidden = false;
+    btn.disabled = true;
+  }
+  const copy = assistCopy(preview);
+  document.getElementById("assist-join-title").textContent = copy.title;
+  document.getElementById("assist-join-sub").textContent = copy.sub;
+
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try {
+      await api.joinAsAssistant(token);
+      setPendingAssist(null);
+      clearAuthParams();
+      enterApp(await api.me());
+    } catch (err) {
+      msg.textContent = (err && err.message) || "Couldn't join the team — try again.";
+      msg.hidden = false;
+      btn.disabled = false;
+    }
+  };
+  document.getElementById("btn-assist-join-skip").onclick = () => {
+    setPendingAssist(null);
+    clearAuthParams();
+    enterApp(me);
+  };
+}
+
+// Signed out: re-word the join form for an assistant invite.
+async function showAssistSignup(token) {
+  showScreen("screen-join");
+  maybeShowInAppNudge();
+  let preview = null;
+  try { preview = await api.previewAssistInvite(token); } catch (_) { /* form shows the error on submit */ }
+  const copy = assistCopy(preview);
+  document.getElementById("join-title").textContent = copy.title;
+  document.getElementById("join-sub").textContent = copy.sub + " Enter your details to get started.";
+  document.getElementById("btn-join-create").textContent = "Join as assistant coach";
+}
+
+// After a successful sign-in, finish a parked assistant invite if there is one.
+function enterAppOrAssist(me) {
+  const token = pendingAssist();
+  if (token && me && me.auth_enabled) showAssistJoin(token, me);
+  else enterApp(me);
 }
 
 function showLogin(message) {
@@ -103,7 +189,7 @@ async function handleVerify(token) {
   try {
     const me = await api.verifyLogin(token);
     clearAuthParams();
-    enterApp(me);
+    enterAppOrAssist(me);
   } catch (_) {
     clearAuthParams();
     showLogin("That sign-in link was invalid or has expired — enter your email for a fresh one.");
@@ -170,7 +256,12 @@ async function runGate() {
     showEmailChange(emailChangeToken);
     return;
   }
+  const assistToken = params0.get("assist");
   const probe = await probeMe();
+  if (probe.me && probe.me.auth_enabled && (assistToken || pendingAssist())) {
+    showAssistJoin(assistToken || pendingAssist(), probe.me);
+    return;
+  }
   if (probe.me || probe.offline) {
     // Authenticated, or auth disabled (me present), or server unreachable → boot.
     enterApp(probe.me || null);
@@ -182,6 +273,8 @@ async function runGate() {
   const inviteToken = params.get("invite");
   if (loginToken) {
     showVerify(loginToken);
+  } else if (assistToken) {
+    showAssistSignup(assistToken);
   } else if (inviteToken) {
     showScreen("screen-join");
     maybeShowInAppNudge();
@@ -228,7 +321,9 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
 // ── Join form: redeem an invite ──────────────────────────────────────────────────
 document.getElementById("join-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const token = new URLSearchParams(location.search).get("invite");
+  const params = new URLSearchParams(location.search);
+  const assistToken = params.get("assist");
+  const token = assistToken || params.get("invite");
   const email = document.getElementById("join-email").value.trim();
   const displayName = document.getElementById("join-name").value.trim();
   const msg = document.getElementById("join-msg");
@@ -241,6 +336,15 @@ document.getElementById("join-form").addEventListener("submit", async (e) => {
     clearAuthParams();
     enterApp(me);
   } catch (err) {
+    if (assistToken && err && err.status === 409) {
+      // They already have a Level account: sign in first, then accept the invite.
+      setPendingAssist(assistToken);
+      clearAuthParams();
+      showLogin("You already have a Level account — enter your email for a sign-in link. "
+        + "Open it on this device and you'll be added to the team.");
+      document.getElementById("login-email").value = email;
+      return;
+    }
     msg.textContent = (err && err.message) || "That invite link is invalid or expired.";
     msg.hidden = false;
     btn.disabled = false;

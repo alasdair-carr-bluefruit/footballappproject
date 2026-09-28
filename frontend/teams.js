@@ -8,6 +8,7 @@ import { showToast } from "./toast.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
 import { loadSquad } from "./screens.js";
+import { showScreen } from "./pitch.js";
 
 const switcherOverlay = () => document.getElementById("team-switcher-overlay");
 const removeOverlay = () => document.getElementById("team-remove-overlay");
@@ -33,8 +34,10 @@ export function renderTeamPill(containerId) {
   const name = (state.teamInfo && (state.teamInfo.team_name || "").trim())
     || (active && (active.team_name || "").trim())
     || "Your team";
+  const badge = active && active.role === "assistant"
+    ? `<span class="role-badge">Assistant</span>` : "";
   el.innerHTML = `<button type="button" class="team-pill" title="Switch team">
-    <span class="team-pill-name">${escapeHtml(name)}</span>
+    <span class="team-pill-name">${escapeHtml(name)}</span>${badge}
     <span class="team-pill-caret" aria-hidden="true">▾</span>
   </button>`;
   el.querySelector(".team-pill").addEventListener("click", openTeamSwitcher);
@@ -109,15 +112,21 @@ function renderTeamList(listId, { allowRemove, onAfter }) {
   const list = document.getElementById(listId);
   if (!list) return;
   list.innerHTML = "";
-  const canRemove = allowRemove && state.teams.length > 1;
+  // Only teams you head can be removed, and never your last one (assistants leave
+  // a team from Settings instead).
+  const headedCount = state.teams.filter(t => t.role !== "assistant").length;
   state.teams.forEach(t => {
     const name = (t.team_name || "").trim() || "Unnamed team";
+    const isAsst = t.role === "assistant";
+    const canRemove = allowRemove && !isAsst && headedCount > 1;
+    const sub = isAsst
+      ? `<span class="team-row-sub">Assistant coach${t.head_name ? ` · ${escapeHtml(t.head_name)}'s team` : ""}</span>` : "";
     const li = document.createElement("li");
     li.className = "team-row" + (t.is_active ? " team-row--active" : "");
     li.innerHTML = `
       <button type="button" class="team-row-main">
         <span class="team-row-check" aria-hidden="true">${t.is_active ? "✓" : ""}</span>
-        <span class="team-row-name">${escapeHtml(name)}</span>
+        <span class="team-row-name">${escapeHtml(name)}${sub}</span>
         <span class="team-row-count">${t.player_count} player${t.player_count === 1 ? "" : "s"}</span>
       </button>
       ${canRemove ? `<button type="button" class="btn-icon team-row-remove" title="Remove team">🗑</button>` : ""}
@@ -213,6 +222,15 @@ export async function renderSettingsTeams() {
   if (nameEl) nameEl.textContent = (active && (active.team_name || "").trim()) || "Your team";
 }
 
+// After the account gains or loses access to a team (joined, left, removed): the
+// server may have moved the active team, so reset caches and re-derive the role.
+export async function afterTeamAccessChange() {
+  resetTeamCaches();
+  await refreshTeams();
+  await primeTeamInfo();
+  renderTeamPills();
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 // Wipe in-memory caches so a switched/created team doesn't show stale data
 // (mirrors settings.js clear-data handler + the plan's reset set).
@@ -237,7 +255,10 @@ function refreshActiveViews() {
   const current = document.querySelector(".screen:not([hidden])")?.id;
   if (current === "screen-tournament-home") loadTournamentHome();
   else if (current === "screen-home") loadHome();
-  else if (current === "screen-squad") loadSquad();
+  else if (current === "screen-squad") {
+    if (state.role === "assistant") showScreen("screen-landing");  // squad management is head-only
+    else loadSquad();
+  }
   else if (current === "screen-settings") renderSettingsTeams();
   renderTeamPills();
 }

@@ -1,10 +1,11 @@
 import { api } from "./api.js";
-import { state, refreshShirtNumbers, refreshTeams, displayPos } from "./state.js";
+import { state, refreshShirtNumbers, refreshTeams, displayPos, isAssistant } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
 import { withSaveToast, showToast } from "./toast.js";
 import { renderTeamPill, renderTeamPills } from "./teams.js";
+import { openSettings } from "./settings.js";
 
 // ── First-launch tutorial ─────────────────────────────────────────────────────
 // Check server first — if a team name exists the DB already has data (e.g. a
@@ -12,6 +13,13 @@ import { renderTeamPill, renderTeamPills } from "./teams.js";
 // Invoked by auth.js once the auth gate (if any) has resolved — NOT auto-run,
 // so a logged-out coach never briefly sees the app behind the login screen.
 export async function bootApp() {
+  if (isAssistant()) {
+    // Assistants never set up the head coach's team — straight to the landing.
+    refreshTeams().then(() => renderTeamPills()).catch(() => {});
+    api.getTeamInfo().then(info => { if (info) state.teamInfo = info; renderTeamPills(); }).catch(() => {});
+    showScreen("screen-landing");
+    return;
+  }
   maybeDismissSquadTip();  // players-exist check, now post-auth
   // multi-team: populate the switcher, then render the landing pill once the
   // list resolves (it's fire-and-forget, so render in the .then, not inline).
@@ -100,36 +108,10 @@ document.getElementById("btn-squad-management").addEventListener("click", () => 
   loadSquad();
 });
 
-// ── Assistant-coach teaser (coming soon — a tap registers demand) ─────────────
-const COACH_INTEREST_KEY = "gaffer_coach_interest";
-const coachTeaser = document.getElementById("btn-coach-teaser");
-function markCoachInterested() {
-  if (!coachTeaser) return;
-  coachTeaser.classList.add("is-interested");
-  const sub = coachTeaser.querySelector("small");
-  if (sub) sub.textContent = "You're on the list — we'll let you know ✓";
-}
-if (coachTeaser) {
-  if (localStorage.getItem(COACH_INTEREST_KEY)) markCoachInterested();
-  coachTeaser.addEventListener("click", async () => {
-    if (localStorage.getItem(COACH_INTEREST_KEY)) {
-      showToast("You're on the list — we'll let you know! 👍");
-      return;
-    }
-    localStorage.setItem(COACH_INTEREST_KEY, "1");
-    markCoachInterested();
-    showToast("Thanks! We'll let you know when assistant coaches land. 🙌");
-    // Best-effort demand signal via the existing feedback pipeline.
-    try {
-      await api.submitFeedback("Feature interest: Add your assistant coach (co-coach)", {
-        kind: "feature-interest",
-        feature: "assistant-coach",
-        screen: "landing",
-        email: state.account?.email || "",
-      });
-    } catch (_) { /* local flag already set — never block the coach */ }
-  });
-}
+// ── Assistant coaches (T3.2) — landing card opens Settings → Assistant coaches ──
+document.getElementById("btn-coach-teaser")?.addEventListener("click", () => {
+  openSettings({ focus: "assistants" });
+});
 
 // ── Bug reporting ─────────────────────────────────────────────────────────────
 

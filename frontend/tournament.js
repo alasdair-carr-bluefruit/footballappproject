@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { state, ensureGameConfigs, refreshShirtNumbers, displayPos } from "./state.js";
+import { state, ensureGameConfigs, refreshShirtNumbers, displayPos, can } from "./state.js";
 import { showScreen, openMatch, enterReviewView, buildReviewCard, setReviewShare } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast, withSaveToast } from "./toast.js";
@@ -46,7 +46,7 @@ async function loadTournamentHome() {
         <span class="match-badge size-badge">${t.team_size || 5}v${t.team_size || 5}</span>
         <span class="match-badge">${matchCount} match${matchCount !== 1 ? "es" : ""}</span>
       </div>
-      <button class="btn-icon match-delete" data-id="${t.id}" title="Delete tournament">✕</button>
+      <button class="btn-icon match-delete head-only" data-id="${t.id}" title="Delete tournament">✕</button>
     `;
     li.querySelector(".match-item-main").addEventListener("click", () => loadTournamentLobby(t.id));
     li.querySelector(".match-delete").addEventListener("click", async e => {
@@ -224,7 +224,7 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
       <label class="avail-label">
         <input type="checkbox" class="avail-check" data-pid="${p.id}" ${isChecked ? "checked" : ""} />
         <span class="avail-name">${p.name}</span>
-        <span class="avail-skill">★${p.skill_rating}</span>
+        ${p.skill_rating != null ? `<span class="avail-skill">★${p.skill_rating}</span>` : ""}
       </label>
       <div class="pos-chips">${chipsHtml}</div>
     `;
@@ -274,7 +274,7 @@ async function renderTournamentSquadGuests(tournamentId) {
         <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
         <span class="avail-name">${p.name}</span>
         <span class="avail-guest-tag">Guest</span>
-        <span class="avail-skill">★${p.skill_rating}</span>
+        ${p.skill_rating != null ? `<span class="avail-skill">★${p.skill_rating}</span>` : ""}
         <button class="btn-icon avail-remove-guest" data-pid="${p.id}" title="Remove">✕</button>
       </label>
     `;
@@ -535,14 +535,14 @@ function renderLobbyMatches(matches) {
     } else if (m.status === "in_progress") {
       statusBadge = `<span class="match-badge match-badge-live">● Live</span>`;
     }
-    const canDelete = m.status === "planned";
+    const canDelete = m.status === "planned" && can("edit_plan");
     const li = document.createElement("li");
     li.className = "match-item";
     if (m.status === "completed") li.classList.add("match-item-done");
     li.innerHTML = `
       <div class="match-item-main">
         <span class="match-badge">${stageLabel}</span>
-        <span class="match-item-opponent">vs ${m.opponent || "TBD"}<button class="btn-icon match-rename" data-id="${m.id}" title="Edit opponent name">✎</button></span>
+        <span class="match-item-opponent">vs ${m.opponent || "TBD"}<button class="btn-icon match-rename head-only" data-id="${m.id}" title="Edit opponent name">✎</button></span>
         ${statusBadge}
       </div>
       ${canDelete ? `<button class="btn-icon match-delete" data-id="${m.id}" title="Remove match">✕</button>` : ""}
@@ -589,8 +589,8 @@ function renderLobbyGuests(guestPlayers, tournamentId) {
     row.innerHTML = `
       <span class="avail-name">${p.name}</span>
       <span class="avail-guest-tag">Guest</span>
-      <span class="avail-skill">★${p.skill_rating}</span>
-      <button class="btn-icon avail-remove-guest" data-pid="${p.id}" title="Remove guest">✕</button>
+      ${p.skill_rating != null ? `<span class="avail-skill">★${p.skill_rating}</span>` : ""}
+      <button class="btn-icon avail-remove-guest head-only" data-pid="${p.id}" title="Remove guest">✕</button>
     `;
     row.querySelector(".avail-remove-guest").addEventListener("click", async () => {
       await api.removeGuestPlayer(tournamentId, p.id).catch(err => alert(err.message));
@@ -791,7 +791,7 @@ async function enterTournamentReview(id) {
   const plans = [];
   for (const m of matches) {
     let md = await api.getMatch(m.id).catch(() => null);
-    if (md && (!md.slots || md.slots.length === 0) && m.status === "planned") {
+    if (md && (!md.slots || md.slots.length === 0) && m.status === "planned" && can("edit_plan")) {
       md = await api.generateRotation(m.id).catch(() => md);
     }
     plans.push({ m, md });

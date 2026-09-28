@@ -21,7 +21,9 @@ async function request(path, options = {}) {
       onUnauthorized();
     }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || res.statusText);
+    const error = new Error(err.detail || res.statusText);
+    error.status = res.status;  // lets callers branch on e.g. 409 without parsing text
+    throw error;
   }
   if (res.status === 204) return null;
   return res.json();
@@ -46,6 +48,13 @@ export const api = {
   createTeam:    (data)  => request("/teams",              { method: "POST",   body: data || {} }),
   activateTeam:  (id)    => request(`/teams/${id}/activate`, { method: "POST" }),
   deleteTeam:    (id)    => request(`/teams/${id}`,        { method: "DELETE" }),
+  // Assistant coaches (T3.2)
+  getAssistants:        ()      => request("/teams/assistants"),
+  createAssistantInvite:()      => request("/teams/assistant-invite", { method: "POST" }),
+  removeAssistant:      (accId) => request(`/teams/assistants/${accId}`, { method: "DELETE" }),
+  leaveTeam:            (id)    => request(`/teams/${id}/leave`,  { method: "POST" }),
+  previewAssistInvite:  (token) => request("/teams/assist-preview", { method: "POST", body: { token }, suppressAuthRedirect: true }),
+  joinAsAssistant:      (token) => request("/teams/join",       { method: "POST", body: { token } }),
 
   // Squad
   getTeamInfo:   ()           => request("/squad/info"),

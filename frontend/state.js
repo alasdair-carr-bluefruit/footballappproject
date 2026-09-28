@@ -48,6 +48,7 @@ export const state = {
   account: null, // /me payload (auth on): { email, squad_id, auth_enabled, ... }
   teams: [], // multi-team: list from GET /api/teams
   activeSquadId: null, // multi-team: the account's active squad id
+  role: "head", // caller's role on the ACTIVE team: "head" | "assistant" (T3.2)
   planTinkered: false, // coach has adjusted this plan — sets the plan-flag tone
   reviewShare: null, // { blocks:[{md,title}], heading, subheading, filename, shareTitle } for the review screen's Share button
 };
@@ -92,5 +93,28 @@ export async function refreshTeams() {
   state.teams = teams;
   const active = teams.find(t => t.is_active);
   state.activeSquadId = active ? active.id : (state.account?.squad_id ?? null);
+  if (active) setRole(active.role);
   return teams;
+}
+
+// ── Roles → capabilities (T3.2 assistant coach mode) ─────────────────────────
+// Mirrors backend/api/deps.py ROLE_CAPS. The server is the authority (every write
+// 403s for an assistant); this only decides what the UI offers. Anything the
+// assistant can't do is hidden via `body.role-assistant .head-only` in style.css.
+const ROLE_CAPS = {
+  head: new Set(["view", "run_matchday", "comment", "propose", "edit_plan", "manage_squad", "manage_team"]),
+  assistant: new Set(["view"]),
+};
+
+export function can(cap) {
+  return (ROLE_CAPS[state.role] || ROLE_CAPS.head).has(cap);
+}
+
+export function isAssistant() {
+  return state.role === "assistant";
+}
+
+export function setRole(role) {
+  state.role = role === "assistant" ? "assistant" : "head";
+  document.body.classList.toggle("role-assistant", state.role === "assistant");
 }

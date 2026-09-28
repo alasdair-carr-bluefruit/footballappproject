@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { state, refreshShirtNumbers, displayPos } from "./state.js";
+import { state, refreshShirtNumbers, displayPos, can } from "./state.js";
 import { loadHome } from "./season.js";
 import { loadTournamentLobby } from "./tournament.js";
 import { showToast, withSaveToast } from "./toast.js";
@@ -499,6 +499,7 @@ function livePeriod() { return periodOf(state.liveSlot || 0); }
 // coach can freely browse past/future slots, but goals only belong to the live
 // period; a completed match is edit-on-confirm (see confirmGoalEdit).
 function canRecordGoalHere() {
+  if (!can("run_matchday")) return false;  // assistants view the match read-only (T3.2)
   if (state.editMode || !state.matchStarted) return false;
   if (state.matchData?.match?.status === "completed") return true;
   return periodOf(state.currentSlot) === livePeriod();
@@ -509,6 +510,7 @@ function canRecordGoalHere() {
 // can't be silently changed on a completed match — and, combined with restoring
 // goalCounts on open, so an accidental tap can't overwrite the real tally.
 function confirmGoalEdit() {
+  if (!can("run_matchday")) return false;
   if (state.matchData?.match?.status !== "completed") return true;
   if (state.reportEditUnlocked) return true;
   if (confirm("This match is finished. Edit the match report?")) {
@@ -1168,6 +1170,7 @@ function buildReviewCard(md, { title, onOpen }) {
 // (new-match screen's "or assign positions manually" and the in-pitch-view
 // "Manual assign" bar) — both used to set these two flags inline themselves.
 function enterManualAssignMode(data) {
+  if (!can("edit_plan")) { enterPitchView(data); return; }
   state.manualRotationMode = true;
   state.editMode = true;
   enterPitchView(data);
@@ -1186,6 +1189,11 @@ async function openMatch(matchId, backContext = "season") {
   let data = await api.getMatch(matchId).catch(err => { alert(err.message); return null; });
   if (!data) return;
 
+  if ((!data.slots || data.slots.length === 0) && !can("edit_plan")) {
+    // Assistants can't generate — nothing to show until the head coach does.
+    showToast("The head coach hasn't made a plan for this match yet.");
+    return;
+  }
   if (!data.slots || data.slots.length === 0) {
     data = await api.generateRotation(matchId).catch(err => {
       alert("Could not generate rotation: " + err.message);
@@ -1490,6 +1498,7 @@ document.getElementById("btn-new-period-dismiss").addEventListener("click", () =
 
 // ── Start match ───────────────────────────────────────────────────────────────
 async function doStartMatch() {
+  if (!can("run_matchday")) return;
   try {
     await api.startMatch(state.matchData.match.id);
     state.matchStarted = true;
@@ -1533,12 +1542,14 @@ document.getElementById("btn-return-plan").addEventListener("click", async () =>
 
 // ── Player removal ─────────────────────────────────────────────────────────────
 function openPlayerActionMenu(player) {
+  if (!can("run_matchday")) return;
   state.pendingActionPlayer = player;
   document.getElementById("player-action-title").textContent = player.name;
   document.getElementById("player-action-overlay").hidden = false;
 }
 
 function openReinstateOverlay(player) {
+  if (!can("run_matchday")) return;
   state.pendingActionPlayer = player;
   document.getElementById("reinstate-title").textContent = player.name;
   document.getElementById("reinstate-info").textContent =
@@ -1617,6 +1628,7 @@ document.getElementById("btn-reinstate-confirm").addEventListener("click", async
 
 // ── Edit mode (adjust plan) ────────────────────────────────────────────────────
 document.getElementById("btn-adjust").addEventListener("click", () => {
+  if (!can("edit_plan")) return;
   const finishing = state.editMode; // was tinkering; this click finishes
   state.editMode = !state.editMode;
   const btn = document.getElementById("btn-adjust");

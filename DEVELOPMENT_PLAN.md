@@ -371,7 +371,7 @@ shared. *(user request 2026-07-19. Smaller than T1.1 — good "otherwise" pick.)
 - **Add an extra player mid-match / power play** — per-slot size override so remaining slots
   recalc without corrupting fairness accounting. Trickiest item; pin with BDD first.
 
-**T3.2 Assistant coach mode.** 📋 **PLANNED (2026-09-28)** — full plan + locked decisions in
+**T3.2 Assistant coach mode.** 🟢 **P1 BUILT on `staging` (2026-09-28), pending staging test + deploy**; P2/P3 planned — full plan + locked decisions in
 **`docs/ASSISTANT_COACH_PLAN.md`**. `SquadMembershipDB` with per-team roles (one `head`, many
 `assistant`s; an account can be head on its own team and assistant on another), with
 capability-based guards in `deps.py` plus a deny-by-default route-coverage test.

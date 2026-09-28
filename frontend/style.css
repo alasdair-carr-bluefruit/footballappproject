@@ -3784,3 +3784,45 @@ html, body {
 /* Settings "Teams" list spacing + its add button */
 #settings-team-list { margin: 8px 0 12px; }
 #btn-settings-add-team { margin-top: 4px; }
+
+/* ── Assistant coach mode (T3.2) ──────────────────────────────────────────────
+   body.role-assistant is set from the active team's role (state.js setRole).
+   Head-only controls vanish for assistants; the server 403s them regardless. */
+body.role-assistant .head-only { display: none !important; }
+body:not(.role-assistant) .assistant-only { display: none !important; }
+
+.role-badge {
+  display: inline-block;
+  background: var(--amber);
+  color: var(--slate);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.team-pill .role-badge { font-size: 9px; padding: 1px 5px; }
+.team-row-sub { display: block; font-size: 12px; color: var(--text-dim); }
+
+.assistant-banner {
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--pitch-green-l);
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+#settings-assistant-list { list-style: none; margin: 8px 0 12px; padding: 0; }
+.assistant-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(242, 244, 238, 0.08);
+}
+.assistant-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.assistant-row-name small { display: block; color: var(--text-dim); }

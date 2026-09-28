@@ -2,13 +2,13 @@
 // (with a re-verify link to the new address), a multi-team teaser, and the
 // destructive "Clear squad & data" action gated behind a type-to-confirm modal.
 import { api } from "./api.js";
-import { state } from "./state.js";
+import { state, isAssistant } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { showToast } from "./toast.js";
-import { renderSettingsTeams } from "./teams.js";
+import { renderSettingsTeams, afterTeamAccessChange } from "./teams.js";
 
 // ── Open / populate ─────────────────────────────────────────────────────────────
-async function openSettings() {
+export async function openSettings({ focus } = {}) {
   showScreen("screen-settings");
   // Reset transient UI
   document.getElementById("settings-new-email").value = "";
@@ -27,6 +27,12 @@ async function openSettings() {
 
   // Multi-team list (also sets the "Current team" name from the active row).
   renderSettingsTeams();
+  renderAssistantsSection();
+  if (focus === "assistants") {
+    const section = document.getElementById("settings-assistants");
+    section.open = true;
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function hide(id) { const el = document.getElementById(id); if (el) el.hidden = true; }
@@ -37,7 +43,7 @@ function showMsg(id, text) {
 
 // Only wire the landing entry points when auth is on (single-user has no account).
 const btnSettings = document.getElementById("btn-settings");
-if (btnSettings) btnSettings.addEventListener("click", openSettings);
+if (btnSettings) btnSettings.addEventListener("click", () => openSettings());
 
 document.getElementById("btn-settings-back").addEventListener("click", () => {
   showScreen("screen-landing");
@@ -62,6 +68,118 @@ document.getElementById("email-change-form").addEventListener("submit", async (e
     }
   } catch (err) {
     showMsg("email-change-msg", (err && err.message) || "Something went wrong — please try again.");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ── Assistant coaches (T3.2) ──────────────────────────────────────────────────────
+// Head coach: list / invite / remove assistants on the ACTIVE team. Assistant: a
+// "Leave this team" button. Visibility per role is CSS (.head-only / .assistant-only).
+const ASSIST_SHARE_TEXT =
+  "I'd like you to help coach our team on Level — this link lets you see our match plans, reports and stats:";
+
+async function renderAssistantsSection() {
+  const teamName = (state.teamInfo && (state.teamInfo.team_name || "").trim()) || "this team";
+  document.getElementById("settings-assistants-team").textContent = teamName;
+  document.getElementById("settings-assisting-desc").textContent =
+    `You can view ${teamName}'s plans, match reports and stats. The head coach manages the squad and the plans.`;
+  document.getElementById("assistant-invite-result").hidden = true;
+  document.getElementById("btn-assistant-invite-create").textContent = "Create assistant invite link";
+  hide("assistant-invite-msg");
+  hide("assistant-invite-hint");
+  hide("leave-team-msg");
+  if (isAssistant()) return;
+
+  const list = document.getElementById("settings-assistant-list");
+  list.innerHTML = "";
+  const rows = await api.getAssistants().catch(() => []);
+  document.getElementById("settings-assistants-empty").hidden = rows.length > 0;
+  rows.forEach(r => {
+    const li = document.createElement("li");
+    li.className = "assistant-row";
+    const name = document.createElement("span");
+    name.className = "assistant-row-name";
+    name.textContent = r.display_name || r.email;
+    if (r.display_name) {
+      const sub = document.createElement("small");
+      sub.textContent = r.email;
+      name.appendChild(sub);
+    }
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-secondary btn-sm";
+    btn.textContent = "Remove";
+    btn.addEventListener("click", async () => {
+      if (!confirm(`Remove ${r.display_name || r.email} as an assistant coach?`)) return;
+      btn.disabled = true;
+      try {
+        await api.removeAssistant(r.account_id);
+        showToast("Assistant removed.");
+        renderAssistantsSection();
+      } catch (err) {
+        showToast((err && err.message) || "Couldn't remove — try again.");
+        btn.disabled = false;
+      }
+    });
+    li.append(name, btn);
+    list.appendChild(li);
+  });
+}
+
+document.getElementById("btn-assistant-invite-create").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-assistant-invite-create");
+  btn.disabled = true;
+  hide("assistant-invite-msg");
+  try {
+    const res = await api.createAssistantInvite();
+    document.getElementById("assistant-invite-link").value = res.link;
+    document.getElementById("assistant-invite-result").hidden = false;
+    document.getElementById("btn-assistant-invite-share").hidden = typeof navigator.share !== "function";
+    const days = res.expires_in_days;
+    showMsg("assistant-invite-hint",
+      `This link works once, for one coach${days ? `, and expires in ${days} days` : ""}. Send each assistant their own link.`);
+    btn.textContent = "Create another link";
+  } catch (err) {
+    showMsg("assistant-invite-msg", (err && err.message) || "Couldn't create a link — please try again.");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("btn-assistant-invite-copy").addEventListener("click", async () => {
+  const input = document.getElementById("assistant-invite-link");
+  if (!input.value) return;
+  try {
+    await navigator.clipboard.writeText(input.value);
+    showToast("Invite link copied.");
+  } catch (_) {
+    input.focus();
+    input.select();
+    showToast("Press ⌘/Ctrl+C to copy the link.");
+  }
+});
+
+document.getElementById("btn-assistant-invite-share").addEventListener("click", async () => {
+  const link = document.getElementById("assistant-invite-link").value;
+  if (!link || typeof navigator.share !== "function") return;
+  try {
+    await navigator.share({ title: "Help coach on Level", text: ASSIST_SHARE_TEXT, url: link });
+  } catch (_) { /* dismissed */ }
+});
+
+document.getElementById("btn-leave-team").addEventListener("click", async () => {
+  const teamName = (state.teamInfo && (state.teamInfo.team_name || "").trim()) || "this team";
+  if (!confirm(`Leave ${teamName}? You'll need a new invite from the head coach to rejoin.`)) return;
+  const btn = document.getElementById("btn-leave-team");
+  btn.disabled = true;
+  try {
+    await api.leaveTeam(state.activeSquadId ?? state.account?.squad_id);
+    await afterTeamAccessChange();
+    showToast(`You've left ${teamName}.`);
+    openSettings();
+  } catch (err) {
+    showMsg("leave-team-msg", (err && err.message) || "Couldn't leave the team — try again.");
   } finally {
     btn.disabled = false;
   }

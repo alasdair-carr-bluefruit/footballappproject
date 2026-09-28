@@ -1,6 +1,7 @@
 # Assistant coach mode (T3.2) — implementation plan
 
-> Status: **planned.** Decisions locked with the owner 2026-09-28.
+> Status: **Phase 1 BUILT on `staging` (2026-09-28), not yet deployed.** Phases 2–3 planned.
+> Decisions locked with the owner 2026-09-28.
 > A team has **one head coach** and any number of **assistants**. Roles are per team,
 > so one account can be head coach of its own team and an assistant on someone else's.
 > Delivered in three phases: read-only → run matchday → comment & propose.
@@ -40,6 +41,23 @@
 ---
 
 ## Phase 1 — read-only assistants
+
+> **As built (differences from the original sketch below):**
+> - Assistant invites are **shareable one-time links** (`?assist=`, like invite-a-friend —
+>   WhatsApp-friendly), not emailed. Settings → *Assistant coaches* mints them; the landing
+>   "Add your assistant coach" card (was a "coming soon" teaser) opens that section.
+> - An account that loses its **last** team (removed, left, or team deleted) gets a fresh empty
+>   team it heads (`memberships.repoint_active_squad`), so `AccountDB.squad_id` always resolves.
+>   `get_squad_access` also re-points defensively if the active team is no longer accessible.
+> - A signed-out **existing** coach who opens an assist link: the join form gets a 409, parks the
+>   token in `localStorage` (`gaffer_pending_assist`), sends them to sign in, and the confirm
+>   screen (`#screen-assist-join`) appears after the magic link.
+> - `/auth/account/clear-data` is head-only; `/teams/{id}` delete needs head of that team.
+> - Code: `backend/db/memberships.py`, `backend/api/deps.py` (`SquadAccess`, `require`),
+>   `backend/api/routers/teams.py` (assistant endpoints), revision `e4b8a1c6d2f9`.
+>   Frontend: `can()` / `setRole()` in `state.js`, `.head-only` / `.assistant-only` classes.
+> - Tests: `tests/integration/test_assistants.py` (incl. the route-coverage guard + backfill),
+>   `tests/e2e/test_assistant_e2e.py` (season ⇄ tournament parity).
 
 ### Data model (one Alembic revision)
 ```
