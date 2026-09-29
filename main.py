@@ -1,3 +1,4 @@
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -16,6 +17,7 @@ from backend.api.routers import (
     tournament_router,
 )
 from backend.auth.session import session_epoch_from, set_session_cookie, verify_session
+from backend.db import timing as db_timing
 from backend.db.database import create_db_and_tables
 from backend.settings import (
     SESSION_COOKIE,
@@ -58,6 +60,21 @@ else:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+@app.middleware("http")
+async def server_timing(request, call_next):
+    """Report DB time / query count / new connections per API request in a
+    `Server-Timing` header — the evidence for any "this feels slow" report."""
+    if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    stats = db_timing.start_request()
+    started = time.perf_counter()
+    response = await call_next(request)
+    response.headers["Server-Timing"] = db_timing.server_timing_header(
+        stats, (time.perf_counter() - started) * 1000
+    )
+    return response
+
 
 @app.middleware("http")
 async def rolling_session(request, call_next):

@@ -4,6 +4,8 @@ from pathlib import Path
 from sqlalchemy import inspect, text
 from sqlmodel import Session, SQLModel, create_engine
 
+from backend.db.timing import instrument
+
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./football.db")
 
 # Repo root holds alembic.ini; backend/db/database.py → parents[2].
@@ -13,6 +15,7 @@ _BASELINE_REVISION = "4cf63d43cd4c"
 # check_same_thread is SQLite-only; PostgreSQL doesn't accept it
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, echo=False, connect_args=_connect_args)
+instrument(engine)  # per-request DB timing → Server-Timing header (see timing.py)
 
 
 # Additive-only migrations: (table, column, column definition).
