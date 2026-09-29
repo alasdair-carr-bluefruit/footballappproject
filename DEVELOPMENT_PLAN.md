@@ -99,8 +99,8 @@ Loose ends from moving the production database from Neon us-east-1 to London
 - [ ] **Check Railway staging actually deploys.** GitHub has no `staging` branch (only
       `main`), so the staging environment may not be building anything new — push a
       `staging` branch or repoint the environment, per `docs/STAGING.md`.
-- [ ] **Measure after the move:** the `Server-Timing` header on any `/api/` response
-      should show ~10–30ms per query (was ~260ms).
+- [x] **Measure after the move** — done 2026-09-29: `Server-Timing` shows ~16ms per query
+      (was ~260ms) with 0 new connections per request (pooling works; distance was the cause).
 
 ## Forward Roadmap — prioritised (2026-07-18, refreshed 2026-07-20)
 
