@@ -85,6 +85,23 @@ The original plan was ordered by dependency into Phases A–E. **All shipped:**
 
 ---
 
+## To do — infrastructure follow-ups (added 2026-09-29)
+
+Loose ends from moving the production database from Neon us-east-1 to London
+(`aws-eu-west-2`) on 2026-09-29 (it was ~260ms per query from Railway Amsterdam).
+
+- [ ] **Create a `staging` branch in the London Neon project** (Branches → New branch,
+      from the production branch) and point Railway **staging**'s `DATABASE_URL` at it.
+      Staging still uses the old US project's `ep-old-union` branch.
+- [ ] **Delete the old US Neon project** (both branches) once production has run cleanly
+      on London for a week (~2026-10-06) *and* staging has moved. Until then a copy of
+      coach data remains in the US, which the privacy policy (§6) no longer allows for.
+- [ ] **Check Railway staging actually deploys.** GitHub has no `staging` branch (only
+      `main`), so the staging environment may not be building anything new — push a
+      `staging` branch or repoint the environment, per `docs/STAGING.md`.
+- [ ] **Measure after the move:** the `Server-Timing` header on any `/api/` response
+      should show ~10–30ms per query (was ~260ms).
+
 ## Forward Roadmap — prioritised (2026-07-18, refreshed 2026-07-20)
 
 Ordered by **value × effort × demand**. ⚡ = quick win. Cross-cutting rules still apply to
