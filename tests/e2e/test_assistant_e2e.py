@@ -38,6 +38,15 @@ def _head_coach_with_plans(base: str, email: str) -> str:
         head.post(f"/api/tournaments/{t['id']}/matches",
                   json={"opponent": "Lions", "available_player_ids": ids}).raise_for_status()
 
+        # A finished match with a goal — the assistant reviews its report.
+        done = head.post("/api/matches/", json={"date": "2026-09-27", "opponent": "Wolves"}).json()
+        head.post(f"/api/matches/{done['id']}/rotation", json={"available_player_ids": ids}).raise_for_status()
+        head.post(f"/api/matches/{done['id']}/start").raise_for_status()
+        head.post(f"/api/matches/{done['id']}/goals",
+                  json={"goals": {"Ben": 2}, "opponent_goals": 1}).raise_for_status()
+        head.post(f"/api/matches/{done['id']}/progress",
+                  json={"current_slot": 7, "status": "completed"}).raise_for_status()
+
         link = head.post("/api/teams/assistant-invite").json()["link"]
         return link.split("assist=")[1]
 
@@ -183,3 +192,34 @@ def test_existing_coach_signs_in_then_accepts_assistant_invite(auth_server, page
     page.locator(".team-row-main", has_text="My Own XI").click()
     expect(page.locator("#assistant-banner")).to_be_hidden()
     expect(page.locator("#btn-squad-management")).to_be_visible()
+
+
+def test_assistant_browsing_a_finished_match_never_tries_to_save(auth_server, page: Page):
+    """Regression: leaving a finished match (back or Done) used to re-save the goals,
+    which 403s for an assistant and showed "Couldn't save — check your connection"."""
+    base = auth_server
+    token = _head_coach_with_plans(base, "head-report@example.com")
+    _join_as_assistant(base, page, token, "asst-report@example.com")
+    writes: list[str] = []
+    page.on("request", lambda r: writes.append(f"{r.method} {r.url}") if r.method != "GET" else None)
+
+    page.click("#btn-season-mode")
+    page.locator("#match-list .match-item", has_text="Wolves").locator(".match-item-main").click()
+    expect(page.locator("#screen-fulltime")).to_be_visible()
+    expect(page.locator("#ft-scorers-list")).to_contain_text("Ben")
+    expect(page.locator(".ft-opp-goals-row")).to_be_hidden()
+
+    page.click("#btn-ft-pitch")
+    expect(page.locator("#screen-pitch")).to_be_visible()
+    for _ in range(3):
+        page.click("#btn-next")
+    page.click("#btn-prev")
+    page.click("#btn-pitch-back")
+    expect(page.locator("#screen-home")).to_be_visible()
+
+    page.locator("#match-list .match-item", has_text="Wolves").locator(".match-item-main").click()
+    page.click("#btn-ft-done")
+    expect(page.locator("#screen-home")).to_be_visible()
+
+    expect(page.locator(".toast", has_text="Couldn't save")).to_have_count(0)
+    assert [w for w in writes if "/api/" in w] == []

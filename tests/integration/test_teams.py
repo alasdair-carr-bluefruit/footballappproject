@@ -171,3 +171,21 @@ def test_teams_endpoints_require_auth(clients):
     assert c.post("/api/teams", json={}).status_code == 401
     assert c.post("/api/teams/1/activate").status_code == 401
     assert c.delete("/api/teams/1").status_code == 401
+
+
+def test_delete_the_currently_open_team(clients):
+    """Removing the team you're on must work (it used to 500 on Postgres: the account
+    still pointed at the squad row being deleted). Foreign keys are enforced in tests."""
+    c = clients()
+    _redeem(c, "open@example.com")
+    first_id = _active_id(c)
+    c.post("/api/teams", json={"team_name": "Panthers"})
+    panthers = _active_id(c)
+    c.post("/api/squad/players", json={"name": "Alice", "gk_status": "can_play"})
+    c.post("/api/matches/", json={"date": "2026-03-25", "opponent": "Rovers"})
+
+    resp = c.delete(f"/api/teams/{panthers}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["active_squad_id"] == first_id
+    assert _active_id(c) == first_id
+    assert [t["id"] for t in c.get("/api/teams").json()] == [first_id]

@@ -175,6 +175,8 @@ async function renderAssistantsSection() {
 document.getElementById("btn-assistant-invite-create").addEventListener("click", async () => {
   const btn = document.getElementById("btn-assistant-invite-create");
   btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = "Creating link…";
   hide("assistant-invite-msg");
   try {
     const res = await api.createAssistantInvite();
@@ -186,6 +188,7 @@ document.getElementById("btn-assistant-invite-create").addEventListener("click",
       `This link works once, for one coach${days ? `, and expires in ${days} days` : ""}. Send each assistant their own link.`);
     btn.textContent = "Create another link";
   } catch (err) {
+    btn.textContent = label;
     showMsg("assistant-invite-msg", (err && err.message) || "Couldn't create a link — please try again.");
   } finally {
     btn.disabled = false;

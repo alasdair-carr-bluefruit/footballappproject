@@ -1825,6 +1825,7 @@ function applyAdjustResult(result) {
 // Save goals when leaving pitch view via back button (no opponent goals known yet)
 async function saveGoalsIfNeeded() {
   if (!state.matchData || !state.matchData.match.id) return;
+  if (!can("run_matchday")) return;  // assistants view read-only — nothing to save
   const hasGoals = Object.values(state.goalCounts).some(v => v > 0);
   if (hasGoals) {
     await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, state.matchData.match.opponent_goals || 0));
@@ -1935,7 +1936,7 @@ document.getElementById("btn-ft-pitch").addEventListener("click", () => {
 
 document.getElementById("btn-ft-done").addEventListener("click", async () => {
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
-  if (state.matchData?.match.id) {
+  if (state.matchData?.match.id && can("run_matchday")) {
     await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore));
   }
   if (state.pitchBackContext === "tournament" && state.activeTournamentId) {

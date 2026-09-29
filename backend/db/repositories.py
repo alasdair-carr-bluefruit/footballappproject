@@ -229,13 +229,14 @@ def delete_squad_data(
     tournaments and players (guests included, same squad_id). Optionally drop the
     SquadDB shell too (team removal vs clear-data, which keeps the shell). Does NOT
     commit — the caller owns the transaction (matches delete_rotation's convention)."""
-    match_ids = [
-        m.id for m in session.exec(select(MatchDB).where(MatchDB.squad_id == squad_id)).all()
-    ]
-    for mid in match_ids:
-        delete_rotation(session, mid)  # slots, assignments, goals, availability, removed
-    if match_ids:
-        session.execute(sql_delete(MatchDB).where(MatchDB.squad_id == squad_id))
+    # Set-based deletes (a fixed dozen statements however many matches the squad has —
+    # each round trip to the live DB costs ~100ms+), children before parents for FKs.
+    match_ids = select(MatchDB.id).where(MatchDB.squad_id == squad_id)
+    slot_ids = select(SlotDB.id).where(SlotDB.match_id.in_(match_ids))  # type: ignore[attr-defined]
+    session.execute(sql_delete(SlotAssignmentDB).where(SlotAssignmentDB.slot_id.in_(slot_ids)))  # type: ignore[attr-defined]
+    for table in (SlotDB, GoalRecordDB, MatchAvailabilityDB, RemovedPlayerDB, RotationPlanDB):
+        session.execute(sql_delete(table).where(table.match_id.in_(match_ids)))  # type: ignore[attr-defined]
+    session.execute(sql_delete(MatchDB).where(MatchDB.squad_id == squad_id))
     session.execute(sql_delete(TournamentDB).where(TournamentDB.squad_id == squad_id))
     session.execute(sql_delete(PlayerDB).where(PlayerDB.squad_id == squad_id))
     if drop_squad_row:
@@ -243,7 +244,11 @@ def delete_squad_data(
         # voids any unredeemed assistant invites. Callers re-point affected accounts'
         # active squad (see memberships.repoint_active_squad).
         session.execute(sql_delete(SquadMembershipDB).where(SquadMembershipDB.squad_id == squad_id))
-        session.execute(sql_delete(InviteDB).where(InviteDB.squad_id == squad_id, InviteDB.redeemed_at == None))  # noqa: E711
+        session.execute(
+            sql_delete(InviteDB).where(
+                InviteDB.squad_id == squad_id, InviteDB.redeemed_at == None  # noqa: E711
+            )
+        )
         session.execute(sql_delete(SquadDB).where(SquadDB.id == squad_id))
 
 

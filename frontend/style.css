@@ -2460,6 +2460,11 @@ html, body {
 }
 
 .toast-text { flex: 1; }
+/* Toasts are information, not controls: taps pass straight through to whatever is
+   underneath (a toast used to swallow taps on dialog buttons for 4s). Only the
+   optional action (e.g. Retry) is tappable. */
+.toast { pointer-events: none; }
+.toast-action { pointer-events: auto; }
 
 .toast-action {
   flex-shrink: 0;

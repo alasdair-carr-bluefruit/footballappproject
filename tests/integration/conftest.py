@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -14,6 +15,12 @@ def session_fixture():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
+    # Enforce foreign keys like production Postgres does (SQLite ignores them by
+    # default) — otherwise delete-ordering bugs only show up on the live DB.
+    @event.listens_for(engine, "connect")
+    def _enforce_fks(dbapi_conn, _record):
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
     # Import all models so SQLModel.metadata knows about them
     from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB, TournamentDB  # noqa: F401
 

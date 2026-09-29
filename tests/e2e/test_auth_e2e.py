@@ -156,3 +156,30 @@ def test_unauthenticated_api_calls_are_blocked(auth_server, page: Page):
     """A direct API call without a session is refused (the gate isn't the only guard)."""
     resp = page.request.get(auth_server + "/api/matches/")
     assert resp.status == 401
+
+
+def test_remove_the_team_you_are_on(auth_server, page: Page):
+    """Removing your currently open team works and lands you on your other team,
+    with the list updated in place (no stale row to mis-tap)."""
+    base = auth_server
+    page.add_init_script("localStorage.setItem('gaffer_multiteam_seen', '1')")
+    _redeem_and_setup(base, page, "Keepers FC", "remove-open@example.com")
+
+    page.click("#btn-season-mode")
+    page.click("#team-pill-home .team-pill")
+    page.click("#btn-team-add")
+    expect(page.locator("#screen-squad")).to_be_visible()
+    page.fill("#team-name-input", "Panthers")
+    page.click("#btn-save-team-info")
+    page.click("#btn-squad-back")
+    page.click("#btn-season-mode")
+    expect(page.locator("#team-pill-home .team-pill")).to_contain_text("Panthers")
+
+    page.click("#team-pill-home .team-pill")
+    page.locator(".team-row", has_text="Panthers").locator(".team-row-remove").click()
+    expect(page.locator("#team-remove-name")).to_have_text("Panthers")
+    page.click("#btn-team-remove-confirm")
+    expect(page.locator("#team-remove-overlay")).to_be_hidden()
+    expect(page.locator("#team-switcher-list .team-row")).to_have_count(1)
+    expect(page.locator(".toast", has_text="Removed Panthers")).to_be_visible()
+    expect(page.locator("#team-pill-home .team-pill")).to_contain_text("Keepers FC")

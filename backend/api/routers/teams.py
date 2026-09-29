@@ -31,7 +31,6 @@ from backend.db.memberships import (
     get_membership,
     head_account,
     head_count,
-    memberships_for,
     repoint_active_squad,
 )
 from backend.db.models import AccountDB, InviteDB, PlayerDB, SquadDB, SquadMembershipDB
@@ -87,21 +86,66 @@ def list_teams(
     account: AccountDB = Depends(get_current_account),
 ) -> list[TeamRow]:
     """List every team the account can access (active one flagged, role on each).
-    Guarantees at least the active squad even for legacy accounts whose squad
-    predates ownership — adopt an unowned active squad as head, so the list is
-    never empty."""
-    active = session.get(SquadDB, account.squad_id)
-    if active is not None and active.account_id is None:
-        add_membership(session, active, account.id, HEAD)  # type: ignore[arg-type]  # legacy adoption
-    get_membership(session, account.squad_id, account.id)  # type: ignore[arg-type]  # adopts owner rows
-    session.commit()
 
-    rows = []
-    for m in memberships_for(session, account.id):  # type: ignore[arg-type]
-        squad = session.get(SquadDB, m.squad_id)
-        if squad is not None:
-            rows.append(_team_row(session, squad, account.squad_id, m.role))
-    return rows
+    Two queries regardless of team count (teams + player counts; head names for
+    assisted teams) — each round trip to the live DB is ~100ms+. Guarantees at least
+    the active squad even for legacy accounts whose squad predates ownership: adopt
+    it as head if it has no owner, so the list is never empty.
+    """
+    rows = _membership_rows(session, account.id)  # type: ignore[arg-type]
+    if account.squad_id not in {squad.id for _m, squad, _n in rows}:
+        active = session.get(SquadDB, account.squad_id)
+        if active is not None and active.account_id is None:
+            add_membership(session, active, account.id, HEAD)  # type: ignore[arg-type]  # legacy adoption
+        get_membership(session, account.squad_id, account.id)  # type: ignore[arg-type]  # adopts owner rows
+        session.commit()
+        rows = _membership_rows(session, account.id)  # type: ignore[arg-type]
+
+    assisted = [m.squad_id for m, _squad, _n in rows if m.role != HEAD]
+    head_names: dict[int, str] = {}
+    if assisted:
+        head_names = dict(
+            session.exec(
+                select(SquadMembershipDB.squad_id, AccountDB.display_name)
+                .join(AccountDB, AccountDB.id == SquadMembershipDB.account_id)  # type: ignore[arg-type]
+                .where(
+                    SquadMembershipDB.squad_id.in_(assisted),  # type: ignore[attr-defined]
+                    SquadMembershipDB.role == HEAD,
+                )
+            ).all()
+        )
+    return [
+        TeamRow(
+            id=squad.id,  # type: ignore[arg-type]
+            team_name=squad.team_name,
+            team_logo=squad.team_logo,
+            is_active=(squad.id == account.squad_id),
+            player_count=int(n or 0),
+            role=m.role,
+            head_name=head_names.get(squad.id, "") if m.role != HEAD else "",  # type: ignore[arg-type]
+        )
+        for m, squad, n in rows
+    ]
+
+
+def _membership_rows(
+    session: Session, account_id: int
+) -> list[tuple[SquadMembershipDB, SquadDB, int | None]]:
+    """(membership, squad, player count) for every team the account belongs to."""
+    counts = (
+        select(PlayerDB.squad_id, func.count(PlayerDB.id).label("n"))  # type: ignore[arg-type]
+        .group_by(PlayerDB.squad_id)
+        .subquery()
+    )
+    return list(
+        session.exec(
+            select(SquadMembershipDB, SquadDB, counts.c.n)
+            .join(SquadDB, SquadDB.id == SquadMembershipDB.squad_id)  # type: ignore[arg-type]
+            .join(counts, counts.c.squad_id == SquadMembershipDB.squad_id, isouter=True)
+            .where(SquadMembershipDB.account_id == account_id)
+            .order_by(SquadMembershipDB.squad_id)  # type: ignore[arg-type]
+        ).all()
+    )
 
 
 @router.post("", response_model=TeamRow)
@@ -133,12 +177,14 @@ def activate_team(
     session: Session = Depends(get_session),
     account: AccountDB = Depends(get_current_account),
 ) -> dict:
-    """Switch the active team (update account.squad_id). Any role may switch."""
+    """Switch the active team (update account.squad_id). Any role may switch.
+    Returns the refreshed team list + the new team's info so the client needs no
+    follow-up requests (each round trip to the live DB is slow)."""
     squad = owned_squad(squad_id, account, session)
     account.squad_id = squad.id  # type: ignore[assignment]
     session.add(account)
     session.commit()
-    return {"ok": True, "active_squad_id": squad.id}
+    return _after_change(session, account)
 
 
 @router.delete("/{squad_id}")
@@ -154,20 +200,35 @@ def delete_team(
     if head_count(session, account.id) <= 1:  # type: ignore[arg-type]
         raise HTTPException(status_code=409, detail="Can't remove your only team")
 
-    affected_ids = [
-        m.account_id
-        for m in session.exec(
-            select(SquadMembershipDB).where(SquadMembershipDB.squad_id == squad.id)
-        ).all()
-    ]
+    # Move everyone whose ACTIVE team this is onto another team FIRST: accounts.squad_id
+    # is a real foreign key on Postgres, so deleting the squad row while an account
+    # still points at it fails (this used to 500 when removing your open team).
+    on_this_team = session.exec(
+        select(AccountDB)
+        .join(SquadMembershipDB, SquadMembershipDB.account_id == AccountDB.id)  # type: ignore[arg-type]
+        .where(SquadMembershipDB.squad_id == squad.id, AccountDB.squad_id == squad.id)
+    ).all()
+    for acc in on_this_team:
+        repoint_active_squad(session, acc, exclude_squad_id=squad_id)
     delete_squad_data(session, squad.id, drop_squad_row=True)  # type: ignore[arg-type]
-    for acc_id in affected_ids:
-        acc = session.get(AccountDB, acc_id)
-        if acc is not None and acc.squad_id == squad_id:
-            repoint_active_squad(session, acc, exclude_squad_id=squad_id)
     session.commit()
+    return _after_change(session, account)
+
+
+def _after_change(session: Session, account: AccountDB) -> dict:
+    """Shared response for team switches/removals: the new active team, the caller's
+    refreshed team list and that team's name/logo — one round trip for the client."""
     session.refresh(account)
-    return {"ok": True, "active_squad_id": account.squad_id}
+    active = session.get(SquadDB, account.squad_id)
+    return {
+        "ok": True,
+        "active_squad_id": account.squad_id,
+        "teams": [t.model_dump() for t in list_teams(session=session, account=account)],
+        "team_info": {
+            "team_name": active.team_name if active else "",
+            "team_logo": active.team_logo if active else "",
+        },
+    }
 
 
 # ── Assistant coaches (T3.2) ────────────────────────────────────────────────────

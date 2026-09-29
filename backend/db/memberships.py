@@ -9,6 +9,7 @@ Nothing here commits — callers own the transaction (repositories' convention).
 """
 from __future__ import annotations
 
+from sqlalchemy import event
 from sqlmodel import Session, select
 
 from backend.auth.tokens import now_iso
@@ -16,6 +17,13 @@ from backend.db.models import AccountDB, SquadDB, SquadMembershipDB
 
 HEAD = "head"
 ASSISTANT = "assistant"
+
+
+@event.listens_for(Session, "after_commit")
+def _clear_membership_flag(session: Session) -> None:
+    """`memberships_changed` means "uncommitted membership writes pending" — once
+    committed (by whoever), read paths must not commit again for it."""
+    session.info.pop("memberships_changed", None)
 
 
 def get_membership(session: Session, squad_id: int, account_id: int) -> SquadMembershipDB | None:

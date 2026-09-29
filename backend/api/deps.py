@@ -14,30 +14,64 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, Request
-from sqlmodel import Session
+from sqlalchemy import and_
+from sqlmodel import Session, select
 
 from backend.auth.session import session_epoch_from, verify_session
 from backend.db.database import get_session
 from backend.db.memberships import ASSISTANT, HEAD, get_membership, repoint_active_squad
-from backend.db.models import AccountDB, MatchDB, PlayerDB, SquadDB, TournamentDB
+from backend.db.models import (
+    AccountDB,
+    MatchDB,
+    PlayerDB,
+    SquadDB,
+    SquadMembershipDB,
+    TournamentDB,
+)
 from backend.db.repositories import get_or_create_squad
 from backend.settings import SESSION_COOKIE, auth_enabled
 
 
-def _account_from_request(request: Request, session: Session) -> AccountDB | None:
-    """Resolve the active account from the session cookie, or None if unauthenticated."""
+def _load_from_request(
+    request: Request, session: Session
+) -> tuple[AccountDB, SquadDB | None, SquadMembershipDB | None] | None:
+    """Resolve the signed-in account plus its active squad and membership there in a
+    SINGLE query (every request pays this; on the live DB each round trip costs
+    ~100ms+). None if unauthenticated. The loaded rows land in the session's identity
+    map, so later `session.get(SquadDB, ...)` calls for them are free."""
     cookie = request.cookies.get(SESSION_COOKIE)
     account_id = verify_session(cookie)
     if account_id is None:
         return None
-    account = session.get(AccountDB, account_id)
-    if not account or account.status != "active":
+    row = session.exec(
+        select(AccountDB, SquadDB, SquadMembershipDB)
+        .where(AccountDB.id == account_id)
+        .join(SquadDB, SquadDB.id == AccountDB.squad_id, isouter=True)  # type: ignore[arg-type]
+        .join(
+            SquadMembershipDB,
+            and_(
+                SquadMembershipDB.squad_id == AccountDB.squad_id,  # type: ignore[arg-type]
+                SquadMembershipDB.account_id == AccountDB.id,  # type: ignore[arg-type]
+            ),
+            isouter=True,
+        )
+    ).first()
+    if row is None:
+        return None
+    account, squad, membership = row
+    if account.status != "active":
         return None
     # Session-epoch gate: a token minted before the account's epoch was bumped
     # (via reclaim / sign-out-everywhere) is stale even if its signature is valid.
     if (session_epoch_from(cookie) or 0) != account.session_epoch:
         return None
-    return account
+    return account, squad, membership
+
+
+def _account_from_request(request: Request, session: Session) -> AccountDB | None:
+    """Resolve the active account from the session cookie, or None if unauthenticated."""
+    loaded = _load_from_request(request, session)
+    return loaded[0] if loaded else None
 
 
 def get_current_account(
@@ -86,9 +120,15 @@ def get_squad_access(
     """
     if not auth_enabled():
         return SquadAccess(squad=get_or_create_squad(session), role=HEAD)
-    account = _account_from_request(request, session)
-    if account is None:
+    loaded = _load_from_request(request, session)
+    if loaded is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    account, squad, membership = loaded
+    if membership is not None and squad is not None:
+        return SquadAccess(squad=squad, role=membership.role, account=account)  # fast path
+
+    # Slow path (rare): a legacy owner without a membership row yet, or an account
+    # that lost access to its active team. Adopt / re-point, then resolve again.
     membership = get_membership(session, account.squad_id, account.id)  # type: ignore[arg-type]
     if membership is None:
         repoint_active_squad(session, account, exclude_squad_id=account.squad_id)

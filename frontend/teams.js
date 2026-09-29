@@ -3,7 +3,7 @@
 // local cache reset (no reload). The header pill is the primary switcher (both
 // home screens, parity); Settings hosts the same list as a "manage" path.
 import { api } from "./api.js";
-import { state, refreshTeams } from "./state.js";
+import { state, refreshTeams, setRole } from "./state.js";
 import { showToast } from "./toast.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
@@ -98,11 +98,14 @@ export function renderTeamPills() {
 }
 
 // ── Switcher sheet ───────────────────────────────────────────────────────────
-export async function openTeamSwitcher() {
+export async function openTeamSwitcher({ skipFetch = false } = {}) {
   dismissNewFeatureCallout();  // they found the switcher — retire the hint
-  await refreshTeams();
+  // Show the cached list instantly, then refresh it in place.
   renderTeamList("team-switcher-list", { allowRemove: true, onAfter: openTeamSwitcher });
   switcherOverlay().hidden = false;
+  if (skipFetch) return;
+  await refreshTeams();
+  renderTeamList("team-switcher-list", { allowRemove: true, onAfter: openTeamSwitcher });
 }
 
 function closeSwitcher() { switcherOverlay().hidden = true; }
@@ -131,6 +134,7 @@ function renderTeamList(listId, { allowRemove, onAfter }) {
       </button>
       ${canRemove ? `<button type="button" class="btn-icon team-row-remove" title="Remove team">🗑</button>` : ""}
     `;
+    li.querySelectorAll("button").forEach(b => { b.disabled = teamActionBusy; });
     li.querySelector(".team-row-main").addEventListener("click", () => {
       if (t.is_active) { closeSwitcher(); return; }
       switchTeam(t.id, name);
@@ -141,34 +145,78 @@ function renderTeamList(listId, { allowRemove, onAfter }) {
   });
 }
 
+// ── Busy lock ──────────────────────────────────────────────────────────────────
+// While a team action is in flight every team control is inert, so a slow network
+// can never turn a second tap into an action on a different (re-rendered) row.
+let teamActionBusy = false;
+function setTeamBusy(busy) {
+  teamActionBusy = busy;
+  document.querySelectorAll(
+    ".team-row-main, .team-row-remove, #btn-team-add, #btn-settings-add-team, #btn-team-remove-confirm"
+  ).forEach(el => { el.disabled = busy; });
+}
+
+// Apply a server response that carries the refreshed team list + team info
+// (activate / delete return both, so no follow-up requests are needed).
+function applyTeamsResponse(res) {
+  state.teams = res.teams || state.teams;
+  const active = state.teams.find(t => t.is_active);
+  state.activeSquadId = res.active_squad_id ?? (active ? active.id : state.activeSquadId);
+  if (active) setRole(active.role);
+  if (res.team_info) state.teamInfo = res.team_info;
+}
+
 // ── Switch ───────────────────────────────────────────────────────────────────
+// Optimistic: the sheet closes and the pill/role flip on tap; the server call
+// follows, and we roll back if it fails.
 async function switchTeam(id, name) {
-  try {
-    await api.activateTeam(id);
-  } catch (err) {
-    showToast((err && err.message) || "Couldn't switch team — try again.");
-    return;
+  if (teamActionBusy) return;
+  const target = state.teams.find(t => t.id === id);
+  const previous = { teams: state.teams, teamInfo: state.teamInfo, role: state.role };
+  setTeamBusy(true);
+  state.teams = state.teams.map(t => ({ ...t, is_active: t.id === id }));
+  if (target) {
+    setRole(target.role);
+    state.teamInfo = { team_name: target.team_name, team_logo: target.team_logo };
   }
-  resetTeamCaches();
-  await refreshTeams();
-  await primeTeamInfo();
   closeSwitcher();
-  refreshActiveViews();
-  showToast(`Switched to ${name}`);
+  renderTeamPills();
+  try {
+    const res = await api.activateTeam(id);
+    resetTeamCaches();
+    applyTeamsResponse(res);
+    refreshActiveViews();
+    showToast(`Switched to ${name}`);
+  } catch (err) {
+    state.teams = previous.teams;
+    state.teamInfo = previous.teamInfo;
+    setRole(previous.role);
+    renderTeamPills();
+    showToast((err && err.message) || "Couldn't switch team — try again.");
+  } finally {
+    setTeamBusy(false);
+  }
 }
 
 // ── Add ────────────────────────────────────────────────────────────────────────
 export async function addTeam() {
+  if (teamActionBusy) return;
+  setTeamBusy(true);
   let created;
   try {
     created = await api.createTeam({});
   } catch (err) {
     showToast((err && err.message) || "Couldn't create the team — try again.");
+    setTeamBusy(false);
     return;
   }
   resetTeamCaches();
-  await refreshTeams();
-  await primeTeamInfo();
+  // The new team is blank and now active: no need to re-fetch its info.
+  state.teamInfo = { team_name: created.team_name || "", team_logo: created.team_logo || "" };
+  state.teams = [...state.teams.map(t => ({ ...t, is_active: false })), created];
+  state.activeSquadId = created.id;
+  setRole("head");
+  setTeamBusy(false);
   closeSwitcher();
   renderTeamPills();
   // Drop straight into squad management to name it + add players.
@@ -181,6 +229,7 @@ export async function addTeam() {
 // ── Remove ───────────────────────────────────────────────────────────────────
 let pendingRemove = null; // { id, name, onAfter }
 function promptRemoveTeam(id, name, onAfter) {
+  if (teamActionBusy) return;
   pendingRemove = { id, name, onAfter };
   document.getElementById("team-remove-name").textContent = name;
   const msg = document.getElementById("team-remove-msg");
@@ -189,33 +238,39 @@ function promptRemoveTeam(id, name, onAfter) {
 }
 
 async function confirmRemoveTeam() {
-  if (!pendingRemove) return;
+  if (!pendingRemove || teamActionBusy) return;
   const { id, name, onAfter } = pendingRemove;
-  const btn = document.getElementById("btn-team-remove-confirm");
-  btn.disabled = true;
+  pendingRemove = null;  // a second tap can't re-fire this removal
   const wasActive = activeTeam()?.id === id;
-  try {
-    await api.deleteTeam(id);
-  } catch (err) {
-    const msg = document.getElementById("team-remove-msg");
-    if (msg) { msg.textContent = (err && err.message) || "Couldn't remove the team."; msg.hidden = false; }
-    btn.disabled = false;
-    return;
-  }
+  setTeamBusy(true);
+  // Optimistic: close the dialog and drop the row now; the server does the rest.
   removeOverlay().hidden = true;
-  btn.disabled = false;
-  if (wasActive) resetTeamCaches();  // server moved us to another team
-  await refreshTeams();
-  if (wasActive) await primeTeamInfo();
-  renderTeamPills();
-  if (typeof onAfter === "function") onAfter();
-  if (wasActive) refreshActiveViews();
-  showToast(`Removed ${name}`);
+  const previousTeams = state.teams;
+  state.teams = state.teams.filter(t => t.id !== id);
+  if (typeof onAfter === "function") onAfter({ skipFetch: true });
+  try {
+    const res = await api.deleteTeam(id);
+    if (wasActive) resetTeamCaches();  // server moved us to another team
+    applyTeamsResponse(res);
+    renderTeamPills();
+    if (typeof onAfter === "function") onAfter({ skipFetch: true });
+    if (wasActive) refreshActiveViews();
+    showToast(`Removed ${name}`);
+  } catch (err) {
+    state.teams = previousTeams;
+    if (typeof onAfter === "function") onAfter({ skipFetch: true });
+    showToast(`Couldn't remove ${name}: ${(err && err.message) || "please try again"}`);
+  } finally {
+    setTeamBusy(false);
+  }
 }
 
 // ── Settings "Teams" list (secondary path) ────────────────────────────────────
-export async function renderSettingsTeams() {
-  await refreshTeams();
+export async function renderSettingsTeams({ skipFetch = false } = {}) {
+  if (!skipFetch) {
+    renderTeamList("settings-team-list", { allowRemove: true, onAfter: renderSettingsTeams });  // cached, instant
+    await refreshTeams();
+  }
   renderTeamList("settings-team-list", { allowRemove: true, onAfter: renderSettingsTeams });
   const active = activeTeam();
   const nameEl = document.getElementById("settings-team-name");
