@@ -79,6 +79,7 @@ Grouped so you can batch-record. ⭐ = highest value, make these first.
 
 Each brief: the beats to shoot, the gotchas that **must** be said out loud, and
 the line to open on. Keep intros under 8 seconds — no "hey guys, welcome back".
+Order: hook first, then the 2–3s Level sting — see [`youtube/intro-outro.md`](youtube/intro-outro.md).
 
 **Full word-for-word shooting scripts live alongside this doc:**
 

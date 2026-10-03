@@ -10,7 +10,9 @@ rotation genuinely falls apart, and every coach watching has been burned by one.
 
 ## Pre-flight checklist
 
-- [ ] **Demo Rovers** with 10–11 players
+- [ ] **Richmond Greyhounds** with the 10 from `demo-squad.md`
+- [ ] Tournament name **Autumn Cup**, 5v5. Guest player for Beat 3b: **Leo**
+      (ATT · MID, best ATT, skill 4)
 - [ ] A **pre-built tournament** with 4 generated matches, for the "Review all
       plans" and lobby footage — generating four plans on camera is dead air
 - [ ] A second, empty slate for the creation beat
@@ -41,6 +43,14 @@ or a busy tournament photo if you have one.
 
 ---
 
+## STING — Level circle rolls in (2–3s)
+
+The logo clip, then the title fades in as the circle settles:
+`LEVEL · PART 4 OF 4` / `Tournament day`. Whoosh as it lands, no narration, no music.
+Same clip every video. Full spec: **`intro-outro.md`**.
+
+---
+
 ## BEAT 1 — Why it's a separate mode — 0:20 to 0:55
 
 **Screen:** Side by side if you can edit it: a season match plan, then the
@@ -63,8 +73,8 @@ tournament lobby.
 
 ## BEAT 2 — Setting it up — 0:55 to 2:20
 
-**Screen:** Tournament Mode → **+ New Tournament**. Fill Tournament Name, Date,
-size, formation. Then **Match Duration (mins)**, **No. of group matches** (4),
+**Screen:** Tournament Mode → **+ New Tournament**. Fill Tournament Name
+(`Autumn Cup`), Date, **5v5**, **1-2-1**. Then **Match Duration (mins)**, **No. of group matches** (4),
 **Matches have a half-time break** (leave off), **Max substitutions per match**.
 
 **Narration (2a):**
@@ -118,11 +128,12 @@ the list with the **Guest** tag.
 
 **On-screen text:** `Position chips = today only. Squad profile untouched.`
 
-**Screen (3b — temporary players):**
+**Screen (3b — temporary players):** **+ Add temporary player** → `Leo`, ATT and
+MID, best ATT, skill 5 → he appears with the **Guest** tag.
 
 **Narration:**
-> "And you'll have borrowed someone. Every tournament, somebody's brother turns
-> up. Add temporary player — name, positions, rating — and they're in the
+> "And you'll have borrowed someone. Every tournament, somebody turns up
+> unannounced. Add temporary player — name, positions, rating — and they're in the
 > rotation like anybody else, tagged as a guest so you can see who's who.
 >
 > They're only here for this tournament. They don't join your squad and they won't
@@ -141,7 +152,9 @@ the list with the **Guest** tag.
 ## BEAT 4 — Reading the whole day — 3:30 to 4:30
 
 **Screen:** The lobby. Then **📋 Review all plans** — the stacked cards. Scroll
-through. Show a warning on one card. Tap **Open ▶** into a match.
+through. Show a flag on one card (the compact *"N things to know"* version).
+Tap **Share** in the header and show the stacked team-sheet image. Then tap
+**Open ▶** into a match.
 
 **Narration:**
 > "This is the lobby: every match, its status, and the day's settings up top.
@@ -151,10 +164,17 @@ through. Show a warning on one card. Tap **Open ▶** into a match.
 > scroll the whole afternoon in about fifteen seconds and spot the one that looks
 > wrong before you've left the car park.
 >
+> And Share, up here, does the same as on a single match, but for the whole
+> day: every match's team sheet stacked in one image. Send that to the parents'
+> group the night before and nobody has to ask you which games their child is
+> in.
+>
 > Open takes you into any single match, and from there it's identical to a league
 > game — tinker it, start it, record goals, exactly as you already know."
 
-**On-screen text:** `Review all plans = the whole day, one scroll`
+**On-screen text:**
+- `Review all plans = the whole day, one scroll`
+- `Share = every team sheet in one image`
 
 ---
 
@@ -195,16 +215,20 @@ tapped.
 > matches — so any tinkering you'd done on a match that hasn't been played yet can
 > disappear. Get your setup right first, tinker after.
 >
-> And one that isn't Level's job: some county leagues cap how many minutes a child
-> can play in a single day. Level shares the time out fairly between your players,
-> but it doesn't know your league's cap. That one's still on you.
+> And one that isn't Level's job yet: some county leagues cap how many minutes a
+> child can play in a single day. Level shares the time out fairly between your
+> players, but it doesn't know your league's cap. For now, that one's on you. If
+> you'd like Level to warn you when you're close to it, tell me.
 >
-> That's tournament day."
+> That's tournament day, and that's the series. If there's anything you want
+> Level to do that it doesn't, email hello@keepthingslevel.com or leave a
+> comment. Most of what you've just watched started as a coach asking for it."
 
 **On-screen text:**
 - `Play them in order`
 - `Editing the tournament rebuilds planned matches`
-- `Level doesn't know your league's daily minutes cap`
+- `Level doesn't know your league's daily minutes cap (yet)`
+- `Ideas? hello@keepthingslevel.com — or comment below`
 
 ---
 
@@ -218,15 +242,26 @@ tapped.
 | 4 | Max subs dropdown + help text, zoomed | 2b |
 | 5 | Fairness / rotation / rotate keeper, quick | 2c |
 | 6 | Player list with position chips; toggle one off | 3a |
-| 7 | + Add temporary player → form → Guest tag in list | 3b |
+| 7 | + Add temporary player → Leo → Guest tag in list | 3b |
 | 8 | Generate Matches → generating screen → lobby | 3c |
 | 9 | 📋 Review all plans, scrolling the stack | 4 |
-| 10 | A card showing a warning, zoomed | 4 |
+| 10 | A card showing a flag, zoomed | 4 |
+| 10b | Share → stacked team-sheet image | 4 |
 | 11 | Open ▶ into a match | 4 |
 | 12 | ✎ rename opponent | 5 |
 | 13 | + Add Knockout Match + competitiveness slider | 5 |
 | 14 | 📊 Tournament Stats + ⬆ Export | 5 |
 | 15 | Edit-tournament pencil (hover, don't tap) | 6 |
+
+---
+
+## End card
+
+Last 15 seconds: the sting reversed, or the logo held, with `keepthingslevel.com`
+and `Ideas? hello@keepthingslevel.com`. Leave the left half clear for YouTube's
+end-screen boxes. Link the full-series playlist. See `intro-outro.md`.
+
+**Chapter timings** below exclude the sting. Shift them in the final edit.
 
 ---
 
@@ -244,5 +279,7 @@ tapped.
 4:30 Running the day
 5:30 Two things to get right
 ```
+
+**Description footer:** `Ideas or requests? hello@keepthingslevel.com, or leave a comment.`
 
 **Thumbnail:** the stacked Review-all-plans view with **6 MATCHES. EVERY KID.**

@@ -1,6 +1,6 @@
 # L3 — "Matchday: kick-off to full time"
 
-**Target length:** 5:00 · **Format:** portrait phone capture, voiceover recorded separately
+**Target length:** 5:30 · **Format:** portrait phone capture, voiceover recorded separately
 **Working title (YouTube):** *Running matchday with Level — subs, goals and full time*
 
 The one coaches will rewatch on a touchline. Every instruction must survive being
@@ -10,7 +10,9 @@ half-heard in the rain.
 
 ## Pre-flight checklist
 
-- [ ] A **planned, not started** match ready on Demo Rovers (7v7, 4 quarters)
+- [ ] A **planned, not started** match ready on Richmond Greyhounds (5v5, 1-2-1,
+      4 × 10 min) vs **Hillside Colts**, built from the squad in
+      `demo-squad.md`
 - [ ] A second, already-**finished** match for the Full Time / share footage —
       you don't want to fake a whole match on camera
 - [ ] Do Not Disturb on, portrait lock, >80% battery
@@ -35,6 +37,14 @@ Have two or three planned matches queued so you can just move on.
 > absolutely everybody up."
 
 **On-screen text:** `Matchday`
+
+---
+
+## STING — Level circle rolls in (2–3s)
+
+The logo clip, then the title fades in as the circle settles:
+`LEVEL · PART 3 OF 4` / `Matchday`. Whoosh as it lands, no narration, no music.
+Same clip every video. Full spec: **`intro-outro.md`**.
 
 ---
 
@@ -97,8 +107,8 @@ quarter?"** prompt appear. Show both buttons. Tap **Browse only** first. Then us
 
 ## BEAT 3 — Goals — 1:55 to 2:45
 
-**Screen:** Press and hold a player on the pitch. The action menu opens.
-**⚽ Record Goal**. Confetti. Show the goal badge on the player. Then tap the
+**Screen:** Press and hold **Jamie (#9)** on the pitch. The action menu
+opens. **⚽ Record Goal**. Confetti. Show the goal badge on the player. Then tap the
 badge to undo. Then hold a **bench** player to show it works there too.
 
 **Narration:**
@@ -124,12 +134,13 @@ badge to undo. Then hold a **bench** player to show it works there too.
 
 ## BEAT 4 — Someone goes off — 2:45 to 3:40
 
-**Screen:** Hold a player → **Remove from match**. Show "Regenerating plan…", the
+**Screen:** Hold **Isaac (#5)** → **Remove from match**. Show "Regenerating plan…", the
 **Playing time impact** panel, tap **Apply anyway**. Show them on the bench tagged
 **Removed**. Tap them → reinstate.
 
 **Narration:**
-> "Injury, or a lad who's had enough. Hold them, Remove from match.
+> "Injury, or a lad who's had enough. Isaac's gone over on his ankle. Hold him,
+> Remove from match.
 >
 > Now here's the useful bit. Level rebuilds the rest of the match without them,
 > from this quarter on — you don't re-plan anything. And it shows you the playing
@@ -141,7 +152,11 @@ badge to undo. Then hold a **bench** player to show it works there too.
 > rebalancing what's left.
 >
 > Both directions are non-destructive. You're never stuck with a plan that's
-> stopped matching reality."
+> stopped matching reality. And because Isaac was one of my backup keepers,
+> Level works out who covers goal from here too."
+>
+> *(Only keep that last sentence if your take actually shows someone else
+> taking over a goal period. Check the plan after removal.)*
 
 **On-screen text:** `Removing a player re-plans the rest of the match`
 
@@ -167,15 +182,21 @@ X–X. Tap **Share Result** and show the generated image.
 > again, it's still hidden.
 >
 > Share Result gives you the image straight into WhatsApp on a phone, or downloads
-> it on a laptop. Save Image if you just want to keep it."
+> it on a laptop. Save Image if you just want to keep it. So the parents get the
+> team sheet before the game and this card after it.
+>
+> Two things coaches have asked me for here: picking a Man of the Match for the
+> card, and recording assists as well as goals. They're both on the list. If you
+> want them, tell me. It moves them up."
 
 **On-screen text:**
 - `Hide score — FA guidance, U11 and below`
 - `Scorers stay visible`
+- `Coming? Man of the Match · assists — tell me if you want them`
 
 ---
 
-## BEAT 6 — Wrap — 4:40 to 5:00
+## BEAT 6 — Wrap — 4:40 to 5:30
 
 **Screen:** Match list showing the finished match with its **FT** badge. Tap it —
 lands back on the Full Time card.
@@ -189,10 +210,20 @@ lands back on the Full Time card.
 > If you do need to correct a goal afterwards, Level checks first — a finished
 > report shouldn't change by accident.
 >
+> If you've got an assistant coach set up, they'll see this report and the
+> season stats on their phone too. Right now only the head coach can run the
+> match itself. Handing control over, so your assistant can do subs while you
+> coach, is the next thing I'm building. If you've got opinions on how that
+> should work, email hello@keepthingslevel.com or drop a comment. I'd genuinely
+> like to hear them.
+>
 > That's matchday. Next one: tournaments, where it balances minutes across a whole
 > day of matches."
 
-**On-screen text:** `Next: tournament day`
+**On-screen text:**
+- `Assistant takeover on matchday: next on the list`
+- `Ideas? hello@keepthingslevel.com`
+- `Next: tournament day`
 
 ---
 
@@ -206,16 +237,26 @@ lands back on the Full Time card.
 | 4 | "Start this quarter?" prompt → Browse only | 2 |
 | 5 | ● Back to live | 2 |
 | 6 | "Start this quarter?" → Start quarter | 2 |
-| 7 | Hold player → Record Goal → confetti → badge | 3 |
+| 7 | Hold Jamie (#9) → Record Goal → confetti → badge | 3 |
 | 8 | Tap badge to undo | 3 |
 | 9 | Hold bench player → menu | 3 |
-| 10 | Remove → regenerating → Playing time impact → Apply anyway | 4 |
+| 10 | Remove Isaac (#5) → regenerating → Playing time impact → Apply anyway | 4 |
 | 11 | Bench "Removed" tag → tap → reinstate | 4 |
 | 12 | End Match (+ the early-end confirm, from a different match) | 5 |
 | 13 | Full Time card, opponent goals, scorers | 5 |
 | 14 | Hide score toggle → X–X | 5 |
 | 15 | Share Result → the generated PNG | 5 |
 | 16 | Match list with FT badge → tap → Full Time card | 6 |
+
+---
+
+## End card
+
+Last 15 seconds: the sting reversed, or the logo held, with `keepthingslevel.com`
+and `Ideas? hello@keepthingslevel.com`. Leave the left half clear for YouTube's
+end-screen boxes. Link Part 4. See `intro-outro.md`.
+
+**Chapter timings** below exclude the sting. Shift them in the final edit.
 
 ---
 
@@ -231,8 +272,10 @@ lands back on the Full Time card.
 1:55 Recording goals
 2:45 When someone goes off
 3:40 Full time and sharing
-4:40 Afterwards
+4:40 Afterwards, and what's coming
 ```
+
+**Description footer:** `Ideas or requests? hello@keepthingslevel.com, or leave a comment.`
 
 **Thumbnail:** the live pitch view with the ● LIVE badge, and **NEXT ≠ START**
 in Signal Lime. It's the most useful four characters in the series.
