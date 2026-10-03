@@ -99,6 +99,27 @@ def test_add_guest_player(client: TestClient, tournament: dict) -> None:
     assert data["is_guest"] is True
 
 
+def test_guest_name_clashing_with_squad_player_rejected(client: TestClient, tournament: dict) -> None:
+    client.post("/api/squad/players", json={"name": "Isaac", "gk_status": "emergency_only"})
+    resp = client.post(
+        f"/api/tournaments/{tournament['id']}/players",
+        json={"name": "isaac", "gk_status": "can_play", "skill_rating": 3},
+    )
+    assert resp.status_code == 422
+    assert "'Isaac'" in resp.json()["detail"]
+
+
+def test_squad_player_clashing_with_guest_says_so(client: TestClient, tournament: dict) -> None:
+    client.post(
+        f"/api/tournaments/{tournament['id']}/players",
+        json={"name": "Leo", "gk_status": "can_play", "skill_rating": 3},
+    )
+    resp = client.post("/api/squad/players", json={"name": "Leo", "gk_status": "emergency_only"})
+    assert resp.status_code == 422
+    # The guest isn't in the squad list, so the message has to say where the clash is.
+    assert "tournament guest" in resp.json()["detail"]
+
+
 def test_guest_player_not_in_main_squad(client: TestClient, tournament: dict) -> None:
     client.post(
         f"/api/tournaments/{tournament['id']}/players",

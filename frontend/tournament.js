@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { state, ensureGameConfigs, refreshShirtNumbers, displayPos, can } from "./state.js";
 import { showScreen, openMatch, enterReviewView, buildReviewCard, setReviewShare } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
-import { showToast, withSaveToast } from "./toast.js";
+import { showToast, withSaveToast, showFieldError, clearFieldError, sameName, duplicateNameMessage } from "./toast.js";
 import { exportSpreadsheet } from "./share.js";
 import { showGenerating, hideGenerating } from "./quotes.js";
 import { renderTeamPill } from "./teams.js";
@@ -297,13 +297,7 @@ document.getElementById("btn-tournament-squad-back").addEventListener("click", (
   }
 });
 
-document.getElementById("btn-tournament-add-guest").addEventListener("click", () => {
-  document.getElementById("guest-name").value = "";
-  document.getElementById("guest-skill").value = "3";
-  document.getElementById("guest-gk-status").value = "can_play";
-  document.getElementById("guest-form-overlay").hidden = false;
-  document.getElementById("guest-name").focus();
-});
+document.getElementById("btn-tournament-add-guest").addEventListener("click", openGuestForm);
 
 document.getElementById("btn-generate-all-matches").addEventListener("click", async () => {
   const checkedBoxes = document.querySelectorAll("#tournament-squad-list .avail-check:checked");
@@ -641,15 +635,19 @@ document.getElementById("guest-position-checkboxes").addEventListener("change", 
   updateGuestBestPositionOptions(checked, checked.includes(currentBest) ? currentBest : "");
 });
 
-document.getElementById("btn-show-add-guest").addEventListener("click", () => {
+// One opener for both "+ Add temporary player" buttons (squad-select + lobby).
+function openGuestForm() {
   document.getElementById("guest-name").value = "";
   document.getElementById("guest-skill").value = "3";
   document.getElementById("guest-shirt-number").value = "";
   document.querySelectorAll("#guest-position-checkboxes input").forEach(cb => cb.checked = false);
   updateGuestBestPositionOptions([]);
+  clearFieldError("guest-name", "guest-name-error");
   document.getElementById("guest-form-overlay").hidden = false;
   document.getElementById("guest-name").focus();
-});
+}
+document.getElementById("btn-show-add-guest").addEventListener("click", openGuestForm);
+document.getElementById("guest-name").addEventListener("input", () => clearFieldError("guest-name", "guest-name-error"));
 
 document.getElementById("btn-add-guest-cancel").addEventListener("click", () => {
   document.getElementById("guest-form-overlay").hidden = true;
@@ -659,6 +657,14 @@ document.getElementById("guest-player-form").addEventListener("submit", async e 
   e.preventDefault();
   const name = document.getElementById("guest-name").value.trim();
   if (!name) { document.getElementById("guest-name").focus(); return; }
+
+  // Same rule as the squad form: no two players (squad or guest) share a name.
+  const t = state.activeTournamentData;
+  const clash = [...(t?.squad_players || []), ...(t?.guest_players || [])].find(p => sameName(p.name, name));
+  if (clash) {
+    showFieldError("guest-name", "guest-name-error", duplicateNameMessage(clash.name));
+    return;
+  }
 
   const preferred = [...document.querySelectorAll("#guest-position-checkboxes input:checked")].map(cb => cb.value);
   const bestPos = document.getElementById("guest-best-position").value;
@@ -690,14 +696,19 @@ document.getElementById("guest-player-form").addEventListener("submit", async e 
     preferred_positions: preferred,
     best_position: bestPos,
     shirt_number: shirtRaw !== "" ? parseInt(shirtRaw, 10) : null,
-  }).catch(err => { alert(err.message); return null; });
+  }).catch(err => { showFieldError("guest-name", "guest-name-error", err.message); return null; });
 
   btn.disabled = false;
   btn.textContent = "Add Player";
   if (!guest) return;
 
   document.getElementById("guest-form-overlay").hidden = true;
-  loadTournamentLobby(state.activeTournamentId);
+  // Added from the pre-generate player list → stay on it; from the lobby → refresh it.
+  if (!document.getElementById("screen-tournament-squad").hidden) {
+    renderTournamentSquadGuests(state.activeTournamentId);
+  } else {
+    loadTournamentLobby(state.activeTournamentId);
+  }
 });
 
 // Generate tournament match

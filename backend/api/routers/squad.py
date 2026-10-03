@@ -13,6 +13,7 @@ from backend.api.deps import (
 )
 from backend.db.database import get_session
 from backend.db.models import PlayerDB, SquadDB
+from backend.db.repositories import name_clash_message, player_name_clash
 
 router = APIRouter()
 
@@ -107,11 +108,10 @@ def add_player(
     session: Session = Depends(get_session),
     squad: SquadDB = Depends(require("manage_squad")),
 ) -> PlayerRead:
-    existing = session.exec(
-        select(PlayerDB).where(PlayerDB.squad_id == squad.id, PlayerDB.name == player.name)
-    ).first()
-    if existing:
-        raise HTTPException(status_code=422, detail=f"A player named '{player.name}' already exists. Add an initial or surname to make names unique.")
+    player.name = player.name.strip()
+    clash = player_name_clash(session, squad.id, player.name)  # type: ignore[arg-type]
+    if clash:
+        raise HTTPException(status_code=422, detail=name_clash_message(clash, player.name))
     data = player.model_dump()
     data["preferred_positions"] = json.dumps(data["preferred_positions"])
     db_player = PlayerDB(squad_id=squad.id, **data)
@@ -129,6 +129,13 @@ def update_player(
     squad: SquadDB = Depends(require("manage_squad")),
 ) -> PlayerRead:
     db_player = owned_player(player_id, squad, session)
+    player.name = player.name.strip()
+    # Only a *changed* name is checked, so an older squad that already has e.g.
+    # "Sam" and "sam" can still edit either player's positions or number.
+    if player.name.lower() != db_player.name.strip().lower():
+        clash = player_name_clash(session, squad.id, player.name, exclude_id=db_player.id)  # type: ignore[arg-type]
+        if clash:
+            raise HTTPException(status_code=422, detail=name_clash_message(clash, player.name))
     data = player.model_dump()
     data["preferred_positions"] = json.dumps(data["preferred_positions"])
     for key, val in data.items():

@@ -132,6 +132,8 @@ def test_head_coach_manages_assistants_in_settings(auth_server, page: Page):
         " document.querySelector('.landing').classList.remove('landing--onboarding'); }"
     )
 
+    teaser = page.locator("#btn-coach-teaser")
+    expect(teaser).to_be_visible()
     page.click("#btn-coach-teaser")
     expect(page.locator("#screen-settings")).to_be_visible()
     expect(page.locator("#settings-assistants-empty")).to_be_visible()
@@ -140,6 +142,11 @@ def test_head_coach_manages_assistants_in_settings(auth_server, page: Page):
     link = page.locator("#assistant-invite-link")
     expect(link).to_be_visible()
     assert "assist=" in link.input_value()
+
+    # Opened once → the landing card is retired, and stays gone after a reload.
+    page.reload()
+    expect(page.locator("#screen-landing")).to_be_visible()
+    expect(teaser).to_be_hidden()
 
 
 @pytest.mark.parametrize("route", ["link", "form"])

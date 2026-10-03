@@ -425,6 +425,20 @@ Built 2026-07-20 (pending test, not pushed):
   installed PWA (esp. Android, no easy refresh) can pull the latest version on demand
   (`btn-check-updates` in `settings.js`).
 
+Shipped 2026-10-03 (SW v56, straight to `main` at the owner's request — touched `backend/api`):
+- **Duplicate player names caught in the form.** The squad and temporary-player forms stay
+  open with what the coach typed and show the clash under the name field (no browser
+  `alert`). The rule is now case- and space-insensitive (`player_name_clash` in
+  `repositories.py`), applies to **renames** as well as adds (it never did before), and tells
+  the coach when the clash is a tournament guest. Renames only check a *changed* name, so
+  older squads holding "Sam" + "sam" can still edit either.
+- **Fixed: "+ Add temporary player" on the tournament player list** threw before opening
+  (referenced a removed `#guest-gk-status`); both buttons now share `openGuestForm`, and a
+  guest added there stays on that list instead of jumping to the lobby.
+- **"Add your assistant coach" landing card retires once tapped** (`gaffer_coach_teaser_seen`).
+- Tests: `tests/e2e/test_duplicate_names.py`, integration cases in `test_squad.py` /
+  `test_tournaments.py`, teaser check in `test_assistant_e2e.py`.
+
 ### SEO technical foundations — ✅ SHIPPED (2026-07-18)
 `robots.txt`, `sitemap.xml`, `llms.txt`, JSON-LD (`Organization` + `SoftwareApplication`),
 canonical + OG/Twitter tags, 1200×630 `og-image.png`. **Remaining manual step (you, on the

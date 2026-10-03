@@ -3,7 +3,7 @@ import { state, refreshShirtNumbers, refreshTeams, displayPos, isAssistant } fro
 import { showScreen } from "./pitch.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
-import { withSaveToast, showToast } from "./toast.js";
+import { withSaveToast, showToast, showFieldError, clearFieldError, sameName, duplicateNameMessage } from "./toast.js";
 import { renderTeamPill, renderTeamPills } from "./teams.js";
 import { openSettings } from "./settings.js";
 
@@ -109,7 +109,16 @@ document.getElementById("btn-squad-management").addEventListener("click", () => 
 });
 
 // ── Assistant coaches (T3.2) — landing card opens Settings → Assistant coaches ──
+// Shown until the coach has opened it once, then hidden for good on this device —
+// it has done its job of announcing the feature; Settings is the way back in.
+const COACH_TEASER_SEEN_KEY = "gaffer_coach_teaser_seen";
+function retireCoachTeaser() {
+  document.getElementById("btn-coach-teaser")?.classList.add("is-seen");
+}
+try { if (localStorage.getItem(COACH_TEASER_SEEN_KEY)) retireCoachTeaser(); } catch (_) { /* storage blocked */ }
 document.getElementById("btn-coach-teaser")?.addEventListener("click", () => {
+  try { localStorage.setItem(COACH_TEASER_SEEN_KEY, "1"); } catch (_) { /* storage blocked */ }
+  retireCoachTeaser();
   openSettings({ focus: "assistants" });
 });
 
@@ -176,6 +185,7 @@ export async function loadSquad() {
 
   // Rebuild shirt number map and detect conflicts
   const players = await refreshShirtNumbers();
+  squadPlayers = players;
   const numberCount = {};
   players.forEach(p => {
     if (p.shirt_number != null) {
@@ -239,8 +249,13 @@ export async function loadSquad() {
   });
 }
 
+// The squad as last rendered — lets the player form catch a duplicate name
+// before the round trip (the API still has the final say).
+let squadPlayers = [];
+
 function openPlayerForm(player = null) {
   state.editingPlayerId = player?.id ?? null;
+  clearFieldError("input-name", "input-name-error");
   const form = document.getElementById("player-form");
   form.hidden = false;
   document.getElementById("form-title").textContent = player ? "Edit Player" : "Add Player";
@@ -332,6 +347,7 @@ document.getElementById("btn-save-team-info").addEventListener("click", async ()
   }
 });
 document.getElementById("btn-add-player").addEventListener("click", () => openPlayerForm());
+document.getElementById("input-name").addEventListener("input", () => clearFieldError("input-name", "input-name-error"));
 document.getElementById("btn-cancel-player").addEventListener("click", closePlayerForm);
 
 document.getElementById("player-form").addEventListener("click", e => {
@@ -370,15 +386,31 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
   };
   if (!data.name) return;
 
+  // Two players with the same name: keep the form open with everything the
+  // coach typed, and say so under the name field.
   const id = state.editingPlayerId;
-  closePlayerForm();
-
-  if (id !== null) {
-    await api.updatePlayer(id, data).catch(err => alert(err.message));
-  } else {
-    await api.addPlayer(data).catch(err => alert(err.message));
-    dismissSquadTip(); // first player added — tip no longer needed
+  const clash = squadPlayers.find(p => p.id !== id && sameName(p.name, data.name));
+  if (clash) {
+    showFieldError("input-name", "input-name-error", duplicateNameMessage(clash.name));
+    return;
   }
+
+  const btn = e.submitter || document.querySelector("#player-form [type=submit]");
+  btn.disabled = true;
+  try {
+    if (id !== null) {
+      await api.updatePlayer(id, data);
+    } else {
+      await api.addPlayer(data);
+      dismissSquadTip(); // first player added — tip no longer needed
+    }
+  } catch (err) {
+    showFieldError("input-name", "input-name-error", err.message);
+    return;
+  } finally {
+    btn.disabled = false;
+  }
+  closePlayerForm();
   loadSquad();
 });
 

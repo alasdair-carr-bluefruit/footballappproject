@@ -51,3 +51,30 @@ export async function withSaveToast(fn, message = "Couldn't save — check your 
     return null;
   }
 }
+
+// ── Inline field errors ──────────────────────────────────────────────────────
+// A message under a form field (e.g. a duplicate player name), instead of a
+// browser alert that closes the form and loses what the coach typed.
+export function showFieldError(inputId, errorId, message) {
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errorId);
+  err.textContent = message;
+  err.hidden = false;
+  input.setAttribute("aria-invalid", "true");
+  input.focus();
+  input.select();
+}
+
+export function clearFieldError(inputId, errorId) {
+  document.getElementById(errorId).hidden = true;
+  document.getElementById(inputId).removeAttribute("aria-invalid");
+}
+
+// Same comparison the API makes: case and surrounding spaces don't count.
+export function sameName(a, b) {
+  return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+}
+
+export function duplicateNameMessage(existingName) {
+  return `You've already got a player called '${existingName}'. Add an initial or surname to make names unique.`;
+}

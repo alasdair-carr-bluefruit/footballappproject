@@ -4,6 +4,7 @@ from datetime import date as date_type
 from typing import Any
 
 from sqlalchemy import delete as sql_delete
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from backend.db.models import (
@@ -38,6 +39,34 @@ def get_or_create_squad(session: Session) -> SquadDB:
 
 def get_players(session: Session, squad_id: int) -> list[PlayerDB]:
     return list(session.exec(select(PlayerDB).where(PlayerDB.squad_id == squad_id)).all())
+
+
+def player_name_clash(
+    session: Session, squad_id: int, name: str, exclude_id: int | None = None
+) -> PlayerDB | None:
+    """The player (squad or tournament guest) in this squad already using `name`,
+    ignoring case and surrounding spaces — "Sam" and "sam " are the same child on a
+    team sheet. `exclude_id` skips the player being edited, so saving a player
+    under their own name isn't a clash."""
+    query = select(PlayerDB).where(
+        PlayerDB.squad_id == squad_id,
+        func.lower(func.trim(PlayerDB.name)) == name.strip().lower(),
+    )
+    if exclude_id is not None:
+        query = query.where(PlayerDB.id != exclude_id)
+    return session.exec(query).first()
+
+
+def name_clash_message(clash: PlayerDB, name: str) -> str:
+    if clash.source_tournament_id is not None:
+        return (
+            f"A tournament guest player is already called '{clash.name}'. "
+            "Add an initial or surname to make names unique."
+        )
+    return (
+        f"You've already got a player called '{clash.name}'. "
+        "Add an initial or surname to make names unique."
+    )
 
 
 def player_db_to_domain(p: PlayerDB) -> Player:

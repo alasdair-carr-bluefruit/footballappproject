@@ -653,8 +653,9 @@
         <h3 id="form-title">Add Player</h3>
         <label>
           Name
-          <input type="text" id="input-name" placeholder="Player name" autocomplete="off" required />
+          <input type="text" id="input-name" placeholder="Player name" autocomplete="off" required aria-describedby="input-name-error" />
         </label>
+        <p class="field-error" id="input-name-error" role="alert" hidden></p>
 
         <label>Can Play</label>
         <div class="position-checkboxes" id="position-checkboxes">
@@ -901,8 +902,9 @@
       <p class="form-hint">This player is only available for this tournament.</p>
       <label>
         Name
-        <input type="text" id="guest-name" placeholder="Player name" autocomplete="off" required />
+        <input type="text" id="guest-name" placeholder="Player name" autocomplete="off" required aria-describedby="guest-name-error" />
       </label>
+      <p class="field-error" id="guest-name-error" role="alert" hidden></p>
 
       <label>Can Play</label>
       <div class="position-checkboxes" id="guest-position-checkboxes">

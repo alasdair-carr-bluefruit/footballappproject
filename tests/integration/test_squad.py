@@ -105,6 +105,58 @@ def test_duplicate_player_name_rejected(client: TestClient) -> None:
     assert resp.status_code == 422
 
 
+def test_duplicate_name_ignores_case_and_spaces(client: TestClient) -> None:
+    client.post("/api/squad/players", json={"name": "Sam", "gk_status": "emergency_only"})
+    resp = client.post("/api/squad/players", json={"name": "  sam ", "gk_status": "emergency_only"})
+    assert resp.status_code == 422
+    assert "already got a player called 'Sam'" in resp.json()["detail"]
+
+
+def test_new_player_name_is_trimmed(client: TestClient) -> None:
+    resp = client.post("/api/squad/players", json={"name": "  Leo  ", "gk_status": "emergency_only"})
+    assert resp.status_code == 201
+    assert resp.json()["name"] == "Leo"
+
+
+def test_rename_to_taken_name_rejected(client: TestClient) -> None:
+    client.post("/api/squad/players", json={"name": "Jamie", "gk_status": "emergency_only"})
+    pid = client.post(
+        "/api/squad/players", json={"name": "Roy", "gk_status": "emergency_only"}
+    ).json()["id"]
+    resp = client.put(f"/api/squad/players/{pid}", json={"name": "JAMIE", "gk_status": "emergency_only"})
+    assert resp.status_code == 422
+    # Roy is still Roy.
+    names = [p["name"] for p in client.get("/api/squad/players").json()]
+    assert "Roy" in names
+
+
+def test_rename_changing_only_case_of_own_name_allowed(client: TestClient) -> None:
+    pid = client.post(
+        "/api/squad/players", json={"name": "dani", "gk_status": "emergency_only"}
+    ).json()["id"]
+    resp = client.put(f"/api/squad/players/{pid}", json={"name": "Dani", "gk_status": "emergency_only"})
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Dani"
+
+
+def test_legacy_case_duplicates_can_still_be_edited(client: TestClient, session) -> None:
+    """Squads saved before the case-insensitive rule may hold "Moe" and "moe"; editing
+    one without renaming it must still work."""
+    from sqlmodel import select
+
+    from backend.db.models import PlayerDB
+
+    pid = client.post("/api/squad/players", json={"name": "Moe", "gk_status": "emergency_only"}).json()["id"]
+    squad_id = session.exec(select(PlayerDB).where(PlayerDB.id == pid)).one().squad_id
+    session.add(PlayerDB(squad_id=squad_id, name="moe", gk_status="emergency_only"))
+    session.commit()
+    resp = client.put(
+        f"/api/squad/players/{pid}",
+        json={"name": "Moe", "gk_status": "emergency_only", "shirt_number": 7},
+    )
+    assert resp.status_code == 200
+
+
 def test_duplicate_name_different_squads_allowed(client: TestClient) -> None:
     """Two squads can independently have a player named the same."""
     client.post(

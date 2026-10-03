@@ -1397,15 +1397,9 @@ html, body {
   color: var(--matchday);
 }
 .coach-teaser-text small { font-size: 12.5px; line-height: 1.45; color: rgba(10, 38, 25, 0.78); }
-/* Once interest is registered, calm it down and show the confirmed state */
-.coach-teaser.is-interested {
-  background: color-mix(in srgb, var(--matchday) 20%, transparent);
-  color: var(--white);
-  box-shadow: none;
-}
-.coach-teaser.is-interested .coach-teaser-icon { background: color-mix(in srgb, var(--matchday) 24%, transparent); color: var(--matchday); }
-.coach-teaser.is-interested .coach-teaser-badge { background: var(--matchday); color: #0A2619; }
-.coach-teaser.is-interested .coach-teaser-text small { color: rgba(255, 255, 255, 0.7); }
+/* Once the coach has opened it, it has done its job — Settings → Assistant
+   coaches is the way back in from then on */
+.coach-teaser.is-seen { display: none; }
 
 .mode-card {
   display: grid;
@@ -3501,6 +3495,16 @@ html, body {
 .settings-inline-form { margin-top: 4px; }
 .settings-inline-form .auth-input { margin-bottom: 10px; }
 .settings-msg { margin: 12px 0 0; font-size: 14px; color: var(--chalk); }
+
+/* Inline message under a form field (e.g. duplicate player name) */
+.field-error {
+  margin: -6px 0 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--danger-soft);
+}
+input[aria-invalid="true"] { border-color: var(--danger-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger-soft) 35%, transparent); }
 .settings-hint { font-size: 13px; color: var(--text-dim); margin: 8px 0 0; line-height: 1.5; }
 .invite-result { margin-top: 12px; }
 .invite-link-input { margin-bottom: 10px; font-size: 13px; }

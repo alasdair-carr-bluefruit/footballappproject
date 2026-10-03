@@ -32,6 +32,8 @@ from backend.db.repositories import (
     get_goals_total,
     get_players,
     get_position_overrides,
+    name_clash_message,
+    player_name_clash,
 )
 from backend.db.repositories import (
     set_position_overrides as save_position_overrides,
@@ -591,11 +593,10 @@ def add_guest_player(
     owned_tournament(tournament_id, squad, session)
 
     # Check for name collision (across all players in this squad including guests)
-    existing = session.exec(
-        select(PlayerDB).where(PlayerDB.squad_id == squad.id, PlayerDB.name == body.name)
-    ).first()
-    if existing:
-        raise HTTPException(status_code=422, detail=f"A player named '{body.name}' already exists.")
+    body.name = body.name.strip()
+    clash = player_name_clash(session, squad.id, body.name)  # type: ignore[arg-type]
+    if clash:
+        raise HTTPException(status_code=422, detail=name_clash_message(clash, body.name))
 
     p = PlayerDB(
         squad_id=squad.id,
