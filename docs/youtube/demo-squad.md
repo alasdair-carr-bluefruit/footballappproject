@@ -26,8 +26,9 @@ and the last one is the duplicate-name demo.
 | 9 | Richard | DEF · MID | DEF | 4 | 2 | |
 | 10 | Sam → **Sam B** | GK · DEF · MID · ATT | MID | 3 | 2 | **Duplicate-name demo** (L1 4e), and **backup keeper #3** |
 
-**Player 10:** type `Sam` first and save, so Level refuses it on camera. Then
-add him again as `Sam B`. The script (L1 4e) explains what to expect.
+**Player 10:** type `Sam` first and save, so Level refuses it on camera. The
+form stays open with a red line under the name; add ` B` and save. The script
+(L1 4e) has the details.
 
 Skill ratings are just there to give the balancer a spread. Nobody sees them,
 and the team sheet only shows a total per period.

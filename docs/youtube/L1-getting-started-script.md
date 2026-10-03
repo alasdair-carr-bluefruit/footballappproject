@@ -281,10 +281,11 @@ only, #1), then speed-ramp players 3–9 from the list (Jamie to Richard).
 
 **Screen (4e — two players, same name; back to normal speed):** **+ Add
 Player** → type `Sam` (there's already a Sam), tick his positions, number 3,
-skill 2 → **Save**. The form closes and Chrome shows a pop-up: *"A player named
-'Sam' already exists. Add an initial or surname to make names unique."* Hold it
-long enough to read, tap **OK**. Then **+ Add Player** again, type `Sam B`, fill
-him in again and save.
+skill 2 → **Save**. The form stays open and a red line appears under the name:
+*"You've already got a player called 'Sam'. Add an initial or surname to make
+names unique."* Zoom in and hold it long enough to read. Then just add ` B`
+to the name (the message clears as you type) and **Save**. Everything else
+you entered is still there.
 
 **Narration:**
 > "Now, the one that catches everyone out: two kids with the same name. I've
@@ -293,8 +294,8 @@ him in again and save.
 >
 > That's deliberate. Every plan, every goal and every minute is tracked against
 > that name, and two Sams on a team sheet is a WhatsApp argument waiting to
-> happen. So he's Sam B. Annoyingly you do have to fill his details in again,
-> so get the name right first.
+> happen. So he's Sam B. Add the initial, and everything else you'd filled in
+> is still there. It doesn't mind about capitals, either: 'sam' counts as Sam.
 >
 > And that's the squad: everyone's positions, numbers and ratings, all editable
 > any time. Tap a player to edit them.
@@ -409,7 +410,7 @@ notice about children's names reinforces the point and it's a nice trust signal.
 | 7 | Add Player, full form, slowly — outfield player | 4 |
 | 8 | Add Player — Thierry, dedicated GK (GK ticked alone) | 4 |
 | 9 | Adding Jamie → Richard (will be sped up) | 4d |
-| 9b | Second "Sam" → refused pop-up → re-add as "Sam B" | 4e |
+| 9b | Second "Sam" → red line under the name → add " B" → Save | 4e |
 | 10 | Full squad list, scrolled | 4 |
 | 11 | Delete confirm dialog — open it, read it, **cancel** | 4 |
 | 12 | Team pill → + Add a team → pill → switch back to Greyhounds | 5a |
