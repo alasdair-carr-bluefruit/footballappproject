@@ -85,10 +85,10 @@ Order: hook first, then the 2–3s Level sting — see [`youtube/intro-outro.md`
 
 | | Script | Includes |
 |---|---|---|
-| L1 | [`youtube/L1-getting-started-script.md`](youtube/L1-getting-started-script.md) | Pre-flight checklist, 5 beats, shot list, publishing |
-| L2 | [`youtube/L2-planning-a-match-script.md`](youtube/L2-planning-a-match-script.md) | Same, 5 beats + 14-clip shot list |
-| L3 | [`youtube/L3-matchday-script.md`](youtube/L3-matchday-script.md) | Same, 6 beats + 16-clip shot list |
-| L4 | [`youtube/L4-tournament-day-script.md`](youtube/L4-tournament-day-script.md) | Same, 6 beats + 15-clip shot list |
+| L1 | [`youtube/L1-shoot.md`](youtube/L1-shoot.md) · [`L1-voiceover.md`](youtube/L1-voiceover.md) · [`L1-edit.md`](youtube/L1-edit.md) | Split by sitting: taps only / words only / edit + publish. Starts on the marketing site |
+| L2 | [`youtube/L2-shoot.md`](youtube/L2-shoot.md) · [`L2-voiceover.md`](youtube/L2-voiceover.md) · [`L2-edit.md`](youtube/L2-edit.md) | Same split. 17 clips; calm banner filmed before tinkering, firmer one after |
+| L3 | [`youtube/L3-shoot.md`](youtube/L3-shoot.md) · [`L3-voiceover.md`](youtube/L3-voiceover.md) · [`L3-edit.md`](youtube/L3-edit.md) | Split by sitting: taps only / words only / edit + publish |
+| L4 | [`youtube/L4-shoot.md`](youtube/L4-shoot.md) · [`L4-voiceover.md`](youtube/L4-voiceover.md) · [`L4-edit.md`](youtube/L4-edit.md) | Split by sitting: taps only / words only / edit + publish |
 
 The briefs below are the summary; the scripts are what you read into the mic.
 

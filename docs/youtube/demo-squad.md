@@ -10,13 +10,13 @@ the edit.
 
 ## The ten
 
-Enter them in this order. The first two are the ones you add slowly in L1 BEAT 4,
+Enter them in this order. The first two are the ones you add slowly in L1 (`L1-shoot.md` clips 8–9),
 and the last one is the duplicate-name demo.
 
 | # | Name | Can Play | Best Position | Shirt | Skill | Why it's in the demo |
 |---|---|---|---|---|---|---|
-| 1 | Roy | DEF · MID | MID | 6 | 5 | The slow "full form" example in L1 4a–4c |
-| 2 | Thierry | GK | GK | 1 | 3 | **GK on its own:** the dedicated keeper (L1 4d, Rotate keeper in L2) |
+| 1 | Roy | DEF · MID | MID | 6 | 5 | The slow "full form" example in L1 clip 8 |
+| 2 | Thierry | GK | GK | 1 | 3 | **GK on its own:** the dedicated keeper (L1 clip 9, Rotate keeper in L2) |
 | 3 | Jamie | ATT | ATT | 9 | 5 | **Narrow on purpose:** ATT only, so L2 has something to flag |
 | 4 | Sam | DEF · MID · ATT | DEF | 24 | 4 | |
 | 5 | Dani | MID · ATT | ATT | 14 | 4 | No DEF, so it's a second example of the hard DEF rule |
@@ -24,11 +24,11 @@ and the last one is the duplicate-name demo.
 | 7 | Jan | GK · DEF · MID | DEF | 21 | 3 | **Backup keeper #2** |
 | 8 | Colin | DEF · MID · ATT | MID | 15 | 3 | |
 | 9 | Richard | DEF · MID | DEF | 4 | 2 | |
-| 10 | Sam → **Sam B** | GK · DEF · MID · ATT | MID | 3 | 2 | **Duplicate-name demo** (L1 4e), and **backup keeper #3** |
+| 10 | Sam → **Sam B** | GK · DEF · MID · ATT | MID | 3 | 2 | **Duplicate-name demo** (L1 clip 11), and **backup keeper #3** |
 
 **Player 10:** type `Sam` first and save, so Level refuses it on camera. The
 form stays open with a red line under the name; add ` B` and save. The script
-(L1 4e) has the details.
+(L1 clip 11) has the details.
 
 Skill ratings are just there to give the balancer a spread. Nobody sees them,
 and the team sheet only shows a total per period.

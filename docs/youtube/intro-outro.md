@@ -51,8 +51,9 @@ sound every time.
 The first video is where people decide whether to trust you. Say once, briefly,
 why Level exists. The other three skip this and go straight into Beat 1.
 
-**Screen:** you, to camera, ideally at a pitch. Failing that, the landing screen
-on the phone in your hand. Keep it under 15 seconds.
+**Screen:** L1 opens on the marketing site, so this plays over the site and
+the About page (clips 1–2 in `L1-shoot.md`). Optional: you to camera at a
+pitch instead. Keep it under 15 seconds. The words are in `L1-voiceover.md` §1.
 
 **Narration (draft — make it yours):**
 > "I'm Ali. I [coach an under-[X]s side / have been coaching grassroots for [X]
