@@ -9,9 +9,17 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# Install the EXACT versions the tests ran against (requirements.lock, exported
+# from uv.lock), not whatever is newest on PyPI at build time — an unpinned
+# rebuild once pulled SQLAlchemy 2.1 and crashed on boot (2026-11-14).
+# Regenerate after changing dependencies:
+#   uv export --frozen --extra api --no-hashes --no-emit-project -o requirements.lock
+COPY requirements.lock ./
+RUN pip install --upgrade pip && pip install -r requirements.lock
+
 # App code (frontend/ and assets/ are served by StaticFiles; alembic.ini at root).
 COPY . .
-RUN pip install --upgrade pip && pip install -e ".[api]"
+RUN pip install --no-deps -e .
 
 # Railway/Koyeb/Fly inject $PORT; default to 8000 for local `docker run`.
 ENV PORT=8000

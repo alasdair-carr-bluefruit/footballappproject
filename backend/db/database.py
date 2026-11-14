@@ -6,7 +6,19 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from backend.db.timing import instrument
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./football.db")
+
+def _with_explicit_driver(url: str) -> str:
+    """Pin the Postgres driver to psycopg2 (the one we install). A bare
+    `postgresql://` URL means "SQLAlchemy's default driver", and SQLAlchemy 2.1
+    changed that default to psycopg 3 — an unpinned rebuild then crashed at import
+    with "No module named 'psycopg'" (2026-11-14). `postgres://` (Heroku-style) too."""
+    for prefix in ("postgresql://", "postgres://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
+
+
+DATABASE_URL = _with_explicit_driver(os.getenv("DATABASE_URL", "sqlite:///./football.db"))
 
 # Repo root holds alembic.ini; backend/db/database.py → parents[2].
 _ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
