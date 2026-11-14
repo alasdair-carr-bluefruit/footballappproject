@@ -87,7 +87,9 @@ def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squa
         total_duration = m.quarters * m.quarter_length_mins
         has_halftime = m.quarters > 1
         try:
-            config = build_tournament_config(m.team_size, m.formation, total_duration, has_halftime, m.max_subs)
+            config = build_tournament_config(
+                m.team_size, m.formation, total_duration, has_halftime, m.max_subs
+            )
         except (ValueError, KeyError):
             config = None
     else:
@@ -149,7 +151,9 @@ def _upsert_anchor(session: Session, match_id: int, warnings: list[str]) -> None
         r.warnings_json = json.dumps(warnings)
         session.add(r)
     else:
-        session.add(RotationPlanDB(match_id=match_id, slots_json="[]", warnings_json=json.dumps(warnings)))
+        session.add(
+            RotationPlanDB(match_id=match_id, slots_json="[]", warnings_json=json.dumps(warnings))
+        )
 
 
 def get_plan_slots(session: Session, match_id: int) -> list[dict[str, Any]]:
@@ -199,6 +203,56 @@ def get_goals(session: Session, match_id: int) -> dict[str, int]:
 
 def get_goals_total(session: Session, match_id: int) -> int:
     return sum(get_goals(session, match_id).values())
+
+
+# ── Batched lookups for list screens ─────────────────────────────────────────────
+# One query for a whole list of matches instead of one per match (each round trip to
+# the live DB costs ~100ms+), and always scoped to the given ids — never a scan of
+# every team's rows.
+def rotations_by_match(session: Session, match_ids: set[int]) -> dict[int, RotationPlanDB]:
+    if not match_ids:
+        return {}
+    rows = session.exec(
+        select(RotationPlanDB).where(RotationPlanDB.match_id.in_(match_ids))  # type: ignore[attr-defined]
+    ).all()
+    return {r.match_id: r for r in rows}
+
+
+def goal_totals_by_match(session: Session, match_ids: set[int]) -> dict[int, int]:
+    """{match_id: our goals} — matches with no goals are simply absent."""
+    if not match_ids:
+        return {}
+    rows = session.exec(
+        select(GoalRecordDB.match_id, func.sum(GoalRecordDB.goals))
+        .where(GoalRecordDB.match_id.in_(match_ids))  # type: ignore[attr-defined]
+        .group_by(GoalRecordDB.match_id)  # type: ignore[arg-type]
+    ).all()
+    return {mid: int(total or 0) for mid, total in rows}
+
+
+def available_ids_by_match(session: Session, match_ids: set[int]) -> dict[int, list[int]]:
+    if not match_ids:
+        return {}
+    rows = session.exec(
+        select(MatchAvailabilityDB)
+        .where(MatchAvailabilityDB.match_id.in_(match_ids))  # type: ignore[attr-defined]
+        .order_by(MatchAvailabilityDB.id)  # type: ignore[arg-type]
+    ).all()
+    out: dict[int, list[int]] = defaultdict(list)
+    for r in rows:
+        out[r.match_id].append(r.player_id)
+    return dict(out)
+
+
+def match_counts_by_tournament(session: Session, tournament_ids: set[int]) -> dict[int, int]:
+    if not tournament_ids:
+        return {}
+    rows = session.exec(
+        select(MatchDB.tournament_id, func.count())
+        .where(MatchDB.tournament_id.in_(tournament_ids))  # type: ignore[union-attr]
+        .group_by(MatchDB.tournament_id)  # type: ignore[arg-type]
+    ).all()
+    return {tid: int(n) for tid, n in rows if tid is not None}
 
 
 def get_removed(session: Session, match_id: int) -> dict[str, int]:

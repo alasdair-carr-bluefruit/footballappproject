@@ -15,7 +15,7 @@
 
 A mobile-first Progressive Web App for grassroots youth football coaches to manage fair player rotation across a match. The system generates a full rotation plan (who plays where, when) across configurable match structures, enforcing GK tier priorities, DEF restrictions, position preferences, equal/competitive playing time, and soft skill-balance goals.
 
-**Owner:** Personal project — multiple grassroots coaches. No login required for current versions.
+**Owner:** Personal project — multiple grassroots coaches (~8 live). Magic-link sign-in, invite-only.
 
 ---
 
@@ -32,7 +32,15 @@ squad pointer, and the `teams` router (list/create/activate/delete) manages them
 **Assistant coaches (T3.2) phase 1 is built on `staging`:** `SquadMembershipDB` gives
 per-team roles (`head` | `assistant`); read routes use `get_current_squad`, every write
 route uses `require(capability)` (a route-coverage test enforces this — new write routes
-MUST declare one). Plan: `docs/ASSISTANT_COACH_PLAN.md`.
+MUST declare one). **Assistant-authored plans + matchday control (built on `staging`
+2026-11-14):** an assistant may create a match/tournament and edit/run the ones they own
+(`created_by_account_id` = plan owner; the head coach can hand a plan over, and mark one
+"Reviewed ✓"). Plan write routes use `plan_access`; any that address an existing row MUST
+also depend on `editable_match` / `editable_tournament`, and any that change a match on
+`controlled_match` (one device runs a live match; others watch and can take control — never
+enforced against a request with no `X-Device-Id`). All test-enforced. The match clock lives
+on the server. Frontend: `.editor-only` + `setPlanEditable()`, `plan-owner.js`.
+Plan: `docs/ASSISTANT_COACH_PLAN.md`.
 
 Earlier: the **Refactor Phase (C.1–C.7)** and **Phase D.1 "Review the plan" screen**
 are done; D.2 (tinker undo/redo) + D.3 (export revisit) remain (now tracked as
@@ -42,7 +50,8 @@ Forward Roadmap **T3.3**).
 owner + `teams` router + header pill switcher; wider pill visibility + landing callout 2026-07-22),
 T1.2 signed-out→marketing link ✅ (live), T1.3 Settings + account self-service ✅ (update-email
 2026-07-20, **invite-a-friend shipped 2026-07-22**), T1.4 clear-squad-&-data ✅ (2026-07-20).
-**Next up = Tier 2** (share-image/growth surfaces, FA-season SEO content). See DEVELOPMENT_PLAN.md
+**Next up = Tier 2** (share-image/growth surfaces, FA-season SEO content) and T3.2 phase 3
+(comments + proposals). See DEVELOPMENT_PLAN.md
 (reprioritised 2026-07-18); the roadmap is ordered by value × effort × demand (Tiers 1–4), not by
 dependency phases.
 **Live refactor tracker: `docs/refactor/NEXT_STEPS.md`.**
@@ -58,9 +67,9 @@ Completed phases:
 - v0.8: Tournament mode — tournament entity, cross-match cumulative fairness (`prior_slots`), guest players, manual rotation mode, tournament stats (shipped 2026-05-24 onwards). Not built: 8-a-side preset, knockout bracket structure.
 - v0.9: Consecutive sit-out constraint, match timer (count-up, persistent), fairness impact on removal/reinstatement, in-app bug reporting, All-rounder default rotation, inspection-based DB migrations (shipped 2026-07-10)
 
-- v1.1: Multi-user — magic-link auth, invite-only, per-account squad isolation, marketing site + early-access (shipped on `feat/multi-user`; 1 account ↔ 1 squad).
+- v1.1: Multi-user — magic-link auth, invite-only, per-account squad isolation, marketing site + early-access. Since extended to 1 account ↔ N squads (multi-team) and per-team roles (assistant coaches).
 
-Next significant work: **Forward Roadmap Tier 1** (DEVELOPMENT_PLAN.md, reprioritised 2026-07-18) — **T1.1 multi-team** + T1.3 invite-a-friend remain (T1.2, T1.4, and T1.3 settings/update-email shipped 2026-07-20).
+Next significant work: see **Current Phase** above and DEVELOPMENT_PLAN.md (Tier 1 is complete).
 
 ---
 
@@ -82,13 +91,14 @@ Next significant work: **Forward Roadmap Tier 1** (DEVELOPMENT_PLAN.md, repriori
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # all tests (~316)
+pytest                    # all tests (~580, ~80s incl. the browser suite)
 pytest -m unit            # fast, no DB/server
 pytest -m bdd             # Gherkin BDD scenarios
 pytest -m integration     # DB + HTTP tests
 pytest -m e2e             # Playwright browser smoke suite (season + tournament golden paths)
 pytest -m "not e2e"       # everything except the browser suite
-ruff check .
+ruff check .              # must be clean — CI blocks on it
+mypy backend              # runs, but carries a pre-existing strict-mode backlog (not in CI)
 
 # First-time e2e setup (Playwright browser binary):
 playwright install chromium
@@ -135,7 +145,7 @@ football-app-project/
 │   │   ├── skill_balancer.py
 │   │   └── validator.py       ← configurable sub limits, position variety
 │   ├── api/              ← FastAPI routers (thin HTTP adapters)
-│   ├── services/         ← match_service, tournament_service (C.5), analytics (C.7)
+│   ├── services/         ← match_service, tournament_service (C.5), analytics (C.7), matchday (control + clock), notifications
 │   └── db/               ← SQLite repositories, additive migration pattern
 │
 ├── frontend/            ← ES modules (no framework); app.js is a thin entry point
@@ -149,6 +159,7 @@ football-app-project/
 │   ├── screens.js        ← Onboarding, landing, squad management, bug report
 │   ├── api.js            ← Fetch wrappers
 │   ├── toast.js          ← Toast notifications + withSaveToast retry helper (C.7)
+│   ├── plan-owner.js     ← "Plan by …" chip, head-coach hand-over picker, Reviewed ✓ mark
 │   ├── style.css
 │   └── sw.js             ← Service Worker
 │
@@ -268,6 +279,8 @@ Match (MatchDB)
   team_size: int, formation: str
   fairness: str, fairness_value: int (0-100)
   rotation_intensity: int (0-100)
+  created_by_account_id       ← plan owner (None = head coach only); reviewed_at
+  controller_* / timer_*      ← which device runs a live match; server-side clock
 
 Squad (SquadDB)
   team_name: str, team_logo: str  ← base64 DataURL

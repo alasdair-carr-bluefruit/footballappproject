@@ -71,7 +71,6 @@ def generate_rotation(
     players = squad.available
     n = len(players)
     num_slots = config.total_slots
-    outfield_count = config.formation.outfield_count
 
     if n < config.players_per_slot:
         raise ValueError(
@@ -206,7 +205,6 @@ def adjust_rotation(
         new_slots.append(new_slot)
 
     # Identify locked vs unlocked slot indices
-    locked_indices = {s.slot_index for s in new_slots if s.locked}
     unlocked_indices = [s.slot_index for s in new_slots if not s.locked]
 
     if not unlocked_indices:

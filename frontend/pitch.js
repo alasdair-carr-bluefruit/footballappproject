@@ -1,8 +1,9 @@
-import { api } from "./api.js";
-import { state, refreshShirtNumbers, displayPos, can } from "./state.js";
+import { api, setLostControlHandler } from "./api.js";
+import { state, refreshShirtNumbers, displayPos, can, setPlanEditable } from "./state.js";
 import { loadHome } from "./season.js";
 import { loadTournamentLobby } from "./tournament.js";
 import { showToast, withSaveToast } from "./toast.js";
+import { renderReviewMark } from "./plan-owner.js";
 import { BRAND, chalkAlpha, matchdayAlpha } from "./brand.js";
 
 // NOTE on circular imports: pitch.js needs to navigate back into season.js
@@ -595,6 +596,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
       e.stopPropagation();
       if (!canRecordGoalHere() || !confirmGoalEdit()) return;
       state.goalCounts[name] = Math.max(0, (state.goalCounts[name] || 0) - 1);
+      queueLiveGoalSave();
       render();
     });
     avatar.appendChild(goalBadge);
@@ -608,6 +610,7 @@ function playerCircle(name, role, isIncoming, isOutgoing, isGk = false, onSwapCl
       pressTimer = null;
       if (!confirmGoalEdit()) return;
       state.goalCounts[name] = (state.goalCounts[name] || 0) + 1;
+      queueLiveGoalSave();
       div.classList.add("goal-scored");
       setTimeout(() => div.classList.remove("goal-scored"), 600);
       if (navigator.vibrate) navigator.vibrate(80);
@@ -895,7 +898,7 @@ function render() {
     document.getElementById("btn-return-plan").hidden = state.liveSlot !== 0 || isCompleted;
     btnPrev.disabled = state.currentSlot === 0 || state.editMode;
     btnNext.disabled = state.editMode || (isCompleted && isLastSlot);
-    btnNext.textContent = isLastSlot ? "End Match" : "Next ▶";
+    btnNext.textContent = !isLastSlot ? "Next ▶" : (can("run_matchday") ? "End Match" : "Summary ▶");
 
     // Already-played periods are frozen (can't rewrite history); the live period and
     // any future period the coach is previewing stay tinkerable.
@@ -983,7 +986,7 @@ function renderReport() {
   buildPlanGrid(list, state.matchData);
 
   document.getElementById("btn-prev").disabled = false;
-  if (state.matchStarted) {
+  if (state.matchStarted && can("run_matchday")) {
     document.getElementById("btn-next").disabled = false;
     // The final-slot Next already reads "End Match" and brings the coach to this
     // summary; the confirm here finalises and opens Full Time.
@@ -1017,6 +1020,14 @@ function showMatch() {
 // screen). Returns the match status so callers can drive the timer/screen.
 function loadMatchData(data) {
   state.matchData = data;
+  // Read-only unless it's the caller's plan to change — and, for a LIVE match,
+  // unless this is the device running it. Anyone else watches (polled, see
+  // syncWatch) and, if they could run it, is offered Take control.
+  const m = data.match || {};
+  const live = m.status === "in_progress";
+  state.controller = live ? (m.controller || null) : null;
+  state.watching = live && (m.can_edit === false || (!!m.controller && !m.controller.is_me));
+  setPlanEditable(m.can_edit !== false && !state.watching);
   state.showingReport = false;
   state.showingChanges = false;
   if (!state.manualRotationMode) state.editMode = false;
@@ -1056,10 +1067,13 @@ function enterPitchView(data) {
 
   // Timer: a persistent count-up clock, running only while the match is live
   if (status === "in_progress") {
+    adoptServerTimer(data);
     resumeMatchTimer();
   } else {
     stopTimerTicker();
   }
+  updateControlBanner();
+  syncWatch();
 
   showScreen("screen-pitch");
   document.querySelector(".pitch-wrapper").style.display = "";
@@ -1110,6 +1124,7 @@ function renderReview() {
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   document.getElementById("review-title").textContent = `${dateStr} · vs ${match.opponent || "Unknown"}`;
   document.getElementById("review-actions-single").hidden = false;
+  renderReviewMark("match", match.tournament_id ? null : match);
 
   // What the "Share" button turns into a PNG (see plan-image.js). Set here, not
   // read from `state.matchData` there, so the tournament "all plans" page can
@@ -1189,9 +1204,9 @@ async function openMatch(matchId, backContext = "season") {
   let data = await api.getMatch(matchId).catch(err => { alert(err.message); return null; });
   if (!data) return;
 
-  if ((!data.slots || data.slots.length === 0) && !can("edit_plan")) {
-    // Assistants can't generate — nothing to show until the head coach does.
-    showToast("The head coach hasn't made a plan for this match yet.");
+  if ((!data.slots || data.slots.length === 0) && data.match?.can_edit === false) {
+    // Not this coach's match to generate — nothing to show until its owner does.
+    showToast("There's no plan for this match yet.");
     return;
   }
   if (!data.slots || data.slots.length === 0) {
@@ -1353,6 +1368,7 @@ document.getElementById("btn-end-confirm").addEventListener("click", () => {
 });
 
 async function doEndMatch() {
+  if (!can("run_matchday")) return;  // viewers (incl. a device that lost control) never end a match
   clearMatchTimer();
   // Save goals and mark match completed, then show Full Time screen
   if (state.matchData?.match.id) {
@@ -1388,6 +1404,34 @@ function writeTimer(timerState) {
   if (key) localStorage.setItem(key, JSON.stringify(timerState));
 }
 
+// The clock also lives on the server (as "elapsed so far", never a wall-clock time,
+// so two phones needn't agree on the time of day) — that is what a viewer, or a
+// device taking over, shows. localStorage stays the running device's working copy:
+// it keeps ticking through a dropped connection and is pushed again when back online.
+let timerUnsynced = false;
+function pushTimer() {
+  const id = state.matchData?.match?.id;
+  const timerState = readTimer();
+  if (id == null || !timerState || state.watching || !can("run_matchday")) return;
+  if (state.matchData.match.status !== "in_progress") return;
+  api.setTimer(id, timerState.pausedAt == null, Math.round(timerElapsedSecs(timerState) * 1000))
+    .then(() => { timerUnsynced = false; })
+    .catch(() => { timerUnsynced = true; });
+}
+function retryTimerPush() { if (timerUnsynced && !document.hidden) pushTimer(); }
+window.addEventListener("online", retryTimerPush);
+document.addEventListener("visibilitychange", retryTimerPush);
+
+// Take the server's clock — unless this is the device running the match and it has
+// its own (it is the source of the server's copy, and may be ahead of it offline).
+function adoptServerTimer(data, { force = false } = {}) {
+  const t = data.match?.timer;
+  if (!t) return;
+  if (!force && !state.watching && readTimer()) return;
+  const now = Date.now();
+  writeTimer({ startedAt: now - t.elapsed_ms, pausedAt: t.running ? null : now, pausedAccumMs: 0 });
+}
+
 // Elapsed seconds, accounting for any paused intervals
 function timerElapsedSecs(timerState) {
   if (!timerState) return 0;
@@ -1412,7 +1456,11 @@ function beginMatchTimer() {
 // if none is stored, e.g. it was cleared)
 function resumeMatchTimer() {
   if (!timerEnabled()) return;
-  if (!readTimer()) writeTimer({ startedAt: Date.now(), pausedAt: null, pausedAccumMs: 0 });
+  if (!readTimer()) {
+    if (state.watching) { stopTimerTicker(); return; }  // a viewer never invents a clock
+    writeTimer({ startedAt: Date.now(), pausedAt: null, pausedAccumMs: 0 });
+    pushTimer();
+  }
   startTimerTicker();
 }
 
@@ -1420,6 +1468,7 @@ function resumeMatchTimer() {
 // new-period prompt
 function resetMatchTimer() {
   writeTimer({ startedAt: Date.now(), pausedAt: null, pausedAccumMs: 0 });
+  pushTimer();
   updateTimerDisplay();
 }
 
@@ -1471,6 +1520,7 @@ document.getElementById("btn-timer-pause").addEventListener("click", () => {
     timerState.pausedAt = null;
   }
   writeTimer(timerState);
+  pushTimer();
   updateTimerDisplay();
 });
 
@@ -1500,9 +1550,11 @@ document.getElementById("btn-new-period-dismiss").addEventListener("click", () =
 async function doStartMatch() {
   if (!can("run_matchday")) return;
   try {
-    await api.startMatch(state.matchData.match.id);
+    const started = await api.startMatch(state.matchData.match.id);
     state.matchStarted = true;
     state.matchData.match.status = "in_progress";
+    state.matchData.match.controller = started.controller || null;
+    state.controller = started.controller || null;
     state.matchData.match.current_slot = 0;
     state.liveSlot = 0;             // first period is live
     state.currentSlot = 0;          // kick off at the first slot regardless of plan-review position
@@ -1511,8 +1563,114 @@ async function doStartMatch() {
     render();
     showGoalTip();
   } catch (err) {
-    alert("Could not start match: " + err.message);
+    // Someone else started it first → the lost-control handler is already
+    // switching this device to the live view; no alert on top of that.
+    if (err.code !== "not_controller") alert("Could not start match: " + err.message);
   }
+}
+
+// ── One device runs a live match ────────────────────────────────────────────────
+// Everyone else who opens it watches: read-only, refreshed every few seconds, with a
+// banner saying who has it. Anyone allowed to run the match can Take control (so a
+// dead phone never locks the team out); the device that had it finds out on its
+// next save (409 → onLostControl below) and drops to this same view.
+const WATCH_INTERVAL_MS = 8000;
+let watchInterval = null;
+
+function updateControlBanner() {
+  const banner = document.getElementById("control-banner");
+  banner.hidden = !state.watching;
+  if (!state.watching) return;
+  const c = state.controller;
+  document.getElementById("control-banner-text").textContent =
+    !c ? "● Live — view only"
+      : c.same_account ? "● Live on your other device"
+        : `● ${c.name} is running this match`;
+  // Only someone who could run this match is offered control of it.
+  document.getElementById("btn-take-control").hidden = !c || state.matchData?.match?.can_edit === false;
+}
+
+function syncWatch() {
+  clearInterval(watchInterval);
+  watchInterval = state.watching ? setInterval(pollWatchedMatch, WATCH_INTERVAL_MS) : null;
+}
+
+async function pollWatchedMatch() {
+  const id = state.matchData?.match?.id;
+  const onPitch = () => !document.getElementById("screen-pitch").hidden && state.matchData?.match?.id === id;
+  if (!state.watching || id == null || !onPitch()) { clearInterval(watchInterval); watchInterval = null; return; }
+  if (document.hidden) return;
+  const data = await api.getMatch(id).catch(() => null);
+  if (!data || !state.watching || !onPitch()) return;  // offline blip, or the coach moved on meanwhile
+
+  const status = data.match?.status;
+  if (status === "completed") { showToast("Full time."); enterFulltimeView(data); return; }
+  if (status === "planned") { showToast("The match went back to the plan."); enterReviewView(data); return; }
+
+  // Keep the viewer's place: follow the live period if they were on it, otherwise
+  // leave them browsing where they were.
+  const following = state.currentSlot === state.liveSlot;
+  const viewed = state.currentSlot;
+  const onReport = state.showingReport;
+  loadMatchData(data);
+  if (!following) state.currentSlot = Math.min(viewed, data.slots.length - 1);
+  adoptServerTimer(data);
+  resumeMatchTimer();
+  updateControlBanner();
+  syncWatch();
+  if (onReport) { state.showingReport = true; renderReport(); } else { render(); }
+}
+
+document.getElementById("btn-take-control").addEventListener("click", async () => {
+  const id = state.matchData?.match?.id;
+  const c = state.controller;
+  if (id == null || !c) return;
+  const theirs = c.same_account ? "Your other device" : `${c.name}'s device`;
+  if (!confirm(`Take control of this match?\n\n${theirs} will switch to view-only.`)) return;
+  try {
+    const data = await api.takeControl(id);
+    state.matchData = data;                  // so the timer key resolves for this match
+    adoptServerTimer(data, { force: true }); // carry on from the clock as it stands
+    enterPitchView(data);
+    showToast("You're now running this match.");
+  } catch (err) {
+    alert("Could not take control: " + err.message);
+  }
+});
+
+// A save was refused because another device now runs this match.
+let handlingLostControl = false;
+setLostControlHandler(async (err) => {
+  const id = state.matchData?.match?.id;
+  if (handlingLostControl || id == null || document.getElementById("screen-pitch").hidden) return;
+  handlingLostControl = true;
+  try {
+    const d = err.detail || {};
+    showToast(d.same_account
+      ? "This match is now being run on your other device."
+      : `${d.controller_name || "Another coach"} is now running this match.`);
+    const data = await api.getMatch(id).catch(() => null);
+    if (data && state.matchData?.match?.id === id) {
+      state.matchData = data;
+      adoptServerTimer(data, { force: true });
+      enterPitchView(data);
+    }
+  } finally {
+    handlingLostControl = false;
+  }
+});
+
+// Goals are saved as they happen during a live match (not only at full time), so a
+// viewer sees them and nothing is lost if this phone dies and another takes over.
+let goalSaveTimer = null;
+function queueLiveGoalSave() {
+  const match = state.matchData?.match;
+  if (!match || match.status !== "in_progress" || !can("run_matchday")) return;
+  clearTimeout(goalSaveTimer);
+  goalSaveTimer = setTimeout(() => {
+    if (state.matchData?.match?.id !== match.id || !can("run_matchday")) return;
+    api.saveGoals(match.id, state.goalCounts, match.opponent_goals || 0).catch(() => {});
+  }, 700);
 }
 
 function showGoalTip() {
@@ -1566,6 +1724,7 @@ document.getElementById("btn-action-goal").addEventListener("click", () => {
   document.getElementById("player-action-overlay").hidden = true;
   if (state.pendingActionPlayer) {
     state.goalCounts[state.pendingActionPlayer.name] = (state.goalCounts[state.pendingActionPlayer.name] || 0) + 1;
+    queueLiveGoalSave();
     if (navigator.vibrate) navigator.vibrate(80);
     celebrateGoal();
     render();

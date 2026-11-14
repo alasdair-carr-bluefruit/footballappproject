@@ -1,10 +1,12 @@
 # Assistant coach mode (T3.2) — implementation plan
 
 > Status: **Phase 1 BUILT on `staging` (2026-09-28), not yet deployed.** Phases 2–3 planned.
+> **Phase 1.5 (assistant-authored plans, hand-over, Reviewed ✓, emails) and Phase 2 (one
+> controlling device + server clock) BUILT on `staging` (2026-11-14)** — see below. Phase 3 planned.
 > Decisions locked with the owner 2026-09-28.
 > A team has **one head coach** and any number of **assistants**. Roles are per team,
 > so one account can be head coach of its own team and an assistant on someone else's.
-> Delivered in three phases: read-only → run matchday → comment & propose.
+> Delivered in phases: read-only → assistant plans → one controlling device → comment & propose.
 
 ## Decisions (locked)
 - **Roles live on a membership, not the account.** `SquadMembershipDB(squad_id, account_id, role)`.
@@ -131,33 +133,76 @@ Touches migrations, `backend/db/**`, `backend/api/**`, `deps.py` and auth → **
 
 ---
 
-## Phase 2 — assistant runs matchday
+## Phase 1.5 — assistant-authored plans (built 2026-11-14)
 
-### One controlling device
-- New fields on `MatchDB` (and the tournament-match equivalent):
-  `controller_account_id`, `controller_device_id`, `controller_since`.
-- **Device id:** a random id generated once per device and kept in `localStorage`
-  (`gaffer_device_id`, keeping the `gaffer_` prefix convention), sent as a header on matchday calls.
-- **Start Match** claims control. Every matchday write (`advance`, goals, timer, remove/reinstate,
-  full time) requires the caller's `(account, device)` to match the controller, or it returns 409:
-  - different account → *"This match was started on [display_name]'s device."* + **Take control**
-  - same account, other device → *"This match was started on your other device."* + **Take control**
-- Everyone else sees the match **live, read-only**: poll `GET` every ~10–15s (no websockets needed yet).
-- **Take control (locked 2026-09-28):** anyone with `run_matchday` (the head coach **or any
-  assistant**) can take control after an in-app confirm, so a dead phone never locks the team out.
-  `POST /matches/{id}/take-control` rewrites the controller fields. The old device's next matchday
-  write gets 409 *"[Name] took control of this match"* and drops to live read-only view.
+Pulled forward because a head coach asked an assistant to do the squad for a match.
 
-### Timer must move to the server
-The match clock is currently **per-device `localStorage`** (`pitch.js` `timerKey()` / `writeTimer`).
-Viewers and a device taking over would show the wrong time. Persist
-`timer_started_at`, `timer_paused_at` and `timer_paused_accum_ms` on the match, keeping localStorage
-as a cache only. **This is a prerequisite for phase 2**, and useful on its own (the clock survives
-a device switch).
+- **Rule:** an assistant can **create** a match or tournament, and then **edit, tinker and
+  run matchday on the ones they created**. The head coach can do all of that on every plan.
+  Other assistants see an assistant's plan read-only, exactly like the head coach's.
+- **Data:** `MatchDB.created_by_account_id` / `TournamentDB.created_by_account_id` (revision
+  `a1c5e9d3b7f2`; nullable, no backfill — `NULL` = head-coach only = the old behaviour).
+  A tournament's matches inherit the tournament's creator, whoever adds them.
+- **Access:** new capability `author_plan` (head + assistant). Plan write routes depend on
+  `plan_access`; every one that addresses an existing row ALSO depends on `editable_match` /
+  `editable_tournament` (404 not your squad, 403 not your plan). Two guard tests: plan routes
+  are the only ones an assistant's role admits, and every such route with a path id has the
+  per-row guard. Guests (`manage_squad`) and squad/team routes stay head-only.
+- **Payloads:** matches and tournaments carry `can_edit`, `created_by_name`, `created_by_me`.
+  The name is only sent when the creator isn't the head coach.
+- **Frontend:** `.editor-only` + `body.plan-readonly` (per open plan, `setPlanEditable()` in
+  `state.js`) replaces `.head-only` on plan controls; `can("edit_plan" | "run_matchday")` now
+  answers for the open plan. Fixtures / tournament lists show a **"Plan by Sam"** chip.
+- **Hand-over (built 2026-11-14):** the head coach can hand one of their own planned
+  matches — or a whole tournament — to an assistant, and take it back: `PUT
+  /matches/{id}/owner`, `PUT /tournaments/{id}/owner` (head-only). So read
+  `created_by_account_id` as **plan owner**. On the lists the head coach's chip is a button
+  ("Hand over" / "Plan by Sam") that opens the picker (`frontend/plan-owner.js`).
+- **Reviewed ✓ (built 2026-11-14), instead of an Accept gate:** `reviewed_at` on matches and
+  tournaments; `POST …/review` (head-only). Shown on the chip and on the review screen. It is
+  a mark, not a gate — an unreviewed plan can always be started — and it clears itself when
+  the assistant changes the plan afterwards (`matches.plan_changed`). Tournament matches
+  share their tournament's mark (the "Review all plans" page).
+- **Emails (built 2026-11-14):** the head coach is emailed the first time an assistant makes
+  a plan (first rotation for a season match; first batch of matches for a tournament), and
+  an assistant is emailed when a plan is handed to them. `services/notifications.py`,
+  queued as background tasks, opt-out via `AccountDB.notify_plans` (Settings → Account).
+- **Temporary players (built 2026-11-14):** whoever runs a tournament can add/remove its
+  guests. An assistant's guests get the default rating (3) and the rating is never sent back.
 
-### Capabilities
-Add `run_matchday` to the assistant set. The phase-1 route guard means each matchday route just
-switches from `require("edit_plan")` to `require("run_matchday")`.
+---
+
+## Phase 2 — one controlling device + server clock (built 2026-11-14)
+
+Needed as soon as phase 1.5 let two people run the same match. Code: `services/matchday.py`,
+`deps.controlled_match`, revision `b6d2f8a4c1e7`; frontend in `pitch.js` ("One device runs a
+live match") and `api.js` (`deviceId`, `setLostControlHandler`).
+
+- **Who can run a match is unchanged** — the head coach, or the assistant who owns the plan
+  (*not* "any assistant", as first sketched: that would undo phase 1.5's rule).
+- **Device id:** random, per browser, in `localStorage` (`gaffer_device_id`), sent as
+  `X-Device-Id` on every request.
+- **Start Match claims control** (`controller_account_id` / `controller_device_id` /
+  `controller_since` on `MatchDB`). While the match is live, every write to it
+  (`controlled_match`: progress, goals, timer, adjust, remove/reinstate, unstart, …) from any
+  other device gets **409 `{code: "not_controller", controller_name, same_account}`**.
+- **Everyone else watches:** `GET /matches/{id}` carries `match.controller` (`is_me`,
+  `same_account`, `name`); the pitch goes read-only, shows "● Sam is running this match" and
+  re-fetches every 8s (no websockets). Goals are now saved as they happen, so viewers see them.
+- **Take control:** `POST /matches/{id}/take-control`, after a confirm. The old device finds
+  out on its next save (the 409) and drops to the watching view; it can take control back.
+- **Full time / return to plan release control**; a finished match's report is editable from
+  any device allowed to.
+- **Compatibility rule (important):** control is only enforced between requests that carry a
+  device id. A request without one (a stale cached frontend, a script) is never refused, and
+  a live match nobody controls is claimed by the first device-carrying write. A deploy can
+  therefore never strand a coach mid-match.
+- **Server clock:** `timer_running` / `timer_elapsed_ms` / `timer_anchor_at`, stored as
+  "elapsed at a server instant" so devices never compare wall clocks. Start sets it; the
+  controlling device reports pause / resume / per-period reset via `PUT /matches/{id}/timer`.
+  localStorage remains the running device's working copy (keeps ticking offline, re-pushed
+  on reconnect); viewers and a device taking over adopt the server's.
+- **Not built:** per-assistant "can run matchday" toggles; live push (it polls).
 
 ---
 

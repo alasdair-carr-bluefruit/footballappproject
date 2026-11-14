@@ -33,6 +33,8 @@ class AccountDB(SQLModel, table=True):
     last_login_at: str | None = None
     seen_tutorial: int = 0  # server-side onboarding flag (follows the coach across devices)
     session_epoch: int = 0  # bump to invalidate all issued sessions ("sign out everywhere")
+    # Email me when a coach on my team makes a plan / hands me one (Settings toggle).
+    notify_plans: int = 1
 
 
 # A one-time invite token — only coaches sent a /join?token=… link can create a
@@ -59,7 +61,9 @@ class InviteDB(SQLModel, table=True):
 # "head" per squad (SquadDB.account_id mirrors it during the transition).
 class SquadMembershipDB(SQLModel, table=True):
     __tablename__ = "squad_memberships"  # type: ignore[assignment]
-    __table_args__ = (UniqueConstraint("squad_id", "account_id", name="uq_membership_squad_account"),)
+    __table_args__ = (
+        UniqueConstraint("squad_id", "account_id", name="uq_membership_squad_account"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     squad_id: int = Field(index=True)  # plain column, same convention as SquadDB.account_id
@@ -130,7 +134,15 @@ class TournamentDB(SQLModel, table=True):
     rotation_intensity: int = 50
     share_gk: int = 1  # 1=specialist keeper rotates for equal time, 0=in goal all match
     status: str = "active"  # "active" | "completed"
-    player_position_overrides_json: str = "{}"  # JSON dict: {player_id: [positions]} — tournament-scoped overrides
+    # JSON dict: {player_id: [positions]} — tournament-scoped overrides
+    player_position_overrides_json: str = "{}"
+    # Who created it (None = legacy row / auth off). An assistant may edit + run only
+    # the tournaments they created; the head coach can always edit. The head coach
+    # can also hand a tournament to an assistant, so read this as "plan owner".
+    created_by_account_id: int | None = None
+    # Head coach's "Reviewed ✓" mark on an assistant's plans (ISO datetime). A mark,
+    # not a gate; cleared when the assistant changes the plans afterwards.
+    reviewed_at: str | None = None
 
 
 class PlayerDB(SQLModel, table=True):
@@ -164,7 +176,8 @@ class MatchDB(SQLModel, table=True):
     fairness_value: int = 0  # 0-100 slider raw value
     rotation_intensity: int = 50  # 0 = specialist, 100 = all-rounder
     share_gk: int = 1  # 1=specialist keeper rotates for equal time, 0=in goal all match
-    max_subs: int | None = None  # tournament only: coach-set mid-period sub cap (None = preset default)
+    # tournament only: coach-set mid-period sub cap (None = preset default)
+    max_subs: int | None = None
     home_away: str = "home"  # "home" or "away"
     opponent_goals: int = 0
     hide_score: int = 0  # 0=show scoreline, 1=mask as "X - X" (FA sub-U12 guidance)
@@ -173,6 +186,20 @@ class MatchDB(SQLModel, table=True):
     tournament_id: int | None = None  # if set, this match belongs to a tournament
     tournament_stage: str = ""  # "group" or "knockout" (empty for season matches)
     match_number: int | None = None  # sequence within tournament (1-based)
+    # Who created the plan (None = legacy row / auth off). An assistant may edit + run
+    # only the matches they created; tournament matches inherit their tournament's.
+    # The head coach can also hand a match to an assistant, so read this as "plan owner".
+    created_by_account_id: int | None = None
+    reviewed_at: str | None = None  # head coach's "Reviewed ✓" mark — see TournamentDB
+    # ── Matchday control: ONE device runs a live match (see services/matchday.py) ──
+    controller_account_id: int | None = None
+    controller_device_id: str = ""  # "" = nobody holds control
+    controller_since: str | None = None
+    # Match clock, kept server-side so a viewer or a device taking over shows the
+    # right time. elapsed = timer_elapsed_ms (+ now − timer_anchor_at while running).
+    timer_running: int = 0
+    timer_elapsed_ms: int = 0
+    timer_anchor_at: str | None = None  # None = no clock started
 
 
 class RotationPlanDB(SQLModel, table=True):

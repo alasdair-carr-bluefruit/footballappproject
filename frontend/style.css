@@ -3798,6 +3798,42 @@ input[aria-invalid="true"] { border-color: var(--danger-soft); box-shadow: 0 0 0
    body.role-assistant is set from the active team's role (state.js setRole).
    Head-only controls vanish for assistants; the server 403s them regardless. */
 body.role-assistant .head-only { display: none !important; }
+/* Per-plan: set while the open match/tournament isn't the caller's to change
+   (an assistant looking at a plan someone else created) — state.js setPlanEditable. */
+body.plan-readonly .editor-only { display: none !important; }
+.match-badge-author { border: 1px dashed currentColor; background: transparent; }
+button.match-badge-author { font: inherit; font-size: 11px; cursor: pointer; line-height: inherit; }
+.plan-owner-unassigned { opacity: 0.7; }
+
+/* Review screen: whose plan it is + the head coach's "Reviewed ✓" mark */
+.review-mark {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 16px 10px;
+  padding: 8px 12px;
+  border: 1px dashed color-mix(in srgb, var(--chalk) 30%, transparent);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.review-mark .btn { flex: 0 0 auto; margin: 0; }
+
+/* Live match being run on another device: who has it + Take control */
+.control-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--live) 15%, transparent);
+  color: var(--chalk);
+  font-size: 13px;
+}
+.control-banner-btn { flex: 0 0 auto; margin: 0; }
+.settings-switch { margin: 14px 0 4px; }
 body:not(.role-assistant) .assistant-only { display: none !important; }
 
 .role-badge {

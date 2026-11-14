@@ -19,6 +19,8 @@ export async function openSettings({ focus } = {}) {
     (state.account && state.account.email) || "—";
   document.getElementById("settings-name").value = (state.account && state.account.display_name) || "";
   hide("name-msg");
+  document.getElementById("settings-notify-plans").checked = state.account?.notify_plans !== false;
+  hide("notify-msg");
 
   // Reset the invite-a-friend block (don't surface a link minted in a prior visit).
   document.getElementById("invite-result").hidden = true;
@@ -38,6 +40,18 @@ export async function openSettings({ focus } = {}) {
 }
 
 function hide(id) { const el = document.getElementById(id); if (el) el.hidden = true; }
+
+// Plan emails on/off — saved on toggle; the switch snaps back if the save fails.
+document.getElementById("settings-notify-plans").addEventListener("change", async (e) => {
+  const on = e.target.checked;
+  hide("notify-msg");
+  try {
+    state.account = { ...state.account, ...(await api.setPlanEmails(on)) };
+  } catch (err) {
+    e.target.checked = !on;
+    showMsg("notify-msg", (err && err.message) || "Couldn't save that — please try again.");
+  }
+});
 function showMsg(id, text) {
   const el = document.getElementById(id);
   if (el) { el.textContent = text; el.hidden = false; }
@@ -139,6 +153,7 @@ async function renderAssistantsSection() {
   const list = document.getElementById("settings-assistant-list");
   list.innerHTML = "";
   const rows = await api.getAssistants().catch(() => []);
+  state.assistants = rows;  // keep the hand-over picker's cache in step
   document.getElementById("settings-assistants-empty").hidden = rows.length > 0;
   rows.forEach(r => {
     const li = document.createElement("li");

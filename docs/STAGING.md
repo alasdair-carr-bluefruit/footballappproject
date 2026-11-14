@@ -235,13 +235,14 @@ revision.
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main`/`staging` and every PR
-into them: `ruff check .` then `pytest -m "not e2e"` (375 tests, ~7s).
+into them: `ruff check .` then `pytest -m "not e2e"` (~490 tests, ~8s). Lint is
+**blocking** (backlog cleared 2026-11-14).
 
 Two deliberate gaps:
 
-- **Lint is non-blocking.** There are ~61 pre-existing findings, mostly `E402` in
-  `tests/bdd/steps/` where imports after the feature binding are idiomatic. Clear
-  the backlog, then drop `continue-on-error` from the Lint step.
+- **`mypy` is not in CI.** `mypy backend` (strict) runs locally but reports a
+  backlog of pre-existing findings, mostly bare `dict`/`list` annotations in
+  `backend/algorithm/`. Add it to CI once that reaches zero.
 - **e2e doesn't run in CI.** The Playwright suite needs a browser binary and a
   live uvicorn subprocess. Run `pytest -m e2e` locally before a release that
   touches the season or tournament golden path.

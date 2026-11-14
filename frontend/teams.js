@@ -295,6 +295,7 @@ function resetTeamCaches() {
   state.matchData = null;
   state.activeTournamentId = null;
   state.activeTournamentData = null;
+  state.assistants = null;
   state.cachedSquadPlayers = [];
   state.goalCounts = {};
   state.removedPlayers = {};

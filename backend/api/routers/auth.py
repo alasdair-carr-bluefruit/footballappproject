@@ -75,6 +75,7 @@ def _account_public(account: AccountDB, session: Session) -> dict:
         "squad_id": account.squad_id,
         "role": membership.role if membership else HEAD,  # role on the ACTIVE team
         "seen_tutorial": bool(account.seen_tutorial),
+        "notify_plans": bool(account.notify_plans),
     }
 
 
@@ -245,6 +246,24 @@ def update_display_name(
     if not name:
         raise HTTPException(status_code=422, detail="Please add your name")
     account.display_name = name
+    session.add(account)
+    session.commit()
+    session.refresh(account)
+    return _account_public(account, session)
+
+
+class NotificationsBody(BaseModel):
+    notify_plans: bool
+
+
+@router.post("/account/notifications")
+def update_notifications(
+    body: NotificationsBody,
+    session: Session = Depends(get_session),
+    account: AccountDB = Depends(get_current_account),
+) -> dict:
+    """Turn plan emails on/off ("Sam made a plan", "a plan was handed to you")."""
+    account.notify_plans = 1 if body.notify_plans else 0
     session.add(account)
     session.commit()
     session.refresh(account)

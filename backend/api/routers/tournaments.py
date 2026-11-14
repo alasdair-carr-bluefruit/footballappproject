@@ -9,31 +9,39 @@ the core Match / RotationPlan infrastructure, with the addition of:
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
 from backend.api.deps import (
     SquadAccess,
+    authorship,
+    editable_tournament,
     get_current_squad,
     get_squad_access,
     owned_tournament,
+    plan_access,
     require,
 )
+from backend.api.routers.matches import OwnerBody, _pretty_date, resolve_new_owner
 from backend.db.database import get_session
-from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB, TournamentDB
+from backend.db.models import MatchDB, PlayerDB, SquadDB, TournamentDB
 from backend.db.repositories import (
+    available_ids_by_match,
     build_plan_response,
     delete_rotation,
     get_available_ids,
-    get_goals_total,
     get_players,
     get_position_overrides,
+    goal_totals_by_match,
+    match_counts_by_tournament,
     name_clash_message,
     player_name_clash,
+    rotations_by_match,
 )
 from backend.db.repositories import (
     set_position_overrides as save_position_overrides,
@@ -42,6 +50,7 @@ from backend.models.game_config import build_tournament_config
 from backend.services import (
     analytics,
     match_service,
+    notifications,
     spreadsheet_export,
     tournament_service,
 )
@@ -80,6 +89,12 @@ class TournamentRead(BaseModel):
     share_gk: int = 1
     status: str
     match_count: int = 0
+    # Authorship (assistant-created plans) — see matches.MatchRead.
+    can_edit: bool = True
+    created_by_name: str = ""
+    created_by_me: bool = False
+    created_by_account_id: int | None = None  # the plan owner (head's hand-over picker)
+    reviewed: bool = False  # head coach's "Reviewed ✓" mark on an assistant's plans
 
 
 class GuestPlayerCreate(BaseModel):
@@ -101,8 +116,13 @@ class TournamentMatchCreate(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _tournament_read(t: TournamentDB, match_count: int = 0) -> TournamentRead:
+def _tournament_read(
+    t: TournamentDB, match_count: int = 0, author: dict[str, Any] | None = None,
+) -> TournamentRead:
     return TournamentRead(
+        **(author or {}),
+        created_by_account_id=t.created_by_account_id,
+        reviewed=bool(t.reviewed_at),
         id=t.id,  # type: ignore[arg-type]
         name=t.name,
         date=t.date,
@@ -124,42 +144,22 @@ def _match_response(
     m: MatchDB,
     slots: list[Any],
     warnings: list[str],
-    removed_players: dict | None = None,
+    removed_players: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    """Build the rotation response dict for a tournament match."""
-    try:
-        total_duration = m.quarters * m.quarter_length_mins
-        cfg = build_tournament_config(
-            m.team_size, m.formation, total_duration, m.quarters > 1, m.max_subs,
-        )
-        period_label = cfg.period_label
-    except Exception:
-        period_label = "Period"
+    """The rotation response for a tournament match — the SAME envelope the matches
+    router returns (so the two flows can't drift), plus `removed_players`."""
+    response = match_service.rotation_response(m, slots, warnings)
+    response["removed_players"] = removed_players or {}
+    return response
 
-    return {
-        "match": {
-            "id": m.id,
-            "date": m.date,
-            "opponent": m.opponent,
-            "team_size": m.team_size,
-            "formation": m.formation,
-            "fairness": m.fairness,
-            "fairness_value": m.fairness_value,
-            "rotation_intensity": m.rotation_intensity,
-            "share_gk": m.share_gk,
-            "period_label": period_label,
-            "home_away": m.home_away,
-            "opponent_goals": m.opponent_goals,
-            "status": m.status,
-            "current_slot": m.current_slot,
-            "tournament_id": m.tournament_id,
-            "tournament_stage": m.tournament_stage or "",
-            "match_number": m.match_number,
-        },
-        "slots": slots,
-        "warnings": warnings,
-        "removed_players": removed_players or {},
-    }
+
+def _plans_changed(session: Session, t: TournamentDB, access: SquadAccess) -> None:
+    """An assistant changed a tournament the head coach had marked reviewed → drop
+    the mark (see matches.plan_changed). Commits."""
+    if not access.can("edit_plan") and t.reviewed_at:
+        t.reviewed_at = None
+        session.add(t)
+        session.commit()
 
 
 # ── Tournament CRUD ───────────────────────────────────────────────────────────
@@ -167,29 +167,33 @@ def _match_response(
 @router.get("/", response_model=list[TournamentRead])
 def list_tournaments(
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(get_current_squad),
+    access: SquadAccess = Depends(get_squad_access),
 ) -> list[TournamentRead]:
+    squad = access.squad
     tournaments = list(
         session.exec(
             select(TournamentDB).where(TournamentDB.squad_id == squad.id)
             .order_by(TournamentDB.date.desc())  # type: ignore[arg-type]
         ).all()
     )
-    counts = {}
-    for t in tournaments:
-        counts[t.id] = session.exec(
-            select(MatchDB).where(MatchDB.tournament_id == t.id)
-        ).all().__len__()
+    counts = match_counts_by_tournament(
+        session, {t.id for t in tournaments if t.id is not None}
+    )
 
-    return [_tournament_read(t, counts.get(t.id, 0)) for t in tournaments]
+    author = authorship(session, access, (t.created_by_account_id for t in tournaments))
+    return [
+        _tournament_read(t, counts.get(t.id, 0), author(t.created_by_account_id))
+        for t in tournaments
+    ]
 
 
 @router.post("/", response_model=TournamentRead, status_code=201)
 def create_tournament(
     body: TournamentCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("edit_plan")),
+    access: SquadAccess = Depends(plan_access),
 ) -> TournamentRead:
+    squad = access.squad
     # Validate formation
     try:
         build_tournament_config(
@@ -197,7 +201,7 @@ def create_tournament(
             body.has_halftime, body.max_subs,
         )
     except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
     t = TournamentDB(
         squad_id=squad.id,
@@ -212,11 +216,14 @@ def create_tournament(
         fairness_value=body.fairness_value,
         rotation_intensity=body.rotation_intensity,
         share_gk=body.share_gk,
+        created_by_account_id=access.account_id,
     )
     session.add(t)
     session.commit()
     session.refresh(t)
-    return _tournament_read(t, 0)
+    return _tournament_read(
+        t, 0, authorship(session, access, [t.created_by_account_id])(t.created_by_account_id)
+    )
 
 
 @router.get("/{tournament_id}")
@@ -235,18 +242,17 @@ def get_tournament(
             .order_by(MatchDB.match_number)  # type: ignore[arg-type]
         ).all()
     )
-    match_ids = {m.id for m in matches}
-    rotations = {
-        r.match_id: r
-        for r in session.exec(select(RotationPlanDB)).all()
-        if r.match_id in match_ids
-    }
+    match_ids = {m.id for m in matches if m.id is not None}
+    rotations = rotations_by_match(session, match_ids)
+    goals = goal_totals_by_match(session, match_ids)
+    availability = available_ids_by_match(session, match_ids)
 
     match_list = []
     for m in matches:
+        assert m.id is not None
         r = rotations.get(m.id)
-        our_goals = get_goals_total(session, m.id) if r else 0
-        available_ids = get_available_ids(session, m.id)
+        our_goals = goals.get(m.id, 0) if r else 0
+        available_ids = availability.get(m.id, [])
         match_list.append({
             "id": m.id,
             "match_number": m.match_number,
@@ -276,7 +282,9 @@ def get_tournament(
             "name": p.name,
             "skill_rating": p.skill_rating if show_skill else None,
             "gk_status": p.gk_status,
-            "preferred_positions": json.loads(p.preferred_positions) if p.preferred_positions else [],
+            "preferred_positions": (
+                json.loads(p.preferred_positions) if p.preferred_positions else []
+            ),
             "best_position": p.best_position or "",
             "shirt_number": p.shirt_number,
             "is_guest": p.source_tournament_id is not None,
@@ -285,7 +293,10 @@ def get_tournament(
     position_overrides = get_position_overrides(t)
 
     return {
-        "tournament": _tournament_read(t, len(matches)),
+        "tournament": _tournament_read(
+            t, len(matches),
+            authorship(session, access, [t.created_by_account_id])(t.created_by_account_id),
+        ),
         "matches": match_list,
         "squad_players": [player_info(p) for p in squad_players],
         "guest_players": [player_info(p) for p in guest_players],
@@ -418,9 +429,11 @@ def update_tournament(
     tournament_id: int,
     body: TournamentUpdate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("edit_plan")),
+    access: SquadAccess = Depends(plan_access),
+    t: TournamentDB = Depends(editable_tournament),
 ) -> TournamentRead:
-    t = owned_tournament(tournament_id, squad, session)
+    _plans_changed(session, t, access)
+    squad = access.squad
     # Snapshot the fields that change a match's structure / rotation so we know
     # whether the already-created planned matches need regenerating afterwards.
     before = (
@@ -460,8 +473,10 @@ def update_tournament(
     if before != after:
         _regenerate_planned_matches(session, t, squad)
 
-    count = len(list(session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()))
-    return _tournament_read(t, count)
+    count = match_counts_by_tournament(session, {tournament_id}).get(tournament_id, 0)
+    return _tournament_read(
+        t, count, authorship(session, access, [t.created_by_account_id])(t.created_by_account_id)
+    )
 
 
 class SetAvailablePlayersBody(BaseModel):
@@ -473,10 +488,12 @@ def set_available_players(
     tournament_id: int,
     body: SetAvailablePlayersBody,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("edit_plan")),
+    access: SquadAccess = Depends(plan_access),
+    t: TournamentDB = Depends(editable_tournament),
 ) -> dict[str, Any]:
     """Update the available player list for all planned matches and regenerate their rotations."""
-    t = owned_tournament(tournament_id, squad, session)
+    _plans_changed(session, t, access)
+    squad = access.squad
 
     all_players = get_players(session, squad.id)
     available_ids = set(body.available_player_ids)
@@ -492,12 +509,15 @@ def set_available_players(
             t.team_size, t.formation, total_duration, bool(t.has_halftime), t.max_subs,
         )
     except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
     if len(players_db) < config.players_per_slot:
         raise HTTPException(
             status_code=400,
-            detail=f"Need at least {config.players_per_slot} players for {t.team_size}v{t.team_size}",
+            detail=(
+                f"Need at least {config.players_per_slot} players "
+                f"for {t.team_size}v{t.team_size}"
+            ),
         )
 
     planned_matches = list(session.exec(
@@ -525,14 +545,15 @@ def set_position_overrides(
     tournament_id: int,
     body: SetPositionOverridesBody,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("edit_plan")),
+    access: SquadAccess = Depends(plan_access),
+    t: TournamentDB = Depends(editable_tournament),
 ) -> dict[str, Any]:
     """Store tournament-scoped position overrides for players.
 
     Overrides are applied during rotation generation for all matches in this
     tournament. They do not modify the player's permanent squad profile.
     """
-    t = owned_tournament(tournament_id, squad, session)
+    _plans_changed(session, t, access)
     save_position_overrides(session, t, body.overrides)
     return {"overrides": body.overrides}
 
@@ -547,10 +568,10 @@ def update_match_opponent(
     match_id: int,
     body: MatchOpponentUpdate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("edit_plan")),
+    access: SquadAccess = Depends(plan_access),
+    _t: TournamentDB = Depends(editable_tournament),
 ) -> dict[str, Any]:
     """Update the opponent name for a tournament match."""
-    owned_tournament(tournament_id, squad, session)
     m = session.get(MatchDB, match_id)
     if not m or m.tournament_id != tournament_id:
         raise HTTPException(status_code=404, detail="Match not found in this tournament")
@@ -564,13 +585,16 @@ def update_match_opponent(
 def delete_tournament(
     tournament_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("edit_plan")),
+    access: SquadAccess = Depends(plan_access),
+    _t: TournamentDB = Depends(editable_tournament),
 ) -> None:
-    owned_tournament(tournament_id, squad, session)
 
     # Explicit ordered DELETEs — bypasses ORM flush ordering issues with PostgreSQL FKs
     match_ids = [
-        m.id for m in session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()
+        m.id
+        for m in session.exec(
+            select(MatchDB).where(MatchDB.tournament_id == tournament_id)
+        ).all()
     ]
     if match_ids:
         for mid in match_ids:
@@ -588,9 +612,16 @@ def add_guest_player(
     tournament_id: int,
     body: GuestPlayerCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("manage_squad")),
+    access: SquadAccess = Depends(plan_access),
+    _t: TournamentDB = Depends(editable_tournament),
 ) -> dict[str, Any]:
-    owned_tournament(tournament_id, squad, session)
+    """Add a temporary player to this tournament. Open to whoever runs the tournament
+    (so an assistant can add the kid who turns up on the day) — but an assistant
+    doesn't see or set skill ratings, so theirs get the default."""
+    squad = access.squad
+    show_skill = access.can("manage_squad")
+    if not show_skill:
+        body.skill_rating = GuestPlayerCreate.model_fields["skill_rating"].default
 
     # Check for name collision (across all players in this squad including guests)
     body.name = body.name.strip()
@@ -615,7 +646,7 @@ def add_guest_player(
     return {
         "id": p.id,
         "name": p.name,
-        "skill_rating": p.skill_rating,
+        "skill_rating": p.skill_rating if show_skill else None,
         "gk_status": p.gk_status,
         "preferred_positions": body.preferred_positions,
         "best_position": p.best_position,
@@ -629,9 +660,10 @@ def remove_guest_player(
     tournament_id: int,
     player_id: int,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("manage_squad")),
+    access: SquadAccess = Depends(plan_access),
+    _t: TournamentDB = Depends(editable_tournament),
 ) -> None:
-    owned_tournament(tournament_id, squad, session)
+    squad = access.squad
     p = session.get(PlayerDB, player_id)
     if not p or p.source_tournament_id != tournament_id or p.squad_id != squad.id:
         raise HTTPException(status_code=404, detail="Guest player not found in this tournament")
@@ -663,12 +695,15 @@ def _resolve_tournament_players(
             t.team_size, t.formation, total_duration, bool(t.has_halftime), t.max_subs,
         )
     except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
     if len(players_db) < config.players_per_slot:
         raise HTTPException(
             status_code=400,
-            detail=f"Need at least {config.players_per_slot} players for {t.team_size}v{t.team_size}",
+            detail=(
+                f"Need at least {config.players_per_slot} players "
+                f"for {t.team_size}v{t.team_size}"
+            ),
         )
     return players_db, config
 
@@ -716,6 +751,9 @@ def _create_and_generate_match(
         tournament_id=t.id,
         tournament_stage=stage,
         match_number=match_number,
+        # The tournament's creator owns its matches (whoever adds them — only the
+        # creator or the head coach can), so edit/run rights stay with one plan owner.
+        created_by_account_id=t.created_by_account_id,
     )
     session.add(db_match)
     session.commit()
@@ -733,10 +771,12 @@ def add_tournament_match(
     tournament_id: int,
     body: TournamentMatchCreate,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("edit_plan")),
+    access: SquadAccess = Depends(plan_access),
+    t: TournamentDB = Depends(editable_tournament),
 ) -> dict[str, Any]:
     """Create a match for this tournament and immediately generate its rotation."""
-    t = owned_tournament(tournament_id, squad, session)
+    _plans_changed(session, t, access)
+    squad = access.squad
     players_db, _ = _resolve_tournament_players(session, t, squad, body.available_player_ids)
     return _create_and_generate_match(
         session, t, squad, players_db,
@@ -756,8 +796,10 @@ class TournamentMatchBatchCreate(BaseModel):
 def add_tournament_matches_batch(
     tournament_id: int,
     body: TournamentMatchBatchCreate,
+    background: BackgroundTasks,
     session: Session = Depends(get_session),
-    squad: SquadDB = Depends(require("edit_plan")),
+    access: SquadAccess = Depends(plan_access),
+    t: TournamentDB = Depends(editable_tournament),
 ) -> dict[str, Any]:
     """Create + generate several matches in one request.
 
@@ -766,10 +808,12 @@ def add_tournament_matches_batch(
     in a single round-trip instead of N. Players/config are validated once up
     front so a bad request can't leave orphan match rows behind.
     """
+    _plans_changed(session, t, access)
+    squad = access.squad
     if body.count < 1 or body.count > 30:
         raise HTTPException(status_code=422, detail="count must be between 1 and 30")
 
-    t = owned_tournament(tournament_id, squad, session)
+    first_matches = not match_counts_by_tournament(session, {tournament_id})
     # Validate once — every match in the batch shares these players + config.
     players_db, _ = _resolve_tournament_players(session, t, squad, body.available_player_ids)
 
@@ -786,4 +830,69 @@ def add_tournament_matches_batch(
             stage=body.stage,
             knockout_fairness_value=None,
         ))
+    if first_matches and not access.can("edit_plan"):
+        notifications.assistant_made_plan(
+            background, session, squad, access.account,
+            what=f"for {t.name} on {_pretty_date(t.date)}",
+        )
     return {"matches": matches, "count": len(matches)}
+
+
+# ── Head-coach actions on a tournament's plans: review mark + hand-over ───────────
+class ReviewBody(BaseModel):
+    reviewed: bool = True
+
+
+@router.post("/{tournament_id}/review")
+def review_tournament(
+    tournament_id: int,
+    body: ReviewBody,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(require("edit_plan")),
+) -> dict[str, Any]:
+    """The head coach's "Reviewed ✓" mark on a tournament's plans (a mark, not a gate)."""
+    t = owned_tournament(tournament_id, squad, session)
+    t.reviewed_at = datetime.now(UTC).isoformat() if body.reviewed else None
+    session.add(t)
+    session.commit()
+    return {"reviewed": bool(t.reviewed_at)}
+
+
+@router.put("/{tournament_id}/owner", response_model=TournamentRead)
+def set_tournament_owner(
+    tournament_id: int,
+    body: OwnerBody,
+    background: BackgroundTasks,
+    session: Session = Depends(get_session),
+    access: SquadAccess = Depends(get_squad_access),
+    squad: SquadDB = Depends(require("edit_plan")),
+) -> TournamentRead:
+    """The head coach hands a tournament — and every match in it — to an assistant,
+    or takes it back."""
+    t = owned_tournament(tournament_id, squad, session)
+    matches = list(
+        session.exec(select(MatchDB).where(MatchDB.tournament_id == tournament_id)).all()
+    )
+    if any(m.status == "in_progress" for m in matches):
+        raise HTTPException(status_code=400, detail="Finish the match in progress first")
+    owner = resolve_new_owner(session, squad, body.account_id)
+    new_id = owner.id if owner else None
+    changed = new_id != t.created_by_account_id
+    t.created_by_account_id = new_id
+    if changed:
+        t.reviewed_at = None
+    session.add(t)
+    for m in matches:
+        m.created_by_account_id = new_id
+        session.add(m)
+    session.commit()
+    session.refresh(t)
+    if changed and owner is not None:
+        notifications.plan_handed_over(
+            background, squad, access.account, owner,
+            what=f"for {t.name} on {_pretty_date(t.date)}",
+        )
+    return _tournament_read(
+        t, len(matches),
+        authorship(session, access, [t.created_by_account_id])(t.created_by_account_id),
+    )

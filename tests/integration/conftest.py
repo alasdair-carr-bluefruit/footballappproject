@@ -22,7 +22,13 @@ def session_fixture():
     def _enforce_fks(dbapi_conn, _record):
         dbapi_conn.execute("PRAGMA foreign_keys=ON")
     # Import all models so SQLModel.metadata knows about them
-    from backend.db.models import MatchDB, PlayerDB, RotationPlanDB, SquadDB, TournamentDB  # noqa: F401
+    from backend.db.models import (  # noqa: F401
+        MatchDB,
+        PlayerDB,
+        RotationPlanDB,
+        SquadDB,
+        TournamentDB,
+    )
 
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:

@@ -313,6 +313,54 @@ def send_email_changed_notice(
         logger.exception("Failed to send email-changed notice to %s", old_email)
 
 
+def send_notice(
+    to_email: str, *, subject: str, heading: str, paragraphs: list[str],
+    cta_label: str, link: str,
+) -> None:
+    """A plain branded notice (e.g. "Sam made a plan"). Every piece of text is
+    HTML-escaped here — headings and paragraphs carry coach-typed names. Dev-stub
+    (log) when no RESEND_API_KEY; errors are swallowed (it is only a courtesy)."""
+    from html import escape
+
+    key = resend_api_key()
+    if not key:
+        logger.info("NOTICE (dev-stub, not emailed) to %s: %s — %s", to_email, subject, paragraphs)
+        return
+    body = "".join(f"<p>{escape(p)}</p>" for p in paragraphs)
+    html = (
+        f'<div style="font-family:{_FONT_STACK};font-size:15px;line-height:1.6;'
+        f'color:{_STUDIO_GREEN};max-width:520px;">'
+        f'<p style="font-family:{_MONO_STACK};font-weight:700;letter-spacing:2px;'
+        f'color:{_STUDIO_GREEN};">LEVEL</p>'
+        f"<h2>{escape(heading)}</h2>{body}"
+        f'<p><a href="{escape(link, quote=True)}" target="_blank" '
+        f'style="display:inline-block;padding:12px 24px;background:{_SIGNAL_LIME};'
+        f'color:{_ON_ACCENT};font-weight:700;text-decoration:none;border-radius:10px;">'
+        f"{escape(cta_label)}</a></p>"
+        '<p style="font-size:12px;color:#5a6b60;">You can turn these emails off in '
+        "Level under Settings.</p></div>"
+    )
+    text = (
+        f"LEVEL\n\n{heading}\n\n" + "\n\n".join(paragraphs)
+        + f"\n\n{cta_label}: {link}\n\nYou can turn these emails off in Level under Settings.\n"
+    )
+    try:
+        import httpx
+
+        resp = httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {key}"},
+            json={
+                "from": email_from(), "to": [to_email], "subject": subject,
+                "html": html, "text": text,
+            },
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+    except Exception:  # noqa: BLE001 — a courtesy email must never break the request
+        logger.exception("Failed to send notice to %s", to_email)
+
+
 def send_early_access_email(submitter_email: str, name: str, message: str) -> None:
     """Notify the founder of an early-access request from the marketing site.
 

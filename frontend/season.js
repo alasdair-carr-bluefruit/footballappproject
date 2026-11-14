@@ -1,5 +1,6 @@
 import { api } from "./api.js";
-import { state, ensureGameConfigs, displayPos } from "./state.js";
+import { state, ensureGameConfigs, displayPos, setPlanEditable } from "./state.js";
+import { ensureAssistants, planOwnerChip, bindPlanOwnerChip } from "./plan-owner.js";
 import { showScreen, enterManualAssignMode, openMatch, enterReviewView } from "./pitch.js";
 import { selectSize, selectPeriods, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast } from "./toast.js";
@@ -9,6 +10,7 @@ import { renderTeamPill } from "./teams.js";
 
 // ── Home screen ───────────────────────────────────────────────────────────────
 async function loadHome() {
+  setPlanEditable(true);  // no plan open; creating one is open to assistants too
   showScreen("screen-home");
   renderTeamPill("team-pill-home");
   const list = document.getElementById("match-list");
@@ -16,7 +18,8 @@ async function loadHome() {
 
   let matches;
   try {
-    matches = await api.getMatches();
+    // The head coach's assistants ride along (cached) for the hand-over chip.
+    [matches] = await Promise.all([api.getMatches(), ensureAssistants()]);
   } catch {
     // A connection failure (offline, or the server still spinning up) is NOT the
     // same as "no matches" — say so and offer a retry instead of a misleading
@@ -59,24 +62,30 @@ async function loadHome() {
     if (m.status === "completed") li.classList.add("match-item-done");
     // Planned matches can be re-edited (mirrors the tournament edit pencil); a
     // live/finished match's settings are frozen.
-    const editBtn = m.status === "planned"
-      ? `<button class="btn-icon match-edit head-only" title="Edit match">✎</button>` : "";
+    // Edit/delete only on matches this coach may change (head coach: all; an
+    // assistant: the ones they created) — the server's `can_edit`.
+    const editBtn = m.status === "planned" && m.can_edit !== false
+      ? `<button class="btn-icon match-edit" title="Edit match">✎</button>` : "";
+    const deleteBtn = m.can_edit !== false
+      ? `<button class="btn-icon match-delete" data-id="${m.id}" title="Delete match">✕</button>` : "";
     li.innerHTML = `
       <div class="match-item-main">
         <span class="match-item-date">${dateStr}</span>
         <span class="match-item-opponent">vs ${opponent}</span>
         ${sizeBadge}
         ${statusBadge}
+        ${planOwnerChip("match", m)}
       </div>
       ${editBtn}
-      <button class="btn-icon match-delete head-only" data-id="${m.id}" title="Delete match">✕</button>
+      ${deleteBtn}
     `;
     li.querySelector(".match-item-main").addEventListener("click", () => openMatch(m.id));
+    bindPlanOwnerChip(li, "match", m, loadHome);
     li.querySelector(".match-edit")?.addEventListener("click", e => {
       e.stopPropagation();
       openEditMatch(m);
     });
-    li.querySelector(".match-delete").addEventListener("click", async e => {
+    li.querySelector(".match-delete")?.addEventListener("click", async e => {
       e.stopPropagation();
       if (confirm(`Delete match vs ${opponent}?`)) {
         try {

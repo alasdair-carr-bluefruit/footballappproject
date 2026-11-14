@@ -7,7 +7,6 @@ from backend.algorithm.validator import validate
 from backend.models.game_config import build_tournament_config
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier
-from backend.models.rotation import Position
 from tests.conftest import make_player
 
 

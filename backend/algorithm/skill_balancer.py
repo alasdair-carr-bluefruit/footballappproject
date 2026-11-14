@@ -156,7 +156,9 @@ def _swap_is_valid(
     # must have ≤ 2 outfield changes after this swap.
     # A swap can affect the transition within slot i's quarter AND slot j's quarter,
     # so we check all impacted pairs.
-    if not _all_mid_quarter_limits_ok(slots, i, j, pos_i, player_i, pos_j, player_j, mid_period_subs):
+    if not _all_mid_quarter_limits_ok(
+        slots, i, j, pos_i, player_i, pos_j, player_j, mid_period_subs
+    ):
         return False
 
     # Position variety: skip if either player would gain a 3rd position type
@@ -190,7 +192,9 @@ def _all_mid_quarter_limits_ok(
             affected_pairs.add(pair)
 
     for (first_idx, second_idx) in affected_pairs:
-        if not _transition_ok_after_swap(slots, first_idx, second_idx, i, j, player_i, player_j, mid_period_subs):
+        if not _transition_ok_after_swap(
+            slots, first_idx, second_idx, i, j, player_i, player_j, mid_period_subs
+        ):
             return False
     return True
 

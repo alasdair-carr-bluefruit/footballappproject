@@ -46,7 +46,10 @@ export function showToast(message, { actionLabel, action, duration } = {}) {
 export async function withSaveToast(fn, message = "Couldn't save — check your connection.") {
   try {
     return await fn();
-  } catch {
+  } catch (err) {
+    // Another device took control of this live match — retrying can't succeed, and
+    // pitch.js is already switching this one to the read-only view (api.js hook).
+    if (err && err.code === "not_controller") return null;
     showToast(message, { actionLabel: "Retry", action: () => withSaveToast(fn, message) });
     return null;
   }

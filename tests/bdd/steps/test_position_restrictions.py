@@ -9,7 +9,7 @@ from pytest_bdd import given, scenarios, then, when
 from backend.algorithm.rotation_engine import generate_rotation
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier
-from backend.models.rotation import Position, RotationPlan, normalize_position
+from backend.models.rotation import RotationPlan, normalize_position
 from tests.conftest import make_player
 
 pytestmark = pytest.mark.bdd

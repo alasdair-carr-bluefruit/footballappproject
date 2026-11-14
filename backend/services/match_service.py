@@ -9,6 +9,8 @@ reconstructing a single match's rotation.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from sqlmodel import Session
 
 from backend.algorithm.rotation_engine import adjust_rotation, generate_rotation
@@ -29,6 +31,7 @@ from backend.models.game_config import (
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier
 from backend.models.rotation import Position, RotationPlan, SlotAssignment
+from backend.services import matchday
 
 # ── Game config ────────────────────────────────────────────────────────────────
 #
@@ -50,6 +53,52 @@ def build_match_config(m: MatchDB) -> GameConfig:
             m.team_size, m.formation, total_duration, m.quarters > 1, m.max_subs,
         )
     return season_config(m.team_size, m.formation, m.quarters, m.quarter_length_mins)
+
+
+def rotation_response(
+    m: MatchDB, slots: list[Any], warnings: list[str], can_edit: bool = True,
+) -> dict[str, Any]:
+    """The `{match, slots, warnings}` envelope every rotation endpoint returns — season
+    and tournament alike. One builder on purpose: the tournament router used to keep its
+    own copy, which had silently fallen behind (no `hide_score` / `show_timer`)."""
+    try:
+        period_label = build_match_config(m).period_label
+    except Exception:
+        period_label = "Period" if m.tournament_id else "Quarter"
+    return {
+        "match": {
+            "id": m.id,
+            "date": m.date,
+            "opponent": m.opponent,
+            "team_size": m.team_size,
+            "formation": m.formation,
+            "fairness": m.fairness,
+            # Needed by the review screen: the game-time-gap flag widens its
+            # threshold and softens its wording as the coach moves the slider
+            # towards competitive (see validator.slot_spread_tolerance).
+            "fairness_value": m.fairness_value,
+            "rotation_intensity": m.rotation_intensity,
+            "share_gk": m.share_gk,
+            "period_label": period_label,
+            "home_away": m.home_away,
+            "opponent_goals": m.opponent_goals,
+            "hide_score": m.hide_score,
+            "status": m.status,
+            "current_slot": m.current_slot,
+            "show_timer": m.show_timer,
+            "tournament_id": m.tournament_id,
+            "tournament_stage": m.tournament_stage or "",
+            "match_number": m.match_number,
+            # Write routes only ever answer someone who passed `editable_match`, so
+            # True is right there; GET passes the caller's real answer.
+            "can_edit": can_edit,
+            "reviewed": bool(m.reviewed_at),
+            # Server-side match clock ({running, elapsed_ms} as of now; None = none).
+            "timer": matchday.timer_info(m),
+        },
+        "slots": slots,
+        "warnings": warnings,
+    }
 
 
 # ── Cross-match (tournament) inputs ──────────────────────────────────────────────

@@ -10,6 +10,7 @@
 // requirement — but keeping it in dependency order makes the graph legible.
 import "./state.js";
 import "./theme.js";
+import "./plan-owner.js";
 import "./pitch.js";
 import "./plan-image.js";
 import "./setup-form.js";

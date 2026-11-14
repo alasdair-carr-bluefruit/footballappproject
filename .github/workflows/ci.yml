@@ -27,11 +27,9 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Lint
-        # Non-blocking: the repo carries ~61 pre-existing findings (mostly E402 in
-        # pytest-bdd step files, where imports after the feature binding are
-        # idiomatic). A red-from-day-one gate just teaches everyone to ignore CI.
-        # Flip to blocking once the backlog is cleared — see docs/STAGING.md.
-        continue-on-error: true
+        # Blocking since 2026-11-14: the backlog was cleared to zero (E402 is
+        # ignored for pytest-bdd step files in pyproject.toml), so any finding
+        # here is new.
         run: ruff check .
 
       - name: Test

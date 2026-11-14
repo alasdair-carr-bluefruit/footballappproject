@@ -1,14 +1,13 @@
 """Tests for rotation generation across different team sizes."""
+from datetime import date
+
 import pytest
 
 from backend.algorithm.rotation_engine import generate_rotation
 from backend.models.game_config import get_config
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier
-from backend.models.rotation import normalize_position
 from tests.conftest import make_player
-
-from datetime import date
 
 
 def _squad(n: int, specialist: bool = True) -> Squad:

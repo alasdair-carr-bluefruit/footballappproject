@@ -132,7 +132,7 @@
 
       <!-- Active-team pill (multi-team): shows/switches the team these modes act on -->
       <div class="team-pill-slot team-pill-slot--landing" id="team-pill-landing"></div>
-      <p class="assistant-banner assistant-only" id="assistant-banner">You're an assistant coach on this team — you can view plans, reports and stats.</p>
+      <p class="assistant-banner assistant-only" id="assistant-banner">You're an assistant coach on this team — you can view plans, reports and stats, and create matches of your own to run.</p>
 
       <!-- One-time announcement that multi-team is live (shown only when authed
            with the switcher available; dismissed via gaffer_multiteam_landing_seen) -->
@@ -327,7 +327,7 @@
       <details class="settings-section settings-collapsible head-only" id="settings-assistants">
         <summary class="settings-heading">Assistant coaches<span class="beta-badge">New</span></summary>
         <div class="settings-body">
-          <p class="settings-hint">Give another coach a view of <strong id="settings-assistants-team">this team</strong>: the plans (including drafts), match reports and season stats. They can't change anything, and they won't see individual skill ratings.</p>
+          <p class="settings-hint">Give another coach a view of <strong id="settings-assistants-team">this team</strong>: the plans (including drafts), match reports and season stats. They can also create matches and tournaments of their own to plan and run, and you can hand one of yours to them from the fixtures list — but they can't change your plans, the squad or the team, and they won't see individual skill ratings.</p>
           <form id="assistant-name-needed" class="settings-inline-form" hidden>
             <label class="settings-field-label" for="assistant-name-input">First, add your name — your assistant will see it</label>
             <input type="text" id="assistant-name-input" class="auth-input" placeholder="e.g. Sam Smith" autocomplete="name" maxlength="60" required />
@@ -351,7 +351,7 @@
       <!-- Assistant on the active team: explain the role + let them leave -->
       <section class="settings-section assistant-only" id="settings-assisting">
         <h3 class="settings-heading">You're an assistant coach</h3>
-        <p class="settings-hint" id="settings-assisting-desc">You can view this team's plans, match reports and stats. The head coach manages the squad and the plans.</p>
+        <p class="settings-hint" id="settings-assisting-desc">You can view this team's plans, match reports and stats, and create matches of your own to plan and run. The head coach manages the squad and can hand you a fixture to plan.</p>
         <button type="button" class="btn btn-secondary btn-full" id="btn-leave-team">Leave this team</button>
         <p class="settings-msg" id="leave-team-msg" hidden></p>
       </section>
@@ -385,6 +385,15 @@
           </form>
           <p class="settings-msg" id="name-msg" hidden></p>
           <p class="settings-hint">Other coaches see this — e.g. when you invite an assistant coach.</p>
+
+          <label class="switch-row settings-switch">
+            <span>Email me about plans <small>(when a coach on your team makes one, or hands one to you)</small></span>
+            <span class="switch">
+              <input type="checkbox" id="settings-notify-plans" />
+              <span class="switch-slider"></span>
+            </span>
+          </label>
+          <p class="settings-msg" id="notify-msg" hidden></p>
 
           <p class="settings-label">Signed in as</p>
           <p class="settings-value" id="settings-email">—</p>
@@ -466,7 +475,7 @@
         <div class="team-pill-slot" id="team-pill-home"></div>
       </div>
       <div class="home-actions">
-        <button class="btn btn-primary head-only" id="btn-go-new-match">+ New Match</button>
+        <button class="btn btn-primary" id="btn-go-new-match">+ New Match</button>
         <button class="btn btn-secondary" id="btn-go-stats">Season Stats</button>
       </div>
     </header>
@@ -720,7 +729,7 @@
         <div class="team-pill-slot" id="team-pill-tournament"></div>
       </div>
       <div class="home-actions">
-        <button class="btn btn-primary head-only" id="btn-new-tournament">+ New Tournament</button>
+        <button class="btn btn-primary" id="btn-new-tournament">+ New Tournament</button>
         <button class="btn btn-secondary" id="btn-all-tournament-stats">📊 All Tournament Stats</button>
       </div>
     </header>
@@ -836,7 +845,7 @@
     <p class="screen-desc" id="tournament-squad-desc">Select who's available today.</p>
     <ul class="avail-list padded" id="tournament-squad-list"></ul>
     <div class="squad-footer">
-      <button class="btn btn-secondary btn-full" id="btn-tournament-add-guest">+ Add temporary player</button>
+      <button class="btn btn-secondary btn-full editor-only" id="btn-tournament-add-guest">+ Add temporary player</button>
       <button class="btn btn-primary btn-full" id="btn-generate-all-matches">Generate Matches ▶</button>
     </div>
   </div>
@@ -846,7 +855,7 @@
     <header class="header header-sub">
       <button class="btn-back" id="btn-lobby-back">◀ Tournaments</button>
       <h2 id="lobby-title">Tournament</h2>
-      <button class="btn-icon btn-edit-tournament head-only" id="btn-edit-tournament" title="Edit tournament">✎</button>
+      <button class="btn-icon btn-edit-tournament editor-only" id="btn-edit-tournament" title="Edit tournament">✎</button>
     </header>
     <div class="lobby-summary" id="lobby-summary"></div>
 
@@ -857,17 +866,17 @@
     <!-- Guest players section -->
     <div class="lobby-guest-section" id="lobby-guest-section">
       <div class="lobby-guest-list" id="lobby-guest-list"></div>
-      <button type="button" class="btn btn-secondary btn-sm head-only" id="btn-show-add-guest">+ Add temporary player</button>
+      <button type="button" class="btn btn-secondary btn-sm editor-only" id="btn-show-add-guest">+ Add temporary player</button>
     </div>
 
     <div class="lobby-add-section">
       <div class="lobby-add-buttons">
-        <button class="btn btn-primary head-only" id="btn-add-group-match">+ Add Group Match</button>
-        <button class="btn btn-secondary head-only" id="btn-add-knockout-match">+ Add Knockout Match</button>
+        <button class="btn btn-primary editor-only" id="btn-add-group-match">+ Add Group Match</button>
+        <button class="btn btn-secondary editor-only" id="btn-add-knockout-match">+ Add Knockout Match</button>
       </div>
 
       <!-- Add match panel (hidden until button clicked) -->
-      <div class="add-match-panel head-only" id="add-match-panel" hidden>
+      <div class="add-match-panel editor-only" id="add-match-panel" hidden>
         <h3 class="add-match-title" id="add-match-title">Add Group Match</h3>
         <label>
           Opponent <span class="form-hint">(optional — you can name them later)</span>
@@ -926,7 +935,7 @@
         <input type="number" id="guest-shirt-number" min="1" max="99" placeholder="e.g. 7" />
       </label>
 
-      <label>
+      <label class="head-only">
         Skill Rating (1–5)
         <input type="number" id="guest-skill" min="1" max="5" value="3" />
       </label>
@@ -1013,12 +1022,12 @@
             <button class="jump-live-btn btn-review-plan" id="btn-fulltime-pill" hidden>◀ Full Time</button>
           </div>
         </div>
-        <div class="match-timer head-only" id="match-timer" hidden>
+        <div class="match-timer" id="match-timer" hidden>
           <span class="timer-display" id="timer-display">00:00</span>
-          <button type="button" class="timer-btn head-only" id="btn-timer-pause" aria-label="Pause or resume timer">⏸</button>
-          <button type="button" class="timer-btn head-only" id="btn-timer-reset" aria-label="Reset match clock" title="Reset clock" hidden>↺</button>
+          <button type="button" class="timer-btn editor-only" id="btn-timer-pause" aria-label="Pause or resume timer">⏸</button>
+          <button type="button" class="timer-btn editor-only" id="btn-timer-reset" aria-label="Reset match clock" title="Reset clock" hidden>↺</button>
         </div>
-        <div class="start-match-bar head-only" id="start-match-bar" hidden>
+        <div class="start-match-bar editor-only" id="start-match-bar" hidden>
           <button class="btn-start-match-cta" id="btn-start-match-cta">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="10"/>
@@ -1031,6 +1040,11 @@
       <div class="progress-dots" id="progress-dots"></div>
     </header>
 
+    <div class="control-banner" id="control-banner" hidden>
+      <span class="control-banner-text" id="control-banner-text"></span>
+      <button type="button" class="btn btn-sm control-banner-btn" id="btn-take-control" hidden>Take control</button>
+    </div>
+
     <div class="pitch-wrapper">
       <div class="live-pitch-badge" id="live-pitch-badge">
         <span class="live-pitch-dot"></span>LIVE
@@ -1039,12 +1053,12 @@
       <div class="pitch" id="pitch"></div>
     </div>
 
-    <div class="goal-tip head-only" id="goal-tip" hidden>
+    <div class="goal-tip editor-only" id="goal-tip" hidden>
       <span class="goal-tip-text">Hold a player to record a goal ⚽ · Tap the badge to undo</span>
       <button class="goal-tip-dismiss" id="btn-goal-tip-dismiss" aria-label="Dismiss">✕</button>
     </div>
 
-    <div class="new-period-hint head-only" id="new-period-hint" hidden>
+    <div class="new-period-hint editor-only" id="new-period-hint" hidden>
       <span class="new-period-hint-text" id="new-period-hint-text">Start this quarter?</span>
       <button class="new-period-hint-btn" id="btn-new-period-reset">Start quarter</button>
       <button class="new-period-hint-ghost" id="btn-new-period-dismiss">Browse only</button>
@@ -1063,16 +1077,16 @@
 
     <div class="controls">
       <button class="btn btn-prev" id="btn-prev">◀ Back</button>
-      <button class="btn btn-adjust head-only" id="btn-adjust" hidden>Tinker</button>
+      <button class="btn btn-adjust editor-only" id="btn-adjust" hidden>Tinker</button>
       <button class="btn btn-next" id="btn-next">Next ▶</button>
     </div>
-    <button class="btn btn-recalc-following head-only" id="btn-recalc-following" hidden>↻ Recalculate rest of match</button>
-    <div id="manual-assign-bar" class="head-only" hidden>
+    <button class="btn btn-recalc-following editor-only" id="btn-recalc-following" hidden>↻ Recalculate rest of match</button>
+    <div id="manual-assign-bar" class="editor-only" hidden>
       <button class="btn-manual-slots" id="btn-manual-slots-pitch">or assign positions manually</button>
     </div>
 
     <!-- End Match bar — visible only in live mode -->
-    <div class="end-match-bar head-only" id="end-match-bar" hidden>
+    <div class="end-match-bar editor-only" id="end-match-bar" hidden>
       <button class="btn-return-plan" id="btn-return-plan" hidden>← Return to plan review</button>
       <button class="btn-end-match" id="btn-end-match">End Match</button>
     </div>
@@ -1136,6 +1150,18 @@
 
   </div><!-- /screen-pitch -->
 
+  <!-- Plan hand-over picker (head coach; fixtures + tournaments lists) -->
+  <div class="swap-overlay" id="plan-owner-overlay" hidden>
+    <div class="swap-panel">
+      <h3 class="swap-title">Who's doing this plan?</h3>
+      <p class="reinstate-info" id="plan-owner-info"></p>
+      <div class="player-action-buttons" id="plan-owner-options"></div>
+      <div class="player-action-buttons">
+        <button class="btn btn-secondary btn-full" id="btn-plan-owner-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Screen: Review the plan ──────────────────────────────────────────── -->
   <div id="screen-review" class="screen" hidden>
     <header class="header header-sub">
@@ -1144,13 +1170,18 @@
       <button class="btn-share-plan" id="btn-review-share" type="button" hidden>Share</button>
     </header>
 
+    <div class="review-mark" id="review-mark" hidden>
+      <span id="review-mark-text"></span>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-review-mark" hidden>Mark reviewed ✓</button>
+    </div>
+
     <div class="review-warning" id="review-warning" hidden></div>
 
     <div class="review-body" id="review-grid"></div>
 
     <div class="review-actions" id="review-actions-single">
       <button class="btn btn-secondary" id="btn-review-view">⚽ View on pitch</button>
-      <button class="btn-start-match-cta head-only" id="btn-review-start">
+      <button class="btn-start-match-cta editor-only" id="btn-review-start">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="10"/>
           <path d="M9 7l8 4.5-8 4.5V7z" fill="currentColor" stroke="none"/>
@@ -1192,14 +1223,14 @@
         </div>
       </div>
 
-      <div class="ft-opp-goals-row head-only">
+      <div class="ft-opp-goals-row editor-only">
         <label class="ft-opp-label">
           Opponent goals
           <input type="number" id="ft-opp-input" class="ft-opp-input" min="0" value="0" />
         </label>
       </div>
 
-      <label class="switch-row ft-hide-row head-only">
+      <label class="switch-row ft-hide-row editor-only">
         <span>Hide score <small>(FA guidance for U11 and below)</small></span>
         <span class="switch">
           <input type="checkbox" id="ft-hide-score" />

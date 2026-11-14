@@ -6,9 +6,43 @@ const BASE = "/api";
 let onUnauthorized = null;
 export function setUnauthorizedHandler(fn) { onUnauthorized = fn; }
 
+// A live match is run from ONE device; when a write is refused because another
+// device now holds control (409 `not_controller`), pitch.js drops to the live
+// read-only view. Same hook pattern as the 401 handler.
+let onLostControl = null;
+export function setLostControlHandler(fn) { onLostControl = fn; }
+
+// A random id for THIS browser, sent on every request so the server can tell which
+// device is running a live match. Falls back to a per-page-load id if storage is
+// blocked (control then simply doesn't survive a reload on that device).
+let _deviceId = null;
+export function deviceId() {
+  if (_deviceId) return _deviceId;
+  const fresh = () => (crypto.randomUUID ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+  try {
+    _deviceId = localStorage.getItem("gaffer_device_id");
+    if (!_deviceId) {
+      _deviceId = fresh();
+      localStorage.setItem("gaffer_device_id", _deviceId);
+    }
+  } catch (_) {
+    _deviceId = fresh();
+  }
+  return _deviceId;
+}
+
+// FastAPI's `detail` is usually a string, but can be a validation list or a
+// structured object ({code, message, …}) — always hand callers a readable message.
+function errorMessage(detail, fallback) {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) return detail.map(d => d.msg).filter(Boolean).join(", ") || fallback;
+  return (detail && detail.message) || fallback;
+}
+
 async function request(path, options = {}) {
   const init = {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Device-Id": deviceId() },
     credentials: "include",  // send/receive the session cookie (multi-user auth)
     ...options,
   };
@@ -21,8 +55,13 @@ async function request(path, options = {}) {
       onUnauthorized();
     }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    const error = new Error(err.detail || res.statusText);
+    const error = new Error(errorMessage(err.detail, res.statusText));
     error.status = res.status;  // lets callers branch on e.g. 409 without parsing text
+    if (err.detail && typeof err.detail === "object" && !Array.isArray(err.detail)) {
+      error.code = err.detail.code;
+      error.detail = err.detail;
+    }
+    if (error.code === "not_controller" && onLostControl) onLostControl(error);
     throw error;
   }
   if (res.status === 204) return null;
@@ -41,6 +80,7 @@ export const api = {
   confirmEmailChange: (token)    => request("/auth/account/confirm-email-change", { method: "POST", body: { token }, suppressAuthRedirect: true }),
   clearAccountData:   ()         => request("/auth/account/clear-data", { method: "POST" }),
   updateName:         (name)     => request("/auth/account/name", { method: "POST", body: { display_name: name } }),
+  setPlanEmails:      (on)       => request("/auth/account/notifications", { method: "POST", body: { notify_plans: !!on } }),
   inviteAFriend:      ()         => request("/auth/invite-a-friend", { method: "POST" }),
   reclaimSquad:       (token)    => request("/auth/account/reclaim", { method: "POST", body: { token }, suppressAuthRedirect: true }),
 
@@ -79,6 +119,11 @@ export const api = {
   removePlayer:      (id, playerId, fromSlot) => request(`/matches/${id}/remove-player`, { method: "POST", body: { player_id: playerId, from_slot: fromSlot } }),
   reinstatePlayer:   (id, playerId) => request(`/matches/${id}/reinstate-player`, { method: "POST", body: { player_id: playerId } }),
   deleteMatch:       (id) => request(`/matches/${id}`,          { method: "DELETE" }),
+  // Matchday control + server clock, and the head coach's plan actions
+  takeControl:       (id) => request(`/matches/${id}/take-control`, { method: "POST" }),
+  setTimer:          (id, running, elapsedMs) => request(`/matches/${id}/timer`, { method: "PUT", body: { running, elapsed_ms: elapsedMs } }),
+  reviewMatch:       (id, reviewed) => request(`/matches/${id}/review`, { method: "POST", body: { reviewed } }),
+  setMatchOwner:     (id, accountId) => request(`/matches/${id}/owner`, { method: "PUT", body: { account_id: accountId } }),
   saveGoals:         (id, goals, opponentGoals, hideScore) => request(`/matches/${id}/goals`, { method: "POST", body: { goals, opponent_goals: opponentGoals || 0, ...(hideScore == null ? {} : { hide_score: hideScore ? 1 : 0 }) } }),
   getSeasonStats:    ()   => request("/matches/stats/season"),
   getPlayerHistory:  (id) => request(`/matches/stats/player/${id}`),
@@ -91,6 +136,8 @@ export const api = {
   createTournament:     (data)    => request("/tournaments/",             { method: "POST",   body: data }),
   getTournament:        (id)      => request(`/tournaments/${id}`),
   deleteTournament:     (id)      => request(`/tournaments/${id}`,        { method: "DELETE" }),
+  reviewTournament:     (id, reviewed) => request(`/tournaments/${id}/review`, { method: "POST", body: { reviewed } }),
+  setTournamentOwner:   (id, accountId) => request(`/tournaments/${id}/owner`, { method: "PUT", body: { account_id: accountId } }),
   addTournamentMatch:   (id, data)=> request(`/tournaments/${id}/matches`,{ method: "POST",   body: data }),
   addTournamentMatchesBatch: (id, data) => request(`/tournaments/${id}/matches/batch`, { method: "POST", body: data }),
   addGuestPlayer:       (id, data)=> request(`/tournaments/${id}/players`,{ method: "POST",   body: data }),

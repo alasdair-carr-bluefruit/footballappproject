@@ -1,8 +1,8 @@
 """Step definitions for match_lifecycle.feature."""
 from __future__ import annotations
 
-from datetime import date
 from copy import deepcopy
+from datetime import date
 
 import pytest
 from pytest_bdd import given, scenarios, then, when
@@ -12,7 +12,7 @@ pytestmark = pytest.mark.bdd
 from backend.algorithm.rotation_engine import adjust_rotation, generate_rotation
 from backend.models.match import Match, Squad
 from backend.models.player import GKTier
-from backend.models.rotation import Position, RotationPlan, SlotAssignment
+from backend.models.rotation import RotationPlan, SlotAssignment
 from tests.conftest import make_player
 
 scenarios("match_lifecycle.feature")
@@ -29,7 +29,6 @@ def _remove_player_from_slot(plan: RotationPlan, player_name: str, from_slot: in
     """Lock slots before from_slot and regenerate without the named player."""
     reduced_players = [p for p in squad.available if p.name != player_name]
     reduced_squad = Squad(players=reduced_players)
-    player_by_name = {p.name: p for p in reduced_players}
 
     new_slots = []
     for slot in plan.slots:
@@ -135,7 +134,6 @@ def player2_present_past(context):
     plan = context["plan"]
     for slot in plan.slots:
         if slot.slot_index < 4:
-            names = {p.name for p in slot.lineup.values()}
             # Player2 was in original plan; locked slots keep original lineups
             # We just verify slot exists and has the right number of players
             assert len(slot.lineup) == 5, f"Slot {slot.slot_index} has wrong player count"

@@ -10,7 +10,6 @@ exercised across both season and tournament.
 
 import pytest
 from playwright.sync_api import Page, expect
-
 from test_smoke import advance_to_report
 
 pytestmark = pytest.mark.e2e

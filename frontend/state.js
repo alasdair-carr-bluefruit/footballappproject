@@ -49,6 +49,10 @@ export const state = {
   teams: [], // multi-team: list from GET /api/teams
   activeSquadId: null, // multi-team: the account's active squad id
   role: "head", // caller's role on the ACTIVE team: "head" | "assistant" (T3.2)
+  planEditable: true, // may the caller edit/run the match or tournament now open? (server's can_edit)
+  watching: false, // viewing a LIVE match another device is running (read-only, polled)
+  controller: null, // { name, is_me, same_account } for the live match open, or null
+  assistants: null, // head coach only: cached GET /teams/assistants for the hand-over picker
   planTinkered: false, // coach has adjusted this plan — sets the plan-flag tone
   reviewShare: null, // { blocks:[{md,title}], heading, subheading, filename, shareTitle } for the review screen's Share button
 };
@@ -102,12 +106,25 @@ export async function refreshTeams() {
 // 403s for an assistant); this only decides what the UI offers. Anything the
 // assistant can't do is hidden via `body.role-assistant .head-only` in style.css.
 const ROLE_CAPS = {
-  head: new Set(["view", "run_matchday", "comment", "propose", "edit_plan", "manage_squad", "manage_team"]),
-  assistant: new Set(["view"]),
+  head: new Set(["view", "author_plan", "run_matchday", "comment", "propose", "edit_plan", "manage_squad", "manage_team"]),
+  assistant: new Set(["view", "author_plan"]),
 };
+// "edit_plan" / "run_matchday" are per plan: the head coach always can; an assistant
+// can only on a match/tournament they created. The server says which via `can_edit`
+// on every match/tournament payload → setPlanEditable() below.
+const PER_PLAN_CAPS = new Set(["edit_plan", "run_matchday"]);
 
 export function can(cap) {
+  if (PER_PLAN_CAPS.has(cap)) return state.planEditable;
   return (ROLE_CAPS[state.role] || ROLE_CAPS.head).has(cap);
+}
+
+// Call whenever a match / tournament is opened (with its `can_edit`), and with `true`
+// when returning to a list (creating a new plan is open to assistants). Controls that
+// change a plan carry `.editor-only` and vanish while the open plan is read-only.
+export function setPlanEditable(editable) {
+  state.planEditable = editable !== false;
+  document.body.classList.toggle("plan-readonly", !state.planEditable);
 }
 
 export function isAssistant() {
@@ -117,4 +134,5 @@ export function isAssistant() {
 export function setRole(role) {
   state.role = role === "assistant" ? "assistant" : "head";
   document.body.classList.toggle("role-assistant", state.role === "assistant");
+  setPlanEditable(true);
 }

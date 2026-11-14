@@ -394,9 +394,19 @@ shared. *(user request 2026-07-19. Smaller than T1.1 — good "otherwise" pick.)
 capability-based guards in `deps.py` plus a deny-by-default route-coverage test.
 - **P1 read-only:** assistants see stats, reports and plans (drafts included). Skill ratings are
   redacted server-side, while pooled slot totals stay visible. Assistant invites admit new people.
-- **P2 run matchday:** one controlling device per match ("started on [Name]'s device — Take control?"); head coach or any assistant can take control.
-  Needs the match timer moved from localStorage to the server first.
-- **P3 comments + proposals:** `PlanCommentDB`, `PlanProposalDB`. The head coach accepts, tinkers or rejects.
+- **P1.5 assistant-authored plans — 🟢 BUILT on `staging` (2026-11-14, SW v58), pending deploy:** an
+  assistant can create a match/tournament and edit, tinker and run the ones they own
+  (`created_by_account_id` = plan owner, capability `author_plan`, per-row
+  `editable_match`/`editable_tournament`); other assistants stay read-only; lists show "Plan by …".
+  Also built: **head-coach hand-over** of a match/tournament to an assistant (and back), a
+  **"Reviewed ✓" mark** (a mark, not an Accept gate; clears when the assistant changes the plan),
+  **plan emails** both ways (opt-out in Settings), and assistants adding **temporary players**
+  to tournaments they run.
+- **P2 one controlling device + server clock — 🟢 BUILT on `staging` (2026-11-14), pending deploy:**
+  Start Match claims control for that device; anyone else watches live (polled, read-only) and
+  whoever may run the match can Take control; the clock lives on the server. Never enforced
+  against a client that sends no device id, so a deploy can't strand a live match.
+- **P3 comments + proposals (planned):** `PlanCommentDB`, `PlanProposalDB`. The head coach accepts, tinkers or rejects.
 - Head-coach transfer deferred. Goes via `staging` (migrations/auth/deps).
 
 **T3.3 Export revisit.** Revisit CSV/Sheets export against the review-screen data.

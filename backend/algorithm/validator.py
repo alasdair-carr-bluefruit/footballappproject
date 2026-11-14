@@ -165,7 +165,9 @@ def _warn_bench_streak(plan: RotationPlan, players: list) -> list:
 
 def _always_in_goal(plan: RotationPlan):
     """The player who keeps goal in every slot, if there is one (else None)."""
-    keepers = {id(slot.lineup.get(Position.GK)): slot.lineup.get(Position.GK) for slot in plan.slots}
+    keepers = {
+        id(slot.lineup.get(Position.GK)): slot.lineup.get(Position.GK) for slot in plan.slots
+    }
     if len(keepers) != 1:
         return None
     keeper = next(iter(keepers.values()))

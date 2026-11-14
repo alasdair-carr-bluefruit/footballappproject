@@ -10,10 +10,11 @@ squad, or a coach could read another's data by guessing an id (IDOR).
 """
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import Any
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import and_
 from sqlmodel import Session, select
 
@@ -29,6 +30,7 @@ from backend.db.models import (
     TournamentDB,
 )
 from backend.db.repositories import get_or_create_squad
+from backend.services import matchday
 from backend.settings import SESSION_COOKIE, auth_enabled
 
 
@@ -87,12 +89,16 @@ def get_current_account(
 # ── Roles → capabilities (T3.2 assistant coach mode) ───────────────────────────
 # Routes require a capability, never a role, so later phases only change this map.
 # "view" is implied by any membership (plain `get_current_squad`).
+# "author_plan" = create a match / tournament, then edit and run the ones YOU created
+# (per-row check: `editable_match` / `editable_tournament`). "edit_plan" and
+# "run_matchday" are the unrestricted versions — any plan on the team (head only).
 HEAD_CAPS = frozenset(
-    {"view", "run_matchday", "comment", "propose", "edit_plan", "manage_squad", "manage_team"}
+    {"view", "author_plan", "run_matchday", "comment", "propose", "edit_plan",
+     "manage_squad", "manage_team"}
 )
 ROLE_CAPS: dict[str, frozenset[str]] = {
     HEAD: HEAD_CAPS,
-    ASSISTANT: frozenset({"view"}),
+    ASSISTANT: frozenset({"view", "author_plan"}),
 }
 
 
@@ -106,6 +112,21 @@ class SquadAccess:
 
     def can(self, cap: str) -> bool:
         return cap in ROLE_CAPS.get(self.role, frozenset())
+
+    @property
+    def account_id(self) -> int | None:
+        return self.account.id if self.account else None
+
+    def can_edit(self, created_by_account_id: int | None) -> bool:
+        """May the caller change / run a plan created by `created_by_account_id`?
+        The head coach: always. An assistant: only a plan they created themselves."""
+        if self.can("edit_plan"):
+            return True
+        return (
+            self.can("author_plan")
+            and self.account_id is not None
+            and created_by_account_id == self.account_id
+        )
 
 
 def get_squad_access(
@@ -162,6 +183,19 @@ def require(cap: str) -> Callable[..., SquadDB]:
     return _dep
 
 
+def plan_access(access: SquadAccess = Depends(get_squad_access)) -> SquadAccess:
+    """Dependency for plan write routes (matches / tournaments). Passing it only means
+    the caller may author plans at all — every route touching an EXISTING row must
+    ALSO depend on `editable_match` / `editable_tournament`, which is what stops one
+    assistant changing another coach's plan (enforced by the route-coverage test)."""
+    if not access.can("author_plan"):
+        raise HTTPException(status_code=403, detail="Only the head coach can do that")
+    return access
+
+
+plan_access._capability = "author_plan"  # type: ignore[attr-defined]
+
+
 # ── Ownership guards (IDOR defence) ─────────────────────────────────────────────
 def owned_squad(squad_id: int, account: AccountDB, session: Session) -> SquadDB:
     """The squad iff the account is a member of it (any role) — the single access
@@ -201,3 +235,104 @@ def owned_player(player_id: int, squad: SquadDB, session: Session) -> PlayerDB:
     if not player or player.squad_id != squad.id:
         raise HTTPException(status_code=404, detail="Player not found")
     return player
+
+
+# ── Plan authorship (assistant-created plans) ───────────────────────────────────
+_NOT_YOUR_PLAN = "Only the head coach or the coach who created this plan can change it"
+
+
+def editable_match(
+    match_id: int,
+    access: SquadAccess = Depends(plan_access),
+    session: Session = Depends(get_session),
+) -> MatchDB:
+    """DEPENDENCY for every write route addressing a match: the match iff it is on the
+    caller's squad (404) AND the caller may change it (403) — the head coach, or the
+    assistant who created it. A dependency (not an in-route call) so it runs before
+    body validation and the route-coverage test can prove each route has it."""
+    match = owned_match(match_id, access.squad, session)
+    if not access.can_edit(match.created_by_account_id):
+        raise HTTPException(status_code=403, detail=_NOT_YOUR_PLAN)
+    return match
+
+
+def editable_tournament(
+    tournament_id: int,
+    access: SquadAccess = Depends(plan_access),
+    session: Session = Depends(get_session),
+) -> TournamentDB:
+    """DEPENDENCY for every write route addressing a tournament — see `editable_match`."""
+    tournament = owned_tournament(tournament_id, access.squad, session)
+    if not access.can_edit(tournament.created_by_account_id):
+        raise HTTPException(status_code=403, detail=_NOT_YOUR_PLAN)
+    return tournament
+
+
+editable_match._row_guard = True  # type: ignore[attr-defined]
+editable_tournament._row_guard = True  # type: ignore[attr-defined]
+
+
+# ── Matchday control (one device runs a live match) ─────────────────────────────
+def device_id(x_device_id: str | None = Header(default=None)) -> str:
+    """The caller's per-device id (frontend `gaffer_device_id`), or "" if the client
+    doesn't send one — see the compatibility rule in services/matchday.py."""
+    return (x_device_id or "").strip()[:64]
+
+
+def controlled_match(
+    match: MatchDB = Depends(editable_match),
+    access: SquadAccess = Depends(plan_access),
+    device: str = Depends(device_id),
+    session: Session = Depends(get_session),
+) -> MatchDB:
+    """DEPENDENCY for every route that changes a match: `editable_match`, plus — while
+    the match is LIVE and another device holds control — 409 `not_controller` (the
+    frontend drops to the live read-only view and offers Take control).
+
+    A live match nobody controls yet (started before this shipped, or by a client
+    with no device id) is claimed by the first device-carrying write, so control
+    heals itself without anyone having to do anything."""
+    if match.status == "in_progress" and device:
+        if not match.controller_device_id:
+            matchday.claim(match, access.account_id, device)
+            session.add(match)  # committed with the route's own write
+        elif not matchday.controls(match, access.account_id, device):
+            same = match.controller_account_id == access.account_id
+            name = matchday.controller_name(session, match)
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "not_controller",
+                    "message": (
+                        "This match is being run on your other device"
+                        if same else f"{name} is running this match"
+                    ),
+                    "controller_name": name,
+                    "same_account": same,
+                },
+            )
+    return match
+
+
+def authorship(
+    session: Session, access: SquadAccess, creator_ids: Iterable[int | None]
+) -> Callable[[int | None], dict[str, Any]]:
+    """Build a `created_by_account_id -> {can_edit, created_by_name, created_by_me}`
+    mapper for list/detail payloads. A name is only reported for plans made by someone
+    other than the head coach (so a solo coach's lists stay unannotated, and it costs
+    no query)."""
+    head_id = access.squad.account_id
+    wanted = {i for i in creator_ids if i is not None and i != head_id}
+    names: dict[int, str] = {}
+    if wanted:
+        rows = session.exec(select(AccountDB).where(AccountDB.id.in_(wanted))).all()  # type: ignore[union-attr]
+        names = {a.id: (a.display_name or "an assistant") for a in rows if a.id is not None}
+
+    def describe(created_by: int | None) -> dict[str, Any]:
+        return {
+            "can_edit": access.can_edit(created_by),
+            "created_by_name": names.get(created_by, "") if created_by is not None else "",
+            "created_by_me": created_by is not None and created_by == access.account_id,
+        }
+
+    return describe

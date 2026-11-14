@@ -1,5 +1,6 @@
 import { api } from "./api.js";
-import { state, ensureGameConfigs, refreshShirtNumbers, displayPos, can } from "./state.js";
+import { state, ensureGameConfigs, refreshShirtNumbers, displayPos, can, setPlanEditable } from "./state.js";
+import { ensureAssistants, planOwnerChip, bindPlanOwnerChip, renderReviewMark } from "./plan-owner.js";
 import { showScreen, openMatch, enterReviewView, buildReviewCard, setReviewShare } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
 import { showToast, withSaveToast, showFieldError, clearFieldError, sameName, duplicateNameMessage } from "./toast.js";
@@ -9,6 +10,7 @@ import { renderTeamPill } from "./teams.js";
 
 // ── Tournament Home ───────────────────────────────────────────────────────────
 async function loadTournamentHome() {
+  setPlanEditable(true);  // no plan open; creating one is open to assistants too
   showScreen("screen-tournament-home");
   renderTeamPill("team-pill-tournament");
   const list = document.getElementById("tournament-list");
@@ -16,7 +18,8 @@ async function loadTournamentHome() {
 
   let tournaments;
   try {
-    tournaments = await api.getTournaments();
+    // The head coach's assistants ride along (cached) for the hand-over chip.
+    [tournaments] = await Promise.all([api.getTournaments(), ensureAssistants()]);
   } catch {
     // A connection failure is NOT the same as "no tournaments" — mirror the season
     // match-list behaviour (say so + offer a retry) so the two modes don't drift.
@@ -45,11 +48,13 @@ async function loadTournamentHome() {
         <span class="match-item-opponent">${t.name || "Tournament"}</span>
         <span class="match-badge size-badge">${t.team_size || 5}v${t.team_size || 5}</span>
         <span class="match-badge">${matchCount} match${matchCount !== 1 ? "es" : ""}</span>
+        ${planOwnerChip("tournament", t)}
       </div>
-      <button class="btn-icon match-delete head-only" data-id="${t.id}" title="Delete tournament">✕</button>
+      ${t.can_edit !== false ? `<button class="btn-icon match-delete" data-id="${t.id}" title="Delete tournament">✕</button>` : ""}
     `;
     li.querySelector(".match-item-main").addEventListener("click", () => loadTournamentLobby(t.id));
-    li.querySelector(".match-delete").addEventListener("click", async e => {
+    bindPlanOwnerChip(li, "tournament", t, loadTournamentHome);
+    li.querySelector(".match-delete")?.addEventListener("click", async e => {
       e.stopPropagation();
       if (confirm(`Delete tournament "${t.name}"? This will remove all matches.`)) {
         await api.deleteTournament(t.id).catch(err => alert(err.message));
@@ -275,7 +280,7 @@ async function renderTournamentSquadGuests(tournamentId) {
         <span class="avail-name">${p.name}</span>
         <span class="avail-guest-tag">Guest</span>
         ${p.skill_rating != null ? `<span class="avail-skill">★${p.skill_rating}</span>` : ""}
-        <button class="btn-icon avail-remove-guest" data-pid="${p.id}" title="Remove">✕</button>
+        <button class="btn-icon avail-remove-guest editor-only" data-pid="${p.id}" title="Remove">✕</button>
       </label>
     `;
     li.querySelector(".avail-remove-guest").addEventListener("click", async e => {
@@ -395,6 +400,7 @@ async function loadTournamentLobby(id) {
 
   state.activeTournamentData = data;
   const t = data.tournament;
+  setPlanEditable(t.can_edit);  // read-only unless it's the caller's tournament to change
   document.getElementById("lobby-title").textContent = t.name || "Tournament";
 
   // Summary
@@ -536,7 +542,7 @@ function renderLobbyMatches(matches) {
     li.innerHTML = `
       <div class="match-item-main">
         <span class="match-badge">${stageLabel}</span>
-        <span class="match-item-opponent">vs ${m.opponent || "TBD"}<button class="btn-icon match-rename head-only" data-id="${m.id}" title="Edit opponent name">✎</button></span>
+        <span class="match-item-opponent">vs ${m.opponent || "TBD"}<button class="btn-icon match-rename editor-only" data-id="${m.id}" title="Edit opponent name">✎</button></span>
         ${statusBadge}
       </div>
       ${canDelete ? `<button class="btn-icon match-delete" data-id="${m.id}" title="Remove match">✕</button>` : ""}
@@ -584,7 +590,7 @@ function renderLobbyGuests(guestPlayers, tournamentId) {
       <span class="avail-name">${p.name}</span>
       <span class="avail-guest-tag">Guest</span>
       ${p.skill_rating != null ? `<span class="avail-skill">★${p.skill_rating}</span>` : ""}
-      <button class="btn-icon avail-remove-guest head-only" data-pid="${p.id}" title="Remove guest">✕</button>
+      <button class="btn-icon avail-remove-guest editor-only" data-pid="${p.id}" title="Remove guest">✕</button>
     `;
     row.querySelector(".avail-remove-guest").addEventListener("click", async () => {
       await api.removeGuestPlayer(tournamentId, p.id).catch(err => alert(err.message));
@@ -776,6 +782,7 @@ async function enterTournamentReview(id) {
   showScreen("screen-review");
   document.getElementById("review-actions-single").hidden = true;
   document.getElementById("review-warning").hidden = true;
+  renderReviewMark("tournament", null);
   const grid = document.getElementById("review-grid");
   grid.innerHTML = "<p class='review-loading'>Generating plans…</p>";
   setReviewShare(null); // nothing to share until the plans are in
@@ -792,6 +799,7 @@ async function enterTournamentReview(id) {
   }
 
   document.getElementById("review-title").textContent = `${data.tournament.name || "Tournament"} — all plans`;
+  renderReviewMark("tournament", data.tournament);
 
   const matches = [...(data.matches || [])].sort(
     (a, b) => (a.match_number || 0) - (b.match_number || 0)

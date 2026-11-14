@@ -591,3 +591,42 @@ def test_editing_max_subs_is_structural(
     # Persisted on the tournament and the regenerated match still has its 2 slots.
     assert client.get(f"/api/tournaments/{t['id']}").json()["tournament"]["max_subs"] == 1
     assert len(client.get(f"/api/matches/{match_id}").json()["slots"]) == 2
+
+
+def test_tournament_match_response_matches_the_season_envelope(
+    client: TestClient, tournament: dict, squad_ids: list[int]
+) -> None:
+    """Season ⇄ tournament parity: creating a tournament match returns the same
+    `match` fields as GET /matches/{id} (it used to lack hide_score / show_timer)."""
+    created = client.post(
+        f"/api/tournaments/{tournament['id']}/matches",
+        json={"opponent": "Lions", "available_player_ids": squad_ids},
+    ).json()
+    fetched = client.get(f"/api/matches/{created['match']['id']}").json()
+    # GET adds the caller's own view of the match (who runs it, whose plan it is).
+    caller_view = {"controller", "created_by_name", "created_by_me"}
+    assert set(created["match"]) == set(fetched["match"]) - caller_view
+    assert created["match"] == {k: v for k, v in fetched["match"].items() if k not in caller_view}
+
+
+def test_lists_only_count_their_own_teams_rows(
+    client: TestClient, tournament: dict, squad_ids: list[int]
+) -> None:
+    """The batched list lookups report rotations, goals and availability per match."""
+    tid = tournament["id"]
+    client.post(f"/api/tournaments/{tid}/matches/batch",
+                json={"count": 2, "available_player_ids": squad_ids})
+    season = client.post("/api/matches/", json={"date": "2026-04-13", "opponent": "Rovers"}).json()
+    client.post(f"/api/matches/{season['id']}/rotation", json={"available_player_ids": squad_ids})
+    client.post(f"/api/matches/{season['id']}/goals",
+                json={"goals": {"Jago": 2, "Eli": 1}, "opponent_goals": 1})
+    empty = client.post("/api/matches/", json={"date": "2026-04-14"}).json()
+
+    rows = {m["id"]: m for m in client.get("/api/matches/").json()}
+    assert (rows[season["id"]]["has_rotation"], rows[season["id"]]["our_goals"]) == (True, 3)
+    assert (rows[empty["id"]]["has_rotation"], rows[empty["id"]]["our_goals"]) == (False, 0)
+
+    assert client.get("/api/tournaments/").json()[0]["match_count"] == 2
+    detail = client.get(f"/api/tournaments/{tid}").json()
+    assert [m["has_rotation"] for m in detail["matches"]] == [True, True]
+    assert all(sorted(m["available_player_ids"]) == sorted(squad_ids) for m in detail["matches"])

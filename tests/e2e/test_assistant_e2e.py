@@ -15,9 +15,10 @@ ADMIN_HEADERS = {"X-Admin-Key": "e2e-admin"}
 PLAYERS = ["Ava", "Ben", "Cal", "Dan", "Eve", "Fay", "Gus"]
 
 
-def _head_coach_with_plans(base: str, email: str) -> str:
+def _head_coach_with_plans(base: str, email: str, cookies: dict | None = None) -> str:
     """Create a head coach + squad + planned season & tournament matches over the
-    API; return a one-time assistant invite token for that team."""
+    API; return a one-time assistant invite token for that team. Pass `cookies` to
+    get the head coach's session back (to sign a browser in as them)."""
     with httpx.Client(base_url=base, timeout=20) as head:
         r = head.post("/api/admin/invites", headers=ADMIN_HEADERS, json={"note": email})
         token = r.json()["link"].split("invite=")[1]
@@ -48,7 +49,30 @@ def _head_coach_with_plans(base: str, email: str) -> str:
                   json={"current_slot": 7, "status": "completed"}).raise_for_status()
 
         link = head.post("/api/teams/assistant-invite").json()["link"]
+        if cookies is not None:
+            cookies.update(dict(head.cookies))
         return link.split("assist=")[1]
+
+
+def _head_page(browser, base: str, cookies: dict) -> Page:
+    """A second device: a fresh browser context signed in as the head coach."""
+    ctx = browser.new_context(service_workers="block")
+    ctx.add_cookies([{"name": k, "value": v, "url": base} for k, v in cookies.items()])
+    page = ctx.new_page()
+    page.add_init_script("localStorage.setItem('gaffer_multiteam_seen', '1')")
+    page.on("dialog", lambda d: d.accept())
+    page.goto(base + "/")
+    expect(page.locator("#screen-landing")).to_be_visible()
+    return page
+
+
+def _open_list(page: Page, flow: str) -> None:
+    if flow == "season":
+        page.click("#btn-season-mode")
+        expect(page.locator("#screen-home")).to_be_visible()
+    else:
+        page.click("#btn-tournament-mode")
+        expect(page.locator("#screen-tournament-home")).to_be_visible()
 
 
 def _join_as_assistant(base: str, page: Page, token: str, email: str) -> None:
@@ -91,7 +115,7 @@ def test_assistant_sees_plan_but_no_editing_controls(auth_server, page: Page, fl
     if flow == "season":
         page.click("#btn-season-mode")
         expect(page.locator("#screen-home")).to_be_visible()
-        expect(page.locator("#btn-go-new-match")).to_be_hidden()
+        expect(page.locator("#btn-go-new-match")).to_be_visible()  # may create their own
         row = page.locator("#match-list .match-item").first
         expect(row).to_contain_text("Rovers")
         expect(row.locator(".match-delete")).to_be_hidden()
@@ -99,7 +123,7 @@ def test_assistant_sees_plan_but_no_editing_controls(auth_server, page: Page, fl
     else:
         page.click("#btn-tournament-mode")
         expect(page.locator("#screen-tournament-home")).to_be_visible()
-        expect(page.locator("#btn-new-tournament")).to_be_hidden()
+        expect(page.locator("#btn-new-tournament")).to_be_visible()  # may create their own
         t_row = page.locator("#tournament-list .match-item").first
         expect(t_row.locator(".match-delete")).to_be_hidden()
         t_row.locator(".match-item-main").click()
@@ -111,6 +135,189 @@ def test_assistant_sees_plan_but_no_editing_controls(auth_server, page: Page, fl
         m_row.locator(".match-item-main").click()
 
     _assert_read_only_review(page)
+
+
+@pytest.mark.parametrize("flow", ["season", "tournament"])
+def test_assistant_creates_and_runs_their_own_plan(auth_server, page: Page, flow: str):
+    """An assistant makes a plan of their own, can tinker with it and start the match,
+    and the list says whose plan it is — while the head coach's plans stay read-only."""
+    base = auth_server
+    token = _head_coach_with_plans(base, f"head-own-{flow}@example.com")
+    _join_as_assistant(base, page, token, f"asst-own-{flow}@example.com")
+
+    if flow == "season":
+        page.click("#btn-season-mode")
+        page.click("#btn-go-new-match")
+        page.fill("#opponent-input", "City")
+        page.click("#btn-select-players")
+        expect(page.locator("#screen-match-squad")).to_be_visible()
+        page.click("#btn-generate")
+    else:
+        page.click("#btn-tournament-mode")
+        page.click("#btn-new-tournament")
+        page.fill("#tournament-name-input", "Sixes")
+        page.click("#btn-create-tournament")
+        expect(page.locator("#screen-tournament-squad")).to_be_visible()
+        # Whoever runs the tournament can add a temporary player — an assistant just
+        # isn't shown (and can't set) a skill rating.
+        page.click("#btn-tournament-add-guest")
+        expect(page.locator("#guest-skill")).to_be_hidden()
+        page.fill("#guest-name", "Zed")
+        page.click("#guest-player-form button[type=submit]")
+        expect(page.locator("#tournament-squad-list .avail-item-guest")).to_contain_text("Zed")
+        page.click("#btn-generate-all-matches")
+        expect(page.locator("#screen-tournament-lobby")).to_be_visible()
+        expect(page.locator("#btn-add-group-match")).to_be_visible()
+        expect(page.locator("#btn-edit-tournament")).to_be_visible()
+        page.locator("#lobby-match-list .match-item-main").first.click()
+
+    # Their own plan: tinker on/off, then start the match.
+    expect(page.locator("#screen-review")).to_be_visible()
+    expect(page.locator("#btn-review-start")).to_be_visible()
+    page.click("#btn-review-view")
+    expect(page.locator("#screen-pitch")).to_be_visible()
+    page.click("#btn-adjust")
+    expect(page.locator("#edit-mode-badge")).to_be_visible()
+    page.click("#btn-adjust")
+    expect(page.locator("#edit-mode-badge")).to_be_hidden()
+    page.click("#btn-start-match-cta")
+    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#end-match-bar")).to_be_visible()
+
+    # Back to the list: their plan is annotated + deletable; the head coach's is neither.
+    page.click("#btn-pitch-back")
+    if flow == "season":
+        expect(page.locator("#screen-home")).to_be_visible()
+        mine = page.locator("#match-list .match-item", has_text="City")
+        theirs = page.locator("#match-list .match-item", has_text="Rovers")
+    else:
+        expect(page.locator("#screen-tournament-lobby")).to_be_visible()
+        page.click("#btn-lobby-back")
+        expect(page.locator("#screen-tournament-home")).to_be_visible()
+        mine = page.locator("#tournament-list .match-item", has_text="Sixes")
+        theirs = page.locator("#tournament-list .match-item", has_text="Autumn Cup")
+    expect(mine.locator(".match-badge-author")).to_have_text("Plan by you")
+    expect(mine.locator(".match-delete")).to_be_visible()
+    expect(theirs.locator(".match-badge-author")).to_have_count(0)
+    expect(theirs.locator(".match-delete")).to_have_count(0)
+
+    # ...and opening the head coach's plan is still read-only (no stale edit rights).
+    theirs.locator(".match-item-main").click()
+    if flow == "tournament":
+        expect(page.locator("#screen-tournament-lobby")).to_be_visible()
+        expect(page.locator("#btn-add-group-match")).to_be_hidden()
+        page.locator("#lobby-match-list .match-item-main").first.click()
+    _assert_read_only_review(page)
+
+
+@pytest.mark.parametrize("flow", ["season", "tournament"])
+def test_head_hands_over_a_plan_and_marks_it_reviewed(auth_server, browser, page: Page, flow: str):
+    """The head coach hands one of their own plans to an assistant from the list,
+    then marks it reviewed; the assistant sees both and can now run it."""
+    base, cookies = auth_server, {}
+    token = _head_coach_with_plans(base, f"head-hand-{flow}@example.com", cookies)
+    _join_as_assistant(base, page, token, f"asst-hand-{flow}@example.com")
+    head = _head_page(browser, base, cookies)
+    name = "Rovers" if flow == "season" else "Autumn Cup"
+    rows = "#match-list .match-item" if flow == "season" else "#tournament-list .match-item"
+
+    _open_list(head, flow)
+    row = head.locator(rows, has_text=name)
+    expect(row.locator(".plan-owner-btn")).to_have_text("Hand over")
+    row.locator(".plan-owner-btn").click()
+    expect(head.locator("#plan-owner-overlay")).to_be_visible()
+    head.locator("#plan-owner-options button", has_text="Alex").click()
+    row = head.locator(rows, has_text=name)
+    expect(row.locator(".plan-owner-btn")).to_have_text("Plan by Alex")
+
+    # Review it: open the plan(s), mark reviewed.
+    row.locator(".match-item-main").click()
+    if flow == "tournament":
+        head.click("#btn-tournament-review")
+    expect(head.locator("#screen-review")).to_be_visible()
+    expect(head.locator("#review-mark-text")).to_have_text("Plan by Alex")
+    head.click("#btn-review-mark")
+    expect(head.locator("#review-mark-text")).to_contain_text("Reviewed ✓")
+
+    # The assistant sees it is theirs and reviewed — and can start the match.
+    _open_list(page, flow)
+    mine = page.locator(rows, has_text=name)
+    expect(mine.locator(".match-badge-author")).to_have_text("Plan by you ✓")
+    mine.locator(".match-item-main").click()
+    if flow == "tournament":
+        expect(page.locator("#btn-add-group-match")).to_be_visible()
+        page.locator("#lobby-match-list .match-item-main").first.click()
+    expect(page.locator("#screen-review")).to_be_visible()
+    expect(page.locator("#btn-review-start")).to_be_visible()
+    head.context.close()
+
+
+@pytest.mark.parametrize("flow", ["season", "tournament"])
+def test_one_device_runs_a_live_match_and_another_can_take_control(
+    auth_server, browser, page: Page, flow: str
+):
+    """The assistant starts their match; the head coach's device watches it live
+    (read-only, with the clock), then takes control — and the assistant's device
+    drops to the same read-only view on its next save."""
+    base, cookies = auth_server, {}
+    token = _head_coach_with_plans(base, f"head-live-{flow}@example.com", cookies)
+    _join_as_assistant(base, page, token, f"asst-live-{flow}@example.com")
+    page.on("dialog", lambda d: d.accept())
+
+    # The assistant makes a plan and starts the match on their phone.
+    if flow == "season":
+        page.click("#btn-season-mode")
+        page.click("#btn-go-new-match")
+        page.fill("#opponent-input", "City")
+        page.click("#btn-select-players")
+        page.click("#btn-generate")
+    else:
+        page.click("#btn-tournament-mode")
+        page.click("#btn-new-tournament")
+        page.fill("#tournament-name-input", "Sixes")
+        page.click("#btn-create-tournament")
+        page.click("#btn-generate-all-matches")
+        page.locator("#lobby-match-list .match-item-main").first.click()
+    expect(page.locator("#screen-review")).to_be_visible()
+    page.click("#btn-review-start")
+    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#control-banner")).to_be_hidden()
+
+    # The head coach opens the same match on another device: live, but view-only.
+    head = _head_page(browser, base, cookies)
+    _open_list(head, flow)
+    if flow == "season":
+        head.locator("#match-list .match-item", has_text="City").locator(".match-item-main").click()
+    else:
+        head.locator("#tournament-list .match-item", has_text="Sixes").locator(".match-item-main").click()
+        head.locator("#lobby-match-list .match-item-main").first.click()
+    expect(head.locator("#screen-pitch")).to_be_visible()
+    expect(head.locator("#control-banner-text")).to_have_text("● Alex is running this match")
+    expect(head.locator("#end-match-bar")).to_be_hidden()
+    expect(head.locator("#btn-adjust")).to_be_hidden()
+    expect(head.locator("#match-timer")).to_be_visible()      # the server's clock...
+    expect(head.locator("#btn-timer-pause")).to_be_hidden()   # ...but not its controls
+
+    # A goal on the assistant's phone shows up on the head coach's within a poll.
+    token_el = page.locator("#pitch .player-circle").first
+    token_el.dispatch_event("pointerdown")
+    expect(page.locator("#pitch .goal-badge")).to_have_count(1)
+    token_el.dispatch_event("pointerup")
+    expect(head.locator("#pitch .goal-badge")).to_have_count(1, timeout=20_000)
+
+    # Take control: the head coach's device now runs it...
+    head.click("#btn-take-control")
+    expect(head.locator("#control-banner")).to_be_hidden()
+    expect(head.locator("#end-match-bar")).to_be_visible()
+    expect(head.locator("#btn-timer-pause")).to_be_visible()
+    expect(head.locator("#pitch .goal-badge")).to_have_count(1)  # nothing lost in the hand-over
+
+    # ...and the assistant's device finds out on its next save and drops to watching.
+    page.click("#btn-timer-pause")
+    expect(page.locator("#control-banner-text")).to_have_text("● Sam is running this match")
+    expect(page.locator("#end-match-bar")).to_be_hidden()
+    expect(page.locator("#btn-take-control")).to_be_visible()  # and could take it back
+    head.context.close()
 
 
 def test_head_coach_manages_assistants_in_settings(auth_server, page: Page):

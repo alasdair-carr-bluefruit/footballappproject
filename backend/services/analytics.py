@@ -17,6 +17,7 @@ from backend.db.repositories import (
     get_goals,
     get_plan_slots,
     get_players,
+    rotations_by_match,
 )
 from backend.models.rotation import normalize_position
 
@@ -32,12 +33,7 @@ def _season_matches(session: Session, squad_id: int, *, ordered: bool = False) -
 
 
 def _rotations_by_match(session: Session, matches: list[MatchDB]) -> dict[int, RotationPlanDB]:
-    match_ids = {m.id for m in matches}
-    return {
-        r.match_id: r
-        for r in session.exec(select(RotationPlanDB)).all()
-        if r.match_id in match_ids
-    }
+    return rotations_by_match(session, {m.id for m in matches if m.id is not None})
 
 
 def _empty_positions() -> dict[str, int]:

@@ -2,7 +2,6 @@
 import pytest
 
 from backend.algorithm.time_balancer import compute_target_slots
-from backend.models.player import GKTier
 from tests.conftest import make_player
 
 

@@ -214,7 +214,6 @@ def test_remove_player_from_match(client: TestClient, squad_10: None) -> None:
     # Removed player should not appear in any slot from index 2 onward
     for slot in data["slots"][2:]:
         lineup_ids = list(slot["lineup"].values())
-        bench_ids = [p["id"] for p in slot["bench"]]
         assert player_id not in [p["id"] if isinstance(p, dict) else p for p in lineup_ids]
 
 
@@ -276,7 +275,6 @@ def test_remove_player_slots_regenerated(client: TestClient, squad_10: None) -> 
         assert player_id not in all_ids_in_slot
 
     # Locked slots 0-3 keep their original lineups intact
-    original_slot4_lineup = {k: v["id"] for k, v in rotation_data["slots"][4]["lineup"].items()}
     # (bench is dynamically computed, so removed player may not appear there;
     #  the BDD test covers locked-slot lineup preservation at algorithm level)
 
