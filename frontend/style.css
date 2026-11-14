@@ -816,6 +816,23 @@ html, body {
 .btn-recalc-following:active { opacity: 1; }
 .btn-recalc-following[hidden] { display: none; }
 
+/* Live own-goal quick-record — same full-width outlined pill as the recalc button. */
+.btn-record-og {
+  display: block;
+  width: 100%;
+  margin: 8px 0 0;
+  background: transparent;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  opacity: 0.85;
+  cursor: pointer;
+  color: var(--chalk);
+  border: 1px dashed rgba(255,255,255,0.4);
+}
+.btn-record-og:active { opacity: 1; }
+.btn-record-og[hidden] { display: none; }
+
 /* ── Slot row (slot label + start match button side by side) ─────── */
 .slot-row {
   display: flex;
@@ -891,6 +908,18 @@ html, body {
   font-weight: 600;
   color: rgba(255,255,255,0.55);
   padding: 3px 2px;
+}
+/* Review screen: quarter headers are tap targets for whole-slot swaps. */
+.plan-head-selectable {
+  cursor: pointer;
+  color: var(--matchday);
+  border: 1px solid transparent;
+}
+.plan-head-selectable:active { border-color: var(--matchday); }
+.plan-head-selected {
+  background: var(--matchday);
+  color: var(--pitch-deep);
+  border-color: var(--matchday);
 }
 .plan-rowlabel { justify-content: flex-start; padding-left: 6px; font-size: 10px; }
 .plan-empty { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.22); font-weight: 400; }
@@ -979,6 +1008,23 @@ html, body {
 }
 .review-warning-card { margin: 0 0 10px; font-size: 12px; }
 .review-warning-card .review-warning-head { font-size: 12px; }
+
+/* Whole-quarter swap hint on the review screen. Brightens while a swap is armed. */
+.review-swap-hint {
+  margin: 10px 16px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.05);
+  border: 1px dashed rgba(255,255,255,0.18);
+}
+.review-swap-hint-active {
+  color: var(--pitch-deep);
+  background: var(--matchday);
+  border-color: var(--matchday);
+  font-weight: 600;
+}
 
 /* Per-player row flag + chip highlight (shared report grid) */
 .report-row-under { box-shadow: inset 3px 0 0 var(--trophy-amber); }
@@ -2916,6 +2962,48 @@ html, body {
 }
 
 .ft-opp-input:focus { outline: none; border-color: var(--matchday); }
+
+/* Own-goal (opposition) stepper on the Full Time card. Mirrors the opponent-goals
+   row's boxed look, but keeps its own class so `.ft-opp-goals-row` stays unique. */
+.ft-own-goals-row {
+  margin-top: 10px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.ft-own-goals-row .ft-opp-label small { opacity: 0.6; font-weight: 400; }
+.ft-own-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ft-own-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 700;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: var(--chalk);
+  cursor: pointer;
+}
+.ft-own-btn:active { background: rgba(255,255,255,0.2); }
+.ft-own-count {
+  min-width: 24px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--chalk);
+}
+
+/* Own-goal pill in the scorers list — dimmer than a named scorer. */
+.ft-scorer-og {
+  background: rgba(255,255,255,0.08);
+  color: var(--chalk);
+  font-style: italic;
+}
 
 .ft-actions {
   display: flex;

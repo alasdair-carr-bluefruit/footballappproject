@@ -82,6 +82,7 @@ def rotation_response(
             "period_label": period_label,
             "home_away": m.home_away,
             "opponent_goals": m.opponent_goals,
+            "own_goals": m.own_goals,  # opposition own goals (count for us, no named scorer)
             "hide_score": m.hide_score,
             "status": m.status,
             "current_slot": m.current_slot,

@@ -84,10 +84,11 @@ class MatchRead(BaseModel):
     share_gk: int = 1
     home_away: str = "home"
     opponent_goals: int = 0
+    own_goals: int = 0  # opposition own goals (count for us, no named scorer)
     hide_score: int = 0
     status: str = "planned"
     current_slot: int = 0
-    our_goals: int = 0  # sum of all player goals (for match list display)
+    our_goals: int = 0  # team total: player goals + opposition own goals (for match list display)
     show_timer: int = 1
     # Authorship (assistant-created plans): may the caller edit/run this match, and
     # who made it (name only set when it wasn't the head coach).
@@ -142,6 +143,7 @@ def _match_read(
         share_gk=m.share_gk,
         home_away=m.home_away,
         opponent_goals=m.opponent_goals,
+        own_goals=m.own_goals,
         hide_score=m.hide_score,
         status=m.status,
         current_slot=m.current_slot,
@@ -174,7 +176,8 @@ def list_matches(
     result = []
     for m in matches:
         has_rotation = m.id in rotations
-        our_goals = goals.get(m.id, 0) if has_rotation and m.id is not None else 0
+        # Team total = player goals + opposition own goals (both score for us).
+        our_goals = (goals.get(m.id, 0) + m.own_goals) if has_rotation and m.id is not None else 0
         result.append(_match_read(m, has_rotation, our_goals, author(m.created_by_account_id)))
     return result
 
@@ -469,6 +472,7 @@ def adjust_match_rotation(
 class GoalsSave(BaseModel):
     goals: dict[str, int]  # {player_name: goal_count}
     opponent_goals: int = 0
+    own_goals: int = 0  # opposition own goals (count for us, no named scorer)
     hide_score: int | None = None  # None = leave unchanged; 0/1 = set FA score-mask flag
 
 
@@ -493,8 +497,9 @@ def save_match_goals(
     }
     set_goals(session, match_id, goals_by_id)
 
-    # Save opponent goals on the match
+    # Save opponent goals + opposition own goals on the match
     db_match.opponent_goals = body.opponent_goals
+    db_match.own_goals = body.own_goals
     if body.hide_score is not None:
         db_match.hide_score = 1 if body.hide_score else 0
     session.add(db_match)

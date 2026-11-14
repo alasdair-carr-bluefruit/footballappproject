@@ -1081,6 +1081,7 @@
       <button class="btn btn-next" id="btn-next">Next ▶</button>
     </div>
     <button class="btn btn-recalc-following editor-only" id="btn-recalc-following" hidden>↻ Recalculate rest of match</button>
+    <button class="btn btn-record-og editor-only" id="btn-record-og" hidden>⚽ Own goal (opposition)</button>
     <div id="manual-assign-bar" class="editor-only" hidden>
       <button class="btn-manual-slots" id="btn-manual-slots-pitch">or assign positions manually</button>
     </div>
@@ -1177,6 +1178,8 @@
 
     <div class="review-warning" id="review-warning" hidden></div>
 
+    <div class="review-swap-hint" id="review-swap-hint" hidden></div>
+
     <div class="review-body" id="review-grid"></div>
 
     <div class="review-actions" id="review-actions-single">
@@ -1228,6 +1231,15 @@
           Opponent goals
           <input type="number" id="ft-opp-input" class="ft-opp-input" min="0" value="0" />
         </label>
+      </div>
+
+      <div class="ft-own-goals-row editor-only">
+        <span class="ft-opp-label">Own goals <small>(scored by opposition — count for us)</small></span>
+        <div class="ft-own-stepper">
+          <button type="button" class="ft-own-btn" id="btn-ft-own-minus" aria-label="One fewer own goal">−</button>
+          <span class="ft-own-count" id="ft-own-count">0</span>
+          <button type="button" class="ft-own-btn" id="btn-ft-own-plus" aria-label="One more own goal">+</button>
+        </div>
       </div>
 
       <label class="switch-row ft-hide-row editor-only">

@@ -180,6 +180,7 @@ class MatchDB(SQLModel, table=True):
     max_subs: int | None = None
     home_away: str = "home"  # "home" or "away"
     opponent_goals: int = 0
+    own_goals: int = 0  # own goals scored by the opposition — count for us, no named scorer
     hide_score: int = 0  # 0=show scoreline, 1=mask as "X - X" (FA sub-U12 guidance)
     status: str = "planned"  # "planned" | "in_progress" | "completed"
     current_slot: int = 0  # furthest slot reached during live match

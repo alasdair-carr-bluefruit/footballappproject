@@ -18,6 +18,7 @@ export const state = {
   dragState: null, // {slotIndex, posKey, playerName} for drag-and-drop
   matchData: null, // { match, slots, warnings }
   goalCounts: {}, // { playerName: count }
+  ownGoals: 0, // opposition own goals this match (count for us, no named scorer)
   reportEditUnlocked: false, // coach opted in to editing a finished match's goals
   gameConfigs: null, // cached from /api/matches/config/game-configs
   selectedSize: 5,

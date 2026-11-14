@@ -251,7 +251,8 @@ def get_tournament(
     for m in matches:
         assert m.id is not None
         r = rotations.get(m.id)
-        our_goals = goals.get(m.id, 0) if r else 0
+        # Team total = player goals + opposition own goals (both score for us).
+        our_goals = (goals.get(m.id, 0) + m.own_goals) if r else 0
         available_ids = availability.get(m.id, [])
         match_list.append({
             "id": m.id,
@@ -262,6 +263,7 @@ def get_tournament(
             "has_rotation": r is not None,
             "our_goals": our_goals,
             "opponent_goals": m.opponent_goals,
+            "own_goals": m.own_goals,
             "available_player_ids": available_ids,
         })
 

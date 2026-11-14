@@ -783,6 +783,7 @@ async function enterTournamentReview(id) {
   document.getElementById("review-actions-single").hidden = true;
   document.getElementById("review-warning").hidden = true;
   renderReviewMark("tournament", null);
+  document.getElementById("review-swap-hint").hidden = true;  // swap is per-match (Open ▶)
   const grid = document.getElementById("review-grid");
   grid.innerHTML = "<p class='review-loading'>Generating plans…</p>";
   setReviewShare(null); // nothing to share until the plans are in

@@ -139,6 +139,39 @@ def test_tinker_edit_is_local_and_offers_following_recalc(seeded_squad, page: Pa
     expect(page.locator("#btn-recalc-following")).to_be_hidden()
 
 
+@pytest.mark.parametrize("flow,col_a,col_b", [("season", 0, 2), ("tournament", 0, 1)])
+def test_review_whole_quarter_swap(seeded_squad, page: Page, flow, col_a, col_b):
+    """Tapping two quarter column-headers on the review screen swaps their whole
+    line-ups and leaves every other column untouched. Parity across both flows."""
+    _NAV[flow](page, seeded_squad)
+    expect(page.locator("#screen-review")).to_be_visible()
+
+    # The swap hint is offered on a planned-match review.
+    expect(page.locator("#review-swap-hint")).to_be_visible()
+
+    grid = page.locator("#review-grid .plan-grid").first
+
+    def gk_tokens():
+        return [c.inner_text().strip() for c in grid.locator(".plan-cell.pos-gk").all()]
+
+    before = gk_tokens()
+    heads = grid.locator(".plan-head")
+
+    # First tap arms the swap: that header highlights and the hint goes active.
+    heads.nth(col_a).click()
+    expect(grid.locator(".plan-head-selected")).to_have_count(1)
+    expect(page.locator("#review-swap-hint.review-swap-hint-active")).to_be_visible()
+
+    # Second tap swaps the two whole columns and clears the selection.
+    heads.nth(col_b).click()
+    expect(grid.locator(".plan-head-selected")).to_have_count(0)
+
+    after = gk_tokens()
+    expected = before.copy()
+    expected[col_a], expected[col_b] = expected[col_b], expected[col_a]
+    assert after == expected, f"{flow}: expected {expected}, got {after}"
+
+
 def test_tournament_review_all_plans_stacks_a_grid_per_match(seeded_squad, page: Page):
     """The lobby's 'Review all plans' generates any missing rotations and shows
     one read-only card (with its own grid) per match; 'Open ▶' drops into that

@@ -415,9 +415,19 @@ function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
     grid.className = start === 0 ? "plan-grid" : "plan-grid plan-grid-stacked";
     grid.style.gridTemplateColumns = `minmax(30px, auto) repeat(${cols}, minmax(0, 1fr))`;
 
-    // Header: blank corner + slot labels for this chunk.
+    // Header: blank corner + slot labels for this chunk. When onSlotSelect is
+    // given (the review screen), each header is a tap target for whole-slot swaps.
     grid.appendChild(cell("plan-corner", ""));
-    for (let i = start; i < end; i++) grid.appendChild(cell("plan-cell plan-head", slotLabels[i]));
+    for (let i = start; i < end; i++) {
+      const selected = opts.selectedSlot === i ? " plan-head-selected" : "";
+      const selectable = opts.onSlotSelect ? " plan-head-selectable" : "";
+      const head = cell(`plan-cell plan-head${selectable}${selected}`, slotLabels[i]);
+      if (opts.onSlotSelect) {
+        head.title = "Tap to swap this whole quarter";
+        head.addEventListener("click", () => opts.onSlotSelect(i));
+      }
+      grid.appendChild(head);
+    }
 
     // One row per position.
     positions.forEach(posKey => {
@@ -923,6 +933,10 @@ function render() {
   document.getElementById("btn-recalc-following").hidden =
     !state.editMode || state.manualRotationMode || isLastSlot;
 
+  // Live "Own goal (opposition)" quick-record — same gate as per-player goals
+  // (match started, viewing the live period or a finished match being edited).
+  document.getElementById("btn-record-og").hidden = !canRecordGoalHere();
+
   // Slot-label badges: LIVE (this is the period in play) and LOCKED (coach-edited).
   const slotLabelEl = document.getElementById("slot-label");
   if (state.matchStarted && !isCompleted && periodOf(state.currentSlot) === livePeriod()) {
@@ -997,6 +1011,7 @@ function renderReport() {
   }
   document.getElementById("btn-adjust").hidden = true;
   document.getElementById("btn-recalc-following").hidden = true;
+  document.getElementById("btn-record-og").hidden = true;
   // End Match bar: hidden on the report. The report's own "End Match" (btn-next)
   // is the primary end action here; the bar's button is the live-pitch "end early"
   // affordance and would otherwise show a second, redundant End Match button.
@@ -1044,6 +1059,8 @@ function loadMatchData(data) {
   // match shows no scorers and a later save would wipe the real tally.
   Object.keys(state.goalCounts).forEach(k => delete state.goalCounts[k]);
   Object.assign(state.goalCounts, data.goals || {});
+  // Opposition own goals (count for us, no named scorer) — restored per match.
+  state.ownGoals = data.match?.own_goals || 0;
   state.reportEditUnlocked = false;
   // FA sub-U12 scoreline masking — persisted per match, drives the Full Time card
   // + share image (see showFulltime / buildResultBlob).
@@ -1101,10 +1118,56 @@ function enterPitchView(data) {
 // per-player rotation grid, an under-slotted-player warning, and Tinker / Start /
 // Back actions. Read-only — editing happens on the pitch ("Tinker") and persists
 // via /adjust, then "◀ Plan" returns here with fresh counts.
+// ── Whole-slot swap (Review the plan screen) ─────────────────────────────────────
+// On the review grid the coach taps two quarter column-headers to swap their ENTIRE
+// lineups (e.g. Q1a ⇄ Q2a). Reuses the adjust endpoint: both full lineups are sent
+// as edits with ALL slots locked, so the engine applies the swap verbatim and
+// regenerates nothing. Per-player totals are preserved (each player keeps the same
+// number of appearances), so fairness is unaffected. The review screen is reached
+// only for planned matches, so every slot is swappable.
+let reviewSwapSel = null;  // slot_index selected as the first half of a pending swap
+
+function slotSwapLabel(slotIndex) {
+  return periodLabel(slotIndex).label;
+}
+
+async function performSlotSwap(aIdx, bIdx) {
+  if (!state.matchData) return;
+  const slots = state.matchData.slots;
+  const a = slots[aIdx], b = slots[bIdx];
+  if (!a || !b) return;
+  const toIdMap = lineup => Object.fromEntries(
+    Object.entries(lineup).map(([pos, p]) => [pos, p.id]),
+  );
+  // Each slot takes on the OTHER slot's entire lineup; lock every slot so the
+  // engine applies the swap and rewrites nothing else.
+  const edits = { [aIdx]: toIdMap(b.lineup), [bIdx]: toIdMap(a.lineup) };
+  const locked = slots.map(s => s.slot_index);
+  try {
+    const result = await api.adjustRotation(state.matchData.match.id, edits, locked);
+    state.matchData.slots = result.slots;
+    state.matchData.warnings = result.warnings;
+    renderReview();
+    showToast(`Swapped ${slotSwapLabel(aIdx)} ⇄ ${slotSwapLabel(bIdx)}.`);
+  } catch (err) {
+    alert("Could not swap slots: " + err.message);
+  }
+}
+
+// Tap a quarter header: first tap selects, second tap swaps (or deselects if same).
+function onReviewSlotSelect(i) {
+  if (reviewSwapSel === null) { reviewSwapSel = i; renderReview(); return; }
+  if (reviewSwapSel === i) { reviewSwapSel = null; renderReview(); return; }
+  const first = reviewSwapSel;
+  reviewSwapSel = null;
+  performSlotSwap(first, i);
+}
+
 function enterReviewView(data) {
   loadMatchData(data);
   stopTimerTicker();
   state.reviewMode = "single";
+  reviewSwapSel = null;  // clear any stale swap selection from a previous visit
   showScreen("screen-review");
   renderReview();
 }
@@ -1141,8 +1204,26 @@ function renderReview() {
   const grid = document.getElementById("review-grid");
   grid.innerHTML = "";
   const flags = planFlags(state.matchData);
-  buildPositionGrid(grid, state.matchData, { markChanges: true, underSlotted: flags.names });
+  // Tap-two-column-headers to swap whole quarters (planned matches only).
+  const swappable = !state.matchStarted;
+  buildPositionGrid(grid, state.matchData, {
+    markChanges: true,
+    underSlotted: flags.names,
+    onSlotSelect: swappable ? onReviewSlotSelect : null,
+    selectedSlot: reviewSwapSel,
+  });
   grid.appendChild(buildCountsStrip(state.matchData, flags.names));
+
+  const hint = document.getElementById("review-swap-hint");
+  if (swappable) {
+    hint.textContent = reviewSwapSel === null
+      ? "Tip: tap two quarter headers to swap their whole line-ups."
+      : `Swapping ${slotSwapLabel(reviewSwapSel)} — tap another quarter to swap, or tap it again to cancel.`;
+    hint.classList.toggle("review-swap-hint-active", reviewSwapSel !== null);
+    hint.hidden = false;
+  } else {
+    hint.hidden = true;
+  }
 
   // Coach-edited slots are the signal that this plan has been tinkered with —
   // a freshly generated one has none (manual-assign mode counts, the coach
@@ -1373,7 +1454,7 @@ async function doEndMatch() {
   // Save goals and mark match completed, then show Full Time screen
   if (state.matchData?.match.id) {
     const oppGoals = state.matchData.match.opponent_goals || 0;
-    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore));
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore, state.ownGoals));
     await withSaveToast(() => api.updateProgress(state.matchData.match.id, state.currentSlot, "completed"));
     state.matchData.match.status = "completed";
   }
@@ -1922,6 +2003,19 @@ async function executeSwap(newPlayerId, newPlayerName) {
   state.pendingSwap = null;
 }
 
+// ── Opposition own goals (count for us, no named scorer) ─────────────────────────
+// Live quick-record on the pitch: mirrors per-player goal gating. Not persisted on
+// each tap (like player goals) — the existing save points (End Match, leaving the
+// pitch, Full Time) write state.ownGoals through saveGoals.
+document.getElementById("btn-record-og").addEventListener("click", () => {
+  if (!canRecordGoalHere() || !confirmGoalEdit()) return;
+  state.ownGoals = (state.ownGoals || 0) + 1;
+  if (navigator.vibrate) navigator.vibrate(80);
+  celebrateGoal();
+  showToast(`Own goal (opposition) — ${state.ownGoals} for us.`);
+  render();
+});
+
 function fillFairnessList(warnings) {
   const list = document.getElementById("fairness-list");
   list.innerHTML = "";
@@ -1985,9 +2079,9 @@ function applyAdjustResult(result) {
 async function saveGoalsIfNeeded() {
   if (!state.matchData || !state.matchData.match.id) return;
   if (!can("run_matchday")) return;  // assistants view read-only — nothing to save
-  const hasGoals = Object.values(state.goalCounts).some(v => v > 0);
+  const hasGoals = Object.values(state.goalCounts).some(v => v > 0) || state.ownGoals > 0;
   if (hasGoals) {
-    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, state.matchData.match.opponent_goals || 0));
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, state.matchData.match.opponent_goals || 0, state.hideScore, state.ownGoals));
   }
 }
 
@@ -2007,7 +2101,7 @@ document.getElementById("btn-pitch-back").addEventListener("click", async () => 
 // explanatory caption appears; the scorer list is unaffected. Reads opponent
 // goals live from the input so it stays in sync as the coach edits.
 function renderFulltimeScoreline() {
-  const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0);
+  const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0) + (state.ownGoals || 0);
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   const isHome = (state.matchData?.match.home_away || "home") === "home";
   const hidden = !!state.hideScore;
@@ -2018,7 +2112,7 @@ function renderFulltimeScoreline() {
 
 async function showFulltime() {
   const match = state.matchData.match;
-  const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0);
+  const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0) + (state.ownGoals || 0);
   const oppGoals = match.opponent_goals || 0;
 
   const isHome = (match.home_away || "home") === "home";
@@ -2029,6 +2123,7 @@ async function showFulltime() {
   document.getElementById("ft-home-name").textContent = isHome ? ourName : oppName;
   document.getElementById("ft-away-name").textContent = isHome ? oppName : ourName;
   document.getElementById("ft-opp-input").value = oppGoals;
+  document.getElementById("ft-own-count").textContent = state.ownGoals || 0;
   document.getElementById("ft-hide-score").checked = !!state.hideScore;
   renderFulltimeScoreline();
 
@@ -2053,15 +2148,19 @@ async function showFulltime() {
   const venue = isHome ? "Home" : "Away";
   document.getElementById("ft-meta").textContent = `${dateStr}  ·  ${venue}`;
 
-  // Goal scorers
+  // Goal scorers (+ a dim "Own goal" pill for opposition OGs that score for us)
   const scorers = Object.entries(state.goalCounts).filter(([, n]) => n > 0);
   const scorersSection = document.getElementById("ft-scorers-section");
   const scorersList = document.getElementById("ft-scorers-list");
-  if (scorers.length > 0) {
+  if (scorers.length > 0 || (state.ownGoals || 0) > 0) {
     scorers.sort((a, b) => b[1] - a[1]);
-    scorersList.innerHTML = scorers.map(([name, n]) =>
+    let html = scorers.map(([name, n]) =>
       `<span class="ft-scorer">${name}${n > 1 ? ` (×${n})` : ""}</span>`
     ).join("");
+    if ((state.ownGoals || 0) > 0) {
+      html += `<span class="ft-scorer ft-scorer-og">Own goal${state.ownGoals > 1 ? ` (×${state.ownGoals})` : ""}</span>`;
+    }
+    scorersList.innerHTML = html;
     scorersSection.hidden = false;
   } else {
     scorersSection.hidden = true;
@@ -2075,6 +2174,21 @@ document.getElementById("ft-opp-input").addEventListener("input", () => {
   renderFulltimeScoreline();
 });
 
+// Own-goal stepper on the Full Time card. Saves immediately (like the hide-score
+// toggle) so a shared/reopened match keeps the tally.
+function stepFulltimeOwnGoals(delta) {
+  state.ownGoals = Math.max(0, (state.ownGoals || 0) + delta);
+  document.getElementById("ft-own-count").textContent = state.ownGoals;
+  renderFulltimeScoreline();
+  if (state.matchData?.match?.id) {
+    const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
+    state.matchData.match.opponent_goals = oppGoals;
+    withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore, state.ownGoals));
+  }
+}
+document.getElementById("btn-ft-own-plus").addEventListener("click", () => stepFulltimeOwnGoals(1));
+document.getElementById("btn-ft-own-minus").addEventListener("click", () => stepFulltimeOwnGoals(-1));
+
 // "Hide score" toggle — FA guidance disallows publishing scores for U11 and
 // below. Masks the scoreline (scorers stay) and persists per match so reopening
 // to share keeps it hidden.
@@ -2084,7 +2198,7 @@ document.getElementById("ft-hide-score").addEventListener("change", async e => {
   if (state.matchData?.match.id) {
     state.matchData.match.hide_score = state.hideScore ? 1 : 0;
     const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
-    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore));
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore, state.ownGoals));
   }
 });
 
@@ -2096,7 +2210,7 @@ document.getElementById("btn-ft-pitch").addEventListener("click", () => {
 document.getElementById("btn-ft-done").addEventListener("click", async () => {
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   if (state.matchData?.match.id && can("run_matchday")) {
-    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore));
+    await withSaveToast(() => api.saveGoals(state.matchData.match.id, state.goalCounts, oppGoals, state.hideScore, state.ownGoals));
   }
   if (state.pitchBackContext === "tournament" && state.activeTournamentId) {
     loadTournamentLobby(state.activeTournamentId);
@@ -2141,7 +2255,7 @@ async function buildResultBlob() {
   if (document.fonts?.ready) { try { await document.fonts.ready; } catch (_) { /* draw anyway */ } }
 
   const match = state.matchData.match;
-  const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0);
+  const ourGoals = Object.values(state.goalCounts).reduce((sum, n) => sum + n, 0) + (state.ownGoals || 0);
   const oppGoals = parseInt(document.getElementById("ft-opp-input").value) || 0;
   const isHome = (match.home_away || "home") === "home";
   const ourName = state.teamInfo.team_name || "My Team";
@@ -2155,6 +2269,7 @@ async function buildResultBlob() {
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const venue = isHome ? "Home" : "Away";
   const scorers = Object.entries(state.goalCounts).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+  if ((state.ownGoals || 0) > 0) scorers.push(["Own goal", state.ownGoals]);
 
   const logoImg = await _loadLogo(state.teamInfo.team_logo);
 

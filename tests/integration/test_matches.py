@@ -351,6 +351,67 @@ def test_player_history_goals_counted(client: TestClient, squad_10: None) -> Non
     assert total_goals == 2
 
 
+def test_own_goals_count_for_us(client: TestClient, squad_10: None) -> None:
+    """Opposition own goals add to our team total (no named scorer)."""
+    match_id = client.post("/api/matches/", json={"date": "2026-03-25", "opponent": "City"}).json()["id"]
+    client.post(f"/api/matches/{match_id}/rotation")
+    players = client.get("/api/squad/players").json()
+
+    # 1 scored by a player + 2 opposition own goals = 3 for us
+    client.post(
+        f"/api/matches/{match_id}/goals",
+        json={"goals": {players[0]["name"]: 1}, "opponent_goals": 2, "own_goals": 2},
+    )
+
+    # get_match exposes own_goals on the match for the Full Time card / live state
+    data = client.get(f"/api/matches/{match_id}").json()
+    assert data["match"]["own_goals"] == 2
+    assert data["match"]["opponent_goals"] == 2
+
+    # Match list folds own goals into the team total for the scoreline badge
+    m = next(x for x in client.get("/api/matches/").json() if x["id"] == match_id)
+    assert m["our_goals"] == 3  # 1 player goal + 2 own goals
+    assert m["own_goals"] == 2
+    assert m["opponent_goals"] == 2
+
+    # Own goals don't attribute to any player's stats
+    hist = client.get(f"/api/matches/stats/player/{players[0]['id']}").json()
+    assert hist["totals"]["goals"] == 1
+
+
+def test_whole_slot_swap_via_adjust(client: TestClient, squad_10: None) -> None:
+    """Swapping two whole slots (Q1a ⇄ Q1b) swaps every player and touches nothing else."""
+    match_id = client.post("/api/matches/", json={"date": "2026-03-25"}).json()["id"]
+    rotation = client.post(f"/api/matches/{match_id}/rotation").json()
+    slots = rotation["slots"]
+
+    q1a = {pos: p["id"] for pos, p in slots[0]["lineup"].items()}
+    q1b = {pos: p["id"] for pos, p in slots[1]["lineup"].items()}
+
+    # Each slot takes on the other's entire lineup; lock every slot so the engine
+    # applies the swap verbatim and regenerates nothing.
+    edits = {0: q1b, 1: q1a}
+    locked = [s["slot_index"] for s in slots]
+    resp = client.post(f"/api/matches/{match_id}/adjust", json={"edits": edits, "locked_slots": locked})
+    assert resp.status_code == 200
+    new_slots = resp.json()["slots"]
+
+    # The two slots are swapped by position → player id
+    assert {pos: p["id"] for pos, p in new_slots[0]["lineup"].items()} == q1b
+    assert {pos: p["id"] for pos, p in new_slots[1]["lineup"].items()} == q1a
+
+    # Every other slot is untouched
+    for i in range(2, len(slots)):
+        before = {pos: p["id"] for pos, p in slots[i]["lineup"].items()}
+        after = {pos: p["id"] for pos, p in new_slots[i]["lineup"].items()}
+        assert before == after
+
+    # Swap persists across a reload
+    reloaded = client.get(f"/api/matches/{match_id}").json()["slots"]
+    assert {pos: p["id"] for pos, p in reloaded[0]["lineup"].items()} == q1b
+    assert {pos: p["id"] for pos, p in reloaded[1]["lineup"].items()} == q1a
+
+
 # ── Full match lifecycle integration test ────────────────────────────────────
 
 def test_match_list_shows_status_and_score(client: TestClient, squad_10: None) -> None:
