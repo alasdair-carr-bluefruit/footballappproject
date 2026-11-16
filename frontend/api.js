@@ -124,7 +124,7 @@ export const api = {
   setTimer:          (id, running, elapsedMs) => request(`/matches/${id}/timer`, { method: "PUT", body: { running, elapsed_ms: elapsedMs } }),
   reviewMatch:       (id, reviewed) => request(`/matches/${id}/review`, { method: "POST", body: { reviewed } }),
   setMatchOwner:     (id, accountId) => request(`/matches/${id}/owner`, { method: "PUT", body: { account_id: accountId } }),
-  saveGoals:         (id, goals, opponentGoals, hideScore, ownGoals) => request(`/matches/${id}/goals`, { method: "POST", body: { goals, opponent_goals: opponentGoals || 0, own_goals: ownGoals || 0, ...(hideScore == null ? {} : { hide_score: hideScore ? 1 : 0 }) } }),
+  saveGoals:         (id, goals, opponentGoals, hideScore, ownGoals) => request(`/matches/${id}/goals`, { method: "POST", body: { goals, opponent_goals: opponentGoals || 0, ...(ownGoals == null ? {} : { own_goals: ownGoals }), ...(hideScore == null ? {} : { hide_score: hideScore ? 1 : 0 }) } }),
   getSeasonStats:    ()   => request("/matches/stats/season"),
   getPlayerHistory:  (id) => request(`/matches/stats/player/${id}`),
 

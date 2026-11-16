@@ -472,7 +472,9 @@ def adjust_match_rotation(
 class GoalsSave(BaseModel):
     goals: dict[str, int]  # {player_name: goal_count}
     opponent_goals: int = 0
-    own_goals: int = 0  # opposition own goals (count for us, no named scorer)
+    # Opposition own goals (count for us, no named scorer). None = leave unchanged, so
+    # a client that doesn't send it (an older cached app) can't wipe recorded ones.
+    own_goals: int | None = None
     hide_score: int | None = None  # None = leave unchanged; 0/1 = set FA score-mask flag
 
 
@@ -499,7 +501,8 @@ def save_match_goals(
 
     # Save opponent goals + opposition own goals on the match
     db_match.opponent_goals = body.opponent_goals
-    db_match.own_goals = body.own_goals
+    if body.own_goals is not None:
+        db_match.own_goals = max(0, body.own_goals)
     if body.hide_score is not None:
         db_match.hide_score = 1 if body.hide_score else 0
     session.add(db_match)

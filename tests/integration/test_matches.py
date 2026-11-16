@@ -472,3 +472,16 @@ def test_full_match_lifecycle(client: TestClient, squad_10: None) -> None:
     stats = client.get("/api/matches/stats/season").json()
     scorer_stats = next(s for s in stats if s["name"] == scorer)
     assert scorer_stats["goals"] == 1
+
+
+def test_saving_goals_without_own_goals_keeps_them(client: TestClient, squad_10: None) -> None:
+    """A goals save that doesn't mention own goals (the live per-goal save, or an older
+    cached app) must not wipe the opposition own goals already recorded."""
+    m = client.post("/api/matches/", json={"date": "2026-11-15"}).json()
+    client.post(f"/api/matches/{m['id']}/rotation", json={})
+    name = client.get("/api/squad/players").json()[0]["name"]
+    client.post(f"/api/matches/{m['id']}/goals", json={"goals": {}, "own_goals": 1})
+    client.post(f"/api/matches/{m['id']}/goals", json={"goals": {name: 2}})
+    assert client.get(f"/api/matches/{m['id']}").json()["match"]["own_goals"] == 1
+    client.post(f"/api/matches/{m['id']}/goals", json={"goals": {name: 2}, "own_goals": 0})
+    assert client.get(f"/api/matches/{m['id']}").json()["match"]["own_goals"] == 0

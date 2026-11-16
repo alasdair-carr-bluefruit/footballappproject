@@ -1750,7 +1750,7 @@ function queueLiveGoalSave() {
   clearTimeout(goalSaveTimer);
   goalSaveTimer = setTimeout(() => {
     if (state.matchData?.match?.id !== match.id || !can("run_matchday")) return;
-    api.saveGoals(match.id, state.goalCounts, match.opponent_goals || 0).catch(() => {});
+    api.saveGoals(match.id, state.goalCounts, match.opponent_goals || 0, null, state.ownGoals || 0).catch(() => {});
   }, 700);
 }
 
@@ -2004,12 +2004,14 @@ async function executeSwap(newPlayerId, newPlayerName) {
 }
 
 // ── Opposition own goals (count for us, no named scorer) ─────────────────────────
-// Live quick-record on the pitch: mirrors per-player goal gating. Not persisted on
-// each tap (like player goals) — the existing save points (End Match, leaving the
-// pitch, Full Time) write state.ownGoals through saveGoals.
+// Live quick-record on the pitch: mirrors per-player goal gating. Saved as it happens
+// in a live match (like player goals — queueLiveGoalSave), so a watching device or
+// one taking over sees it; the save points (End Match, leaving the pitch, Full Time)
+// write it too.
 document.getElementById("btn-record-og").addEventListener("click", () => {
   if (!canRecordGoalHere() || !confirmGoalEdit()) return;
   state.ownGoals = (state.ownGoals || 0) + 1;
+  queueLiveGoalSave();
   if (navigator.vibrate) navigator.vibrate(80);
   celebrateGoal();
   showToast(`Own goal (opposition) — ${state.ownGoals} for us.`);
