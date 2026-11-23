@@ -21,7 +21,7 @@ A mobile-first Progressive Web App for grassroots youth football coaches to mana
 
 ## Current Phase
 
-**Multi-user (v1.1) — SHIPPED & LIVE on `feat/multi-user`.** Magic-link auth (no
+**Multi-user (v1.1) — SHIPPED & LIVE (built on `feat/multi-user`; everything is on `main` now).** Magic-link auth (no
 PIN), invite-only onboarding, `AccountDB`/`InviteDB`/`LoginTokenDB`, the `deps.py`
 isolation seam (`get_current_account`/`get_current_squad` + `owned_*` IDOR guards),
 early-access capture + Resend email, and a separate static marketing site
@@ -29,12 +29,12 @@ early-access capture + Resend email, and a separate static marketing site
 `app.keepthingslevel.com`. **Scope note:** the shipped model is now **1 account ↔ N
 squads** — `SquadDB.account_id` is the owner FK, `AccountDB.squad_id` is the *active*
 squad pointer, and the `teams` router (list/create/activate/delete) manages them.
-**Assistant coaches (T3.2) phase 1 is built on `staging`:** `SquadMembershipDB` gives
+**Assistant coaches (T3.2) phases 1, 1.5 and 2 are SHIPPED to `main`/live (2026-11-14):** `SquadMembershipDB` gives
 per-team roles (`head` | `assistant`); read routes use `get_current_squad`, every write
 route uses `require(capability)` (a route-coverage test enforces this — new write routes
-MUST declare one). **Assistant-authored plans + matchday control (built on `staging`
-2026-11-14):** an assistant may create a match/tournament and edit/run the ones they own
-(`created_by_account_id` = plan owner; the head coach can hand a plan over, and mark one
+MUST declare one). **Assistant-authored plans + matchday control:** an assistant may create a match/tournament and edit/run the ones they own
+(`created_by_account_id` = plan owner; an assistant can NOT run a head-coach plan unless it is
+handed over to them; the head coach can hand a plan over, and mark one
 "Reviewed ✓"). Plan write routes use `plan_access`; any that address an existing row MUST
 also depend on `editable_match` / `editable_tournament`, and any that change a match on
 `controlled_match` (one device runs a live match; others watch and can take control — never
@@ -43,18 +43,18 @@ on the server. Frontend: `.editor-only` + `setPlanEditable()`, `plan-owner.js`.
 Plan: `docs/ASSISTANT_COACH_PLAN.md`.
 
 Earlier: the **Refactor Phase (C.1–C.7)** and **Phase D.1 "Review the plan" screen**
-are done; D.2 (tinker undo/redo) + D.3 (export revisit) remain (now tracked as
-Forward Roadmap **T3.3**).
+are done; D.2 (tinker undo/redo) was dropped, and D.3 (export revisit) is now Forward
+Roadmap **T3.3**.
 
 **Tier 1 progress: COMPLETE ✅** — T1.1 multi-team ✅ (shipped 2026-07-21 — `SquadDB.account_id`
 owner + `teams` router + header pill switcher; wider pill visibility + landing callout 2026-07-22),
 T1.2 signed-out→marketing link ✅ (live), T1.3 Settings + account self-service ✅ (update-email
 2026-07-20, **invite-a-friend shipped 2026-07-22**), T1.4 clear-squad-&-data ✅ (2026-07-20).
-**Next up = Tier 2** (share-image/growth surfaces, FA-season SEO content) and T3.2 phase 3
-(comments + proposals). See DEVELOPMENT_PLAN.md
+**Next up:** see the **▶ Next up** section of DEVELOPMENT_PLAN.md (2026-11-23: US-Neon cleanup,
+hard `def_restricted` fix, league daily-cap warning, MOTM/assists, SEO, then T3.2 P3). See DEVELOPMENT_PLAN.md
 (reprioritised 2026-07-18); the roadmap is ordered by value × effort × demand (Tiers 1–4), not by
 dependency phases.
-**Live refactor tracker: `docs/refactor/NEXT_STEPS.md`.**
+*(`docs/refactor/NEXT_STEPS.md` is the closed record of the 2026-07 refactor phase — historical, not a live tracker.)*
 
 Completed phases:
 - v0.1: Core rotation algorithm (Python only)
@@ -119,9 +119,11 @@ football-app-project/
 ├── CLAUDE.md
 ├── BRAND.md              ← Brand guidelines (v1.4) — Level identity, Tinkering mode spec
 ├── requirements.md
-├── DEVELOPMENT_PLAN.md   ← Forward roadmap (refactor → v1.0 → v1.1)
+├── DEVELOPMENT_PLAN.md   ← Forward roadmap (Tiers 1–4) + ▶ Next up
 ├── docs/
-│   ├── refactor/NEXT_STEPS.md ← Live refactor-phase (C.4) tracker
+│   ├── refactor/NEXT_STEPS.md ← Refactor phase C record (historical, closed 2026-07)
+│   ├── ASSISTANT_COACH_PLAN.md / MULTI_TEAM_PLAN.md ← T3.2 / T1.1 designs (as built)
+│   ├── STAGING.md       ← Release process (staging → main)
 │   └── adr/              ← Architecture decision records
 ├── pyproject.toml
 ├── main.py               ← FastAPI app entry point
@@ -145,7 +147,7 @@ football-app-project/
 │   │   ├── skill_balancer.py
 │   │   └── validator.py       ← configurable sub limits, position variety
 │   ├── api/              ← FastAPI routers (thin HTTP adapters)
-│   ├── services/         ← match_service, tournament_service (C.5), analytics (C.7), matchday (control + clock), notifications
+│   ├── services/         ← match_service, tournament_service (C.5), analytics (C.7), matchday (control + clock), notifications, spreadsheet_export
 │   └── db/               ← SQLite repositories, additive migration pattern
 │
 ├── frontend/            ← ES modules (no framework); app.js is a thin entry point
@@ -160,6 +162,11 @@ football-app-project/
 │   ├── api.js            ← Fetch wrappers
 │   ├── toast.js          ← Toast notifications + withSaveToast retry helper (C.7)
 │   ├── plan-owner.js     ← "Plan by …" chip, head-coach hand-over picker, Reviewed ✓ mark
+│   ├── auth.js           ← Auth gate: login / magic-link confirm / invite + assistant join
+│   ├── teams.js / settings.js ← Team pill + switcher; Settings (account, assistants, theme, updates)
+│   ├── plan-image.js / share.js ← Team-sheet PNG + match-report share image
+│   ├── theme.js / brand.js / quotes.js ← Colourway, branding, loading-screen quotes
+│   ├── admin.html        ← Admin portal (invites, accounts, impersonate) — ADMIN_KEY-gated
 │   ├── style.css
 │   └── sw.js             ← Service Worker
 │
@@ -201,7 +208,10 @@ football-app-project/
   but this is best-effort, not a hard guarantee: when the preferred pool for a
   slot empties, the position assigner falls back to any eligible player rather
   than leave a position unfilled (`_assign_outfield_positions` → `pool_for`).
-  DEF restriction (`def_restricted`) and GK specialist status ARE hard.
+  DEF restriction (`def_restricted`) and GK specialist status are meant to be hard —
+  but **known gap:** `pool_for`'s last resort (`return p if p else unassigned`) can still
+  place a DEF-restricted player at DEF in a squeezed squad (the validator flags it).
+  Fixing it is ▶ Next up #2 in DEVELOPMENT_PLAN.md.
 - `def_restricted` and `gk_status` are derived from position selections in the UI
 
 ### Shirt numbers
@@ -284,6 +294,13 @@ Match (MatchDB)
 
 Squad (SquadDB)
   team_name: str, team_logo: str  ← base64 DataURL
+  account_id                      ← owner / head coach (denormalised)
+
+Account (AccountDB)              ← email, display_name, status, session_epoch
+  squad_id                        ← the ACTIVE team pointer (may be a team they assist)
+
+SquadMembershipDB                ← (squad_id, account_id, role "head"|"assistant"); one head per team
+InviteDB                         ← one-time token hash; squad_id+role set = assistant invite
 
 Formation
   defense: int, midfield: int, forward: int
@@ -356,5 +373,5 @@ GameConfig
 | v0.8 | Tournament mode | integration (test_tournaments.py) ✓ |
 | v0.9 | Consecutive sit-out constraint, timer, tinkering clarity, in-app bug report | BDD + integration ✓ |
 | refactor | app.js modularisation, Playwright smoke suite, CSS/HTML unit tests | Playwright parity tests |
-| v1.0 | Plan Review UX (table view, per-player counts, tinker/undo) | Playwright golden path |
+| v1.0 | Plan Review UX (table view, per-player counts; undo/redo dropped) | Playwright golden path |
 | v1.1 | Multi-user, email + magic-link auth, PostgreSQL | All tests green + isolation/IDOR tests |

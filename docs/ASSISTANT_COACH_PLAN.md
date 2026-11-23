@@ -1,8 +1,7 @@
 # Assistant coach mode (T3.2) — implementation plan
 
-> Status: **Phase 1 BUILT on `staging` (2026-09-28), not yet deployed.** Phases 2–3 planned.
-> **Phase 1.5 (assistant-authored plans, hand-over, Reviewed ✓, emails) and Phase 2 (one
-> controlling device + server clock) BUILT on `staging` (2026-11-14)** — see below. Phase 3 planned.
+> Status: **Phases 1, 1.5 and 2 SHIPPED to `main`/live** (P1 2026-09-28; P1.5 + P2 2026-11-14,
+> SW v58). Phase 3 (comments & proposals) planned.
 > Decisions locked with the owner 2026-09-28.
 > A team has **one head coach** and any number of **assistants**. Roles are per team,
 > so one account can be head coach of its own team and an assistant on someone else's.
@@ -34,11 +33,16 @@
 | Capability | Head | Assistant P1 | Assistant P2 | Assistant P3 |
 |---|---|---|---|---|
 | `view` — stats, history, reports, plans (skill ratings redacted) | ✓ | ✓ | ✓ | ✓ |
-| `run_matchday` — start, advance, goals, timer, remove/reinstate | ✓ | – | ✓ | ✓ |
+| `run_matchday` — start, advance, goals, timer, remove/reinstate | ✓ | – | own plans only † | own plans only † |
 | `comment`, `propose` | ✓ | – | – | ✓ |
 | `edit_plan` — create match, generate, tinker, recalc, delete | ✓ | – | – | – |
 | `manage_squad` — players, guests, skill ratings | ✓ | – | – | – |
 | `manage_team` — name/logo, invite/revoke assistants, clear/delete | ✓ | – | – | – |
+
+† **As built**, the assistant role holds `{view, author_plan}`, and running a match goes through
+`editable_match` → `controlled_match`: an assistant can run only a plan they own (created, or handed
+over by the head coach). The original sketch ("any assistant runs matchday") was dropped in P1.5/P2
+so it wouldn't undo the plan-ownership rule. A per-assistant "can run any match" toggle is deferred.
 
 ---
 

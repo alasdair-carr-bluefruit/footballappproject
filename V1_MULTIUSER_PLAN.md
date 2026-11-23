@@ -1,3 +1,7 @@
+> **HISTORICAL (banner added 2026-11-23).** Multi-user shipped magic-link-first (ADR 0002) and has
+> since grown multi-team and assistant coaches. Kept for the design rationale only; current state is
+> in `CLAUDE.md` and `DEVELOPMENT_PLAN.md`.
+
 # Level v1.0 — Multi-User Plan (PIN-first, magic-link-ready)
 
 > Working plan for converting Level from single-global-squad to multi-tenant.

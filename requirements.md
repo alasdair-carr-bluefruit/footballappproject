@@ -3,7 +3,7 @@
 > [!NOTE]
 > **Original product spec ("what it should do") — not a status tracker.** Predates
 > v0.7–v0.9, so feature lists here may not reflect everything shipped. For current
-> status use `CLAUDE.md` / `docs/refactor/NEXT_STEPS.md`; for the roadmap,
+> status use `CLAUDE.md`; for the roadmap,
 > `DEVELOPMENT_PLAN.md`.
 
 **Project:** Football (Soccer) Squad Rotation Manager
@@ -61,7 +61,9 @@ Position names are derived from formation shape, not hardcoded:
 - Each lineup: 1 GK + outfield players per formation
 - DEF-restricted players never assigned to DEF
 - Each player: max 2 different position types per match
-- Algorithm respects `preferred_positions` hard constraint — never assigns outside it (when set)
+- `preferred_positions` is **best-effort (soft)** — strongly preferred, but when the preferred pool for a
+  slot is empty the engine uses any eligible player rather than leave the position unfilled (flagged
+  as "out of position" on the review screen)
 
 ---
 
@@ -185,12 +187,12 @@ Coach can enter Tinkering mode at any point during a match to adjust the plan:
 - FR-36: Tournament stats view — cumulative slots per player across the day
 - FR-37 (v0.9): No player sits out two consecutive tournament matches when fairness ≤ 50; validator flags violations
 
-### 9.8 Match Timer (planned v0.9)
+### 9.8 Match Timer (delivered v0.9; server-side clock since 2026-11)
 - FR-38: Live match shows a timer; count-up by default, configurable countdown
 - FR-39: Countdown starts from the slot length derived from match/tournament duration settings
 - FR-40: Audible alert and/or vibration when the countdown reaches zero
 
-### 9.9 Feedback (planned v0.9)
+### 9.9 Feedback (delivered v0.9)
 - FR-41: In-app bug report — no GitHub account required; report created server-side with app context
 
 ---
@@ -200,8 +202,8 @@ Coach can enter Tinkering mode at any point during a match to adjust the plan:
 - NFR-01: Mobile PWA — no app install required
 - NFR-02: Offline capable via Service Worker
 - NFR-03: Large, clear touch-friendly UI
-- NFR-04: Data persists between sessions (SQLite, migrating to PostgreSQL for multi-user)
-- NFR-05: Single-user v1 — no login required; multi-user planned for v1.0
+- NFR-04: Data persists between sessions (SQLite locally/tests; Neon PostgreSQL in production)
+- NFR-05: Multi-user — magic-link sign-in, invite-only; one account may hold several teams, with per-team head/assistant roles
 
 ---
 
@@ -210,20 +212,20 @@ Coach can enter Tinkering mode at any point during a match to adjust the plan:
 - Auto-advance of slots (timer is now in scope — §9.8 — but never auto-advances the plan)
 - Tactical formation drawing
 - Player performance stats input during match
-- Export (removed; revisit after the plan-review screen, v1.1)
+- *(Export is back in scope: `.xlsx` season/tournament stats export exists — revisit tracked as T3.3)*
 - Local-first offline sync, ads/subscriptions (re-evaluate post-v1.0 only if usage demands)
 
 ---
 
 ## 12. Planned Future Phases
 
-Roadmap detail lives in DEVELOPMENT_PLAN.md (2026-07-10).
+Roadmap detail lives in DEVELOPMENT_PLAN.md (Forward Roadmap, Tiers 1–4).
 
 | Phase | Scope | Status |
 |-------|-------|--------|
 | v0.7 | Start Match lock, mid-match removal/reinstatement, player history view | ✓ shipped 2026-05 |
 | v0.8 | Tournament mode — cross-match slots, guest players, manual mode | ✓ shipped 2026-05 |
-| v0.9 | Consecutive sit-out constraint, match timer, tinkering warning clarity, in-app bug report | next |
-| refactor | app.js modularisation, shared season/tournament components, Playwright parity suite | pre-v1.0 |
-| v1.0 | Multi-user — email + magic-link auth, invite-only, PostgreSQL (Neon), Railway | planned |
-| v1.1 | Plan-review screen, tinkering undo/redo, export revisit | planned |
+| v0.9 | Consecutive sit-out constraint, match timer, tinkering warning clarity, in-app bug report | ✓ shipped 2026-07 |
+| refactor | app.js modularisation, shared season/tournament components, Playwright parity suite | ✓ shipped 2026-07 |
+| v1.0 | Plan-review screen (undo/redo dropped; export revisit → T3.3) | ✓ shipped 2026-07 |
+| v1.1 | Multi-user — magic-link auth, invite-only, Neon PostgreSQL, Railway; then multi-team + assistant coaches | ✓ shipped 2026-07 → 2026-11 |

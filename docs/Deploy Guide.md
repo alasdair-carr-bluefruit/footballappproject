@@ -4,7 +4,7 @@
 > **This is the legacy per-coach deployment model** — one Render service + one Neon DB
 > per coach, no login. It is superseded by the v1.0 multi-user plan (one always-on
 > Railway instance + shared Neon Postgres, email + magic-link auth — see
-> `V1_MULTIUSER_PLAN.md` and `docs/adr/0003-hosting-railway-neon.md`).
+> `docs/adr/0003-hosting-railway-neon.md`; release process in `docs/STAGING.md`).
 > Use this guide only to stand up or maintain a fallback single-coach instance;
 > existing instances stay as-is until their coaches migrate to the shared deployment.
 

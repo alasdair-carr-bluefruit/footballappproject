@@ -1,3 +1,7 @@
+> **CLOSED — historical record (banner added 2026-11-23).** The refactor phase (C.1–C.7) and
+> D.1 are long shipped; D.2 undo/redo was dropped and D.3 export became T3.3. For what to do
+> next, see the **▶ Next up** section of `DEVELOPMENT_PLAN.md`.
+
 # Refactor phase — next steps
 
 _Live tracker for the pre-v1.0 refactor phase (DEVELOPMENT_PLAN.md "Phase C").

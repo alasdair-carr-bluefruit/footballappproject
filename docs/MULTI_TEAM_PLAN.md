@@ -1,6 +1,7 @@
 # Multi-team mode (T1.1) — implementation plan
 
-> Status: **planned, ready to execute.** Decisions locked with the owner 2026-07-20.
+> Status: **SHIPPED 2026-07-21** (owner-FK model; see DEVELOPMENT_PLAN.md T1.1). Roles/memberships
+> came later with T3.2 — `docs/ASSISTANT_COACH_PLAN.md`. Decisions locked with the owner 2026-07-20.
 > One coach account can own **many teams (squads)**, know which one they're on at a
 > glance, switch between them, add a new one, and remove one. Co-coach roles and
 > "export a team to another coach" are explicitly **out of scope** (future work).
