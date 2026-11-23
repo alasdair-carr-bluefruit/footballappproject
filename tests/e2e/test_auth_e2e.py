@@ -183,3 +183,26 @@ def test_remove_the_team_you_are_on(auth_server, page: Page):
     expect(page.locator("#team-switcher-list .team-row")).to_have_count(1)
     expect(page.locator(".toast", has_text="Removed Panthers")).to_be_visible()
     expect(page.locator("#team-pill-home .team-pill")).to_contain_text("Keepers FC")
+
+
+def test_first_visit_service_worker_never_reloads_the_join_form(auth_server, browser):
+    """A brand-new coach's first visit installs the service worker, whose
+    clients.claim() fires `controllerchange`. That must NOT reload the page (it used
+    to: the typed email vanished, and an in-flight redeem could burn the invite so
+    the retry said "invalid"). Own context so service workers are allowed here."""
+    base = auth_server
+    ctx = browser.new_context(service_workers="allow")
+    try:
+        page = ctx.new_page()
+        loads: list[int] = []
+        page.on("load", lambda: loads.append(1))
+        page.goto(base + f"/?invite={_mint_invite(base)}")
+        expect(page.locator("#screen-join")).to_be_visible()
+        page.fill("#join-email", "first@example.com")
+        # Wait until the SW has installed and taken control of this page.
+        page.wait_for_function("navigator.serviceWorker.controller !== null", timeout=15000)
+        page.wait_for_timeout(500)
+        assert len(loads) == 1, "first-visit SW activation reloaded the page"
+        expect(page.locator("#join-email")).to_have_value("first@example.com")
+    finally:
+        ctx.close()
