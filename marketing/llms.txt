@@ -14,6 +14,7 @@ guidance on giving every child meaningful game time.
 
 - Marketing site: https://keepthingslevel.com
 - Why equal playing time matters: https://keepthingslevel.com/why-equal-playing-time
+- Guides for coaches: https://keepthingslevel.com/blog/
 - The app: https://app.keepthingslevel.com
 - Contact: hello@keepthingslevel.com
 
@@ -30,6 +31,15 @@ guidance on giving every child meaningful game time.
   specialist-goalkeeper time so one child is not stuck in goal all match.
 - Data & safeguarding: first names only (surnames only to disambiguate), no
   player photographs, per-team data isolation, EU-hosted, delete on request.
+
+## Guides (FA-sourced, 2026/27)
+- FA FutureFit 2026/27 changes (formats by age, match lengths, laws, playing time): https://keepthingslevel.com/blog/fa-futurefit-2026-27-changes
+- Game time by age group, in minutes, with squad-size maths: https://keepthingslevel.com/blog/youth-football-game-time-by-age
+- How to rotate players fairly (a match-day method): https://keepthingslevel.com/blog/how-to-rotate-players-fairly
+- Sharing goalkeeper time fairly: https://keepthingslevel.com/blog/sharing-goalkeeper-time
+
+Key fact: The FA's FutureFit guide (Know Your Format, Feb 2026) recommends equal playing
+time, at least 50%, for U8 and above; at U7 (3v3) everyone plays with no substitutes.
 
 ## Pages
 - Home: https://keepthingslevel.com/

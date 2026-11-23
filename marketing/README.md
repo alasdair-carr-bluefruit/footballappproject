@@ -25,8 +25,11 @@ marketing/
   `assets/brand/og-image.svg` — re-export to PNG if you edit the source.
 - After deploy, submit `https://keepthingslevel.com/sitemap.xml` to Google Search
   Console and Bing Webmaster Tools.
-- Blog posts (see roadmap Phase I) go in `marketing/blog/` as plain HTML — remember
-  to add each to `sitemap.xml`.
+- Guides live in `marketing/blog/` as plain HTML (served at `/blog/<slug>`, extensionless).
+  Each has Article + BreadcrumbList + FAQPage JSON-LD (FAQ JSON-LD mirrors the visible
+  "Quick answers" section — keep them identical). Add each new post to `sitemap.xml`,
+  `llms.txt`, and the cards on `blog/index.html`. **Every factual claim must link an
+  FA-owned source** (see the sources list on each post).
 
 ## The explainer video
 Embedded from YouTube (not hosted in the repo — avoids Pages' file-size cap and

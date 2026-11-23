@@ -204,3 +204,33 @@ h2 { font-size: clamp(26px, 4vw, 36px); margin: 0 0 14px; letter-spacing: -0.3px
   section { padding: 48px 0; }
   .prose blockquote p { font-size: 0.96rem; }
 }
+
+/* ── Guides / blog (2026-11) ─────────────────────────────────────────────── */
+.post-meta { color: var(--muted); font-size: 14px; margin: 0; font-family: var(--mono); }
+.prose .lead-in { font-size: clamp(18px, 2.3vw, 20px); color: var(--chalk); }
+.prose ul, .prose ol { margin: 0 0 20px; padding-left: 22px; }
+.prose li { margin-bottom: 8px; }
+.prose .muted { color: var(--muted); }
+.prose .formula { font-family: var(--mono); background: var(--deep-ink); border: 1px solid var(--hairline);
+  border-radius: 10px; padding: 14px 16px; color: var(--signal-lime); text-align: center; }
+.table-wrap { overflow-x: auto; margin: 0 0 22px; -webkit-overflow-scrolling: touch; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 520px; }
+.data-table th, .data-table td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.data-table thead th { color: var(--signal-lime); font-family: var(--mono); font-size: 13px; }
+.data-table thead th span { color: var(--muted); font-weight: 400; }
+.data-table tbody th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.warn-text { color: #f6a488; }
+.cta-box { background: var(--ghost-green); border: 1px solid var(--hairline); border-radius: 14px; padding: 22px 24px; margin: 34px 0; }
+.cta-box .eyebrow { margin: 0 0 8px; }
+.cta-box p:last-child { margin-bottom: 0; }
+.faq { border-bottom: 1px solid var(--hairline); padding: 12px 0; }
+.faq summary { cursor: pointer; font-weight: 700; }
+.faq p { margin: 10px 0 0; color: var(--muted); }
+.post-links { padding-left: 22px; }
+.post-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; max-width: 900px; margin: 0 auto; }
+.post-card { display: block; background: var(--ghost-green); border: 1px solid var(--hairline); border-radius: 14px;
+  padding: 22px; text-decoration: none; color: var(--chalk); }
+.post-card:hover { border-color: var(--signal-lime); }
+.post-card .eyebrow { margin: 0 0 8px; }
+.post-card h2 { font-size: 21px; margin: 0 0 10px; }
+.post-card p { color: var(--muted); margin: 0; font-size: 15px; }
