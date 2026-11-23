@@ -54,7 +54,7 @@
     .topbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
     .topbar .sub { margin: 0; }
     .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
-    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } .side { position: static; } }
     .side { position: sticky; top: 16px; }
     .search { position: sticky; top: 0; z-index: 5; background: var(--studio-green); padding: 0 0 12px; }
     .search-box { position: relative; }
@@ -84,6 +84,15 @@
     mark { background: rgba(164,204,70,.35); color: inherit; border-radius: 3px; padding: 0 1px; }
     .empty { color: var(--muted); font-size: 13px; padding: 14px 4px; }
     .detail td { background: #0f1a15; font-size: 13px; color: var(--muted); }
+    /* Tables never push past their card: long notes/emails wrap, actions stay on
+       one line in a shrink-to-fit column, and anything still too wide scrolls. */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    td { overflow-wrap: anywhere; vertical-align: top; }
+    td.actions-cell { width: 1%; white-space: nowrap; overflow-wrap: normal; }
+    td .actions { flex-wrap: nowrap; justify-content: flex-end; }
+    td .pill { white-space: nowrap; }
+    td.date { white-space: nowrap; overflow-wrap: normal; }
+    @media (max-width: 1100px) { .col-optional { display: none; } }
   </style>
 </head>
 <body>
@@ -148,10 +157,10 @@
           </div>
           <p class="sub" style="margin:0 0 10px;">Impersonate opens the app in a new tab as that coach. Use <strong>Sign out</strong> in the app to return to yourself.</p>
           <div class="msg" id="accounts-msg"></div>
-          <table id="accounts-table">
-            <thead><tr><th>Coach</th><th>Teams</th><th>Status</th><th>Joined</th><th>Last login</th><th>Actions</th></tr></thead>
+          <div class="table-scroll"><table id="accounts-table">
+            <thead><tr><th>Coach</th><th>Teams</th><th>Status</th><th class="col-optional">Joined</th><th>Last login</th><th></th></tr></thead>
             <tbody id="account-rows"></tbody>
-          </table>
+          </table></div>
           <div class="empty hide" id="accounts-empty"></div>
         </div>
 
@@ -171,10 +180,10 @@
             </div>
           </div>
           <div class="msg" id="list-msg"></div>
-          <table id="invite-table">
-            <thead><tr><th>Note</th><th>Type</th><th>Created by</th><th>Created</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+          <div class="table-scroll"><table id="invite-table">
+            <thead><tr><th>Note</th><th>Type</th><th class="col-optional">Created by</th><th>Created</th><th class="col-optional">Expires</th><th>Status</th><th></th></tr></thead>
             <tbody id="invite-rows"></tbody>
-          </table>
+          </table></div>
           <div class="empty hide" id="invites-empty"></div>
         </div>
       </main>
@@ -311,16 +320,16 @@
       for (const inv of shown) {
         const tr = document.createElement("tr");
         if (isDead(inv)) tr.className = "dead";
-        const statusLabel = inv.state === "redeemed" && inv.redeemed_by ? "redeemed · " + inv.redeemed_by : inv.state;
         const kind = inv.kind === "assistant"
           ? '<span class="pill kind">' + hl("assistant", ts) + "</span>" + (inv.team_name ? "<div class='keystate'>" + hl(inv.team_name, ts) + "</div>" : "")
           : '<span class="pill kind">' + hl("coach", ts) + "</span>";
         const createdBy = inv.created_by === "admin" ? '<span class="pill">' + hl("admin", ts) + "</span>" : hl(inv.created_by, ts);
         tr.innerHTML =
-          "<td>" + hl(inv.note, ts) + "</td><td>" + kind + "</td><td>" + createdBy + "</td>" +
-          "<td>" + fmt(inv.created_at) + "</td><td>" + (inv.state === "revoked" ? "—" : fmt(inv.expires_at)) + "</td>" +
-          '<td><span class="pill ' + esc(inv.state) + '">' + hl(statusLabel, ts) + "</span></td>" +
-          '<td><div class="actions"></div></td>';
+          "<td>" + hl(inv.note, ts) + "</td><td>" + kind + "</td><td class='col-optional'>" + createdBy + "</td>" +
+          "<td class='date'>" + fmt(inv.created_at) + "</td><td class='date col-optional'>" + (inv.state === "revoked" ? "—" : fmt(inv.expires_at)) + "</td>" +
+          '<td><span class="pill ' + esc(inv.state) + '">' + hl(inv.state, ts) + "</span>" +
+          (inv.state === "redeemed" && inv.redeemed_by ? "<div class='keystate'>" + hl(inv.redeemed_by, ts) + "</div>" : "") + "</td>" +
+          '<td class="actions-cell"><div class="actions"></div></td>';
         const actions = tr.querySelector(".actions");
         if (inv.state === "pending") {
           const b = button("Revoke", "btn-ghost btn-danger");
@@ -390,8 +399,8 @@
           "<td><div>" + hl(a.display_name, ts) + "</div><div class='keystate'>" + hl(a.email, ts) + "</div></td>" +
           "<td>" + teams + "</td>" +
           "<td>" + (suspended ? '<span class="pill warn">' + hl("suspended", ts) + "</span>" : '<span class="pill">' + hl(a.status || "—", ts) + "</span>") + "</td>" +
-          "<td>" + fmt(a.created_at) + "</td><td>" + fmt(a.last_login_at) + "</td>" +
-          '<td><div class="actions"></div></td>';
+          "<td class='date col-optional'>" + fmt(a.created_at) + "</td><td class='date'>" + fmt(a.last_login_at) + "</td>" +
+          '<td class="actions-cell"><div class="actions"></div></td>';
         const actions = tr.querySelector(".actions");
         const imp = button("Impersonate", "btn-primary");
         imp.addEventListener("click", () => impersonate(a.id, a.display_name, imp));
