@@ -49,83 +49,153 @@
     .pill.warn { background: rgba(192,57,43,.16); color: #e07a6f; }
     .keystate { font-size: 12px; color: var(--muted); }
     .hide { display: none; }
+    /* ── Wide desktop layout + magic search (2026-11) ── */
+    .wrap { max-width: 1180px; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+    .topbar .sub { margin: 0; }
+    .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .side { position: sticky; top: 16px; }
+    .search { position: sticky; top: 0; z-index: 5; background: var(--studio-green); padding: 0 0 12px; }
+    .search-box { position: relative; }
+    .search-box input { margin: 0; padding: 14px 44px 14px 42px; font-size: 16px; border-radius: 12px; }
+    .search-box .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .search-box .kbd { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-size: 11px;
+                       color: var(--muted); border: 1px solid var(--hairline); border-radius: 5px; padding: 1px 6px; }
+    .search-hint { font-size: 12px; color: var(--muted); margin: 6px 2px 0; }
+    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .section-head h2 { margin: 0; }
+    .count { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { font-size: 12px; padding: 5px 11px; border-radius: 20px; border: 1px solid var(--hairline); background: transparent;
+            color: var(--muted); cursor: pointer; font-family: var(--sans); }
+    .chip.on { background: rgba(164,204,70,.15); color: var(--signal-lime); border-color: rgba(164,204,70,.4); }
+    .btn-sm { padding: 6px 11px; font-size: 13px; }
+    .btn-danger { color: #e07a6f; }
+    td .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    tr.dead td { opacity: .55; }
+    tr.dead td:last-child { opacity: 1; }
+    .team-chip { display: inline-block; font-size: 12px; padding: 2px 8px; margin: 0 4px 4px 0; border-radius: 6px;
+                 background: #0f1a15; border: 1px solid var(--hairline); }
+    .team-chip.active { border-color: rgba(164,204,70,.5); }
+    .team-chip .role { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: 4px; text-transform: uppercase; }
+    .pill.revoked, .pill.expired { background: rgba(192,57,43,.16); color: #e07a6f; }
+    .pill.kind { background: rgba(157,179,166,.12); color: var(--muted); }
+    mark { background: rgba(164,204,70,.35); color: inherit; border-radius: 3px; padding: 0 1px; }
+    .empty { color: var(--muted); font-size: 13px; padding: 14px 4px; }
+    .detail td { background: #0f1a15; font-size: 13px; color: var(--muted); }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>LEVEL · ADMIN</h1>
-    <p class="sub">Mint invites and email them to coaches. Everything here is gated by your <code>ADMIN_KEY</code>.</p>
-
-    <!-- Admin key -->
-    <div class="card">
-      <h2>Admin key</h2>
-      <div id="key-setup">
-        <label for="admin-key">Paste your ADMIN_KEY (stored in this browser only)</label>
-        <input type="password" id="admin-key" autocomplete="off" placeholder="ADMIN_KEY" />
-        <button class="btn btn-primary" id="btn-save-key">Save key</button>
+    <div class="topbar">
+      <div>
+        <h1>LEVEL · ADMIN</h1>
+        <p class="sub">Invites, accounts and support tools. Everything here is gated by your <code>ADMIN_KEY</code>.</p>
       </div>
       <div id="key-saved" class="hide row">
         <span class="keystate">✓ Key saved in this browser.</span>
-        <button class="btn btn-ghost" id="btn-forget-key">Forget key</button>
+        <button class="btn btn-ghost btn-sm" id="btn-forget-key">Forget key</button>
       </div>
     </div>
 
-    <!-- Create invite -->
-    <div class="card">
-      <h2>New invite</h2>
-      <label for="coach-email">Coach's email (optional — leave blank to just get a link to share)</label>
-      <input type="email" id="coach-email" autocomplete="off" placeholder="coach@example.com" />
-      <label for="invite-note">Note (optional — who's this for?)</label>
-      <input type="text" id="invite-note" autocomplete="off" placeholder="e.g. Dave — U9s" />
-      <div class="row">
-        <button class="btn btn-primary" id="btn-create">Create invite</button>
-        <span class="keystate" id="create-hint">Enter an email to send it; blank to copy a link.</span>
-      </div>
-      <div class="msg" id="create-msg"></div>
-      <div class="linkbox hide" id="create-link"></div>
+    <!-- Admin key (only shown until one is saved) -->
+    <div class="card" id="key-setup">
+      <h2>Admin key</h2>
+      <label for="admin-key">Paste your ADMIN_KEY (stored in this browser only)</label>
+      <input type="password" id="admin-key" autocomplete="off" placeholder="ADMIN_KEY" />
+      <button class="btn btn-primary" id="btn-save-key">Save key</button>
     </div>
 
-    <!-- Outstanding invites -->
-    <div class="card">
-      <div class="row" style="justify-content: space-between;">
-        <h2 style="margin:0;">Invites</h2>
-        <button class="btn btn-ghost" id="btn-refresh">Refresh</button>
-      </div>
-      <div class="msg" id="list-msg"></div>
-      <table id="invite-table" class="hide">
-        <thead><tr><th>Note</th><th>Created by</th><th>Created</th><th>Expires</th><th>Status</th><th></th></tr></thead>
-        <tbody id="invite-rows"></tbody>
-      </table>
-    </div>
+    <div class="layout hide" id="main">
+      <aside class="side">
+        <!-- Create invite -->
+        <div class="card">
+          <h2>New invite</h2>
+          <label for="coach-email">Coach's email (optional — blank just gives you a link)</label>
+          <input type="email" id="coach-email" autocomplete="off" placeholder="coach@example.com" />
+          <label for="invite-note">Note (optional — who's this for?)</label>
+          <input type="text" id="invite-note" autocomplete="off" placeholder="e.g. Dave — U9s" />
+          <button class="btn btn-primary" id="btn-create">Create invite</button>
+          <div class="msg" id="create-msg"></div>
+          <div class="linkbox hide" id="create-link" title="Click to copy"></div>
+        </div>
+      </aside>
 
-    <!-- Accounts -->
-    <div class="card">
-      <div class="row" style="justify-content: space-between;">
-        <h2 style="margin:0;">Accounts</h2>
-        <button class="btn btn-ghost" id="btn-refresh-accounts">Refresh</button>
-      </div>
-      <p class="sub" style="margin:10px 0 0;">Impersonate opens the app in a new tab as that coach. Use <strong>Sign out</strong> in the app to return to yourself.</p>
-      <div class="msg" id="accounts-msg"></div>
-      <table id="accounts-table" class="hide">
-        <thead><tr><th>Coach</th><th>Team</th><th>Status</th><th>Last login</th><th>Actions</th></tr></thead>
-        <tbody id="account-rows"></tbody>
-      </table>
+      <main>
+        <div class="search">
+          <div class="search-box">
+            <span class="icon">⌕</span>
+            <input type="search" id="search" autocomplete="off" spellcheck="false"
+                   placeholder="Search names, emails, teams, notes, status…" />
+            <span class="kbd">/</span>
+          </div>
+          <p class="search-hint" id="search-hint">Every word must match. Try <code>assistant</code>, <code>pending</code>, <code>suspended</code> or a team name.</p>
+        </div>
+
+        <!-- Accounts -->
+        <div class="card">
+          <div class="section-head">
+            <h2>Accounts <span class="count" id="accounts-count"></span></h2>
+            <div class="row">
+              <div class="chips" id="account-chips">
+                <button class="chip on" data-f="all">All</button>
+                <button class="chip" data-f="active">Active</button>
+                <button class="chip" data-f="disabled">Suspended</button>
+              </div>
+              <button class="btn btn-ghost btn-sm" id="btn-refresh-accounts">Refresh</button>
+            </div>
+          </div>
+          <p class="sub" style="margin:0 0 10px;">Impersonate opens the app in a new tab as that coach. Use <strong>Sign out</strong> in the app to return to yourself.</p>
+          <div class="msg" id="accounts-msg"></div>
+          <table id="accounts-table">
+            <thead><tr><th>Coach</th><th>Teams</th><th>Status</th><th>Joined</th><th>Last login</th><th>Actions</th></tr></thead>
+            <tbody id="account-rows"></tbody>
+          </table>
+          <div class="empty hide" id="accounts-empty"></div>
+        </div>
+
+        <!-- Invites -->
+        <div class="card">
+          <div class="section-head">
+            <h2>Invites <span class="count" id="invites-count"></span></h2>
+            <div class="row">
+              <div class="chips" id="invite-chips">
+                <button class="chip on" data-f="all">All</button>
+                <button class="chip" data-f="pending">Pending</button>
+                <button class="chip" data-f="redeemed">Redeemed</button>
+                <button class="chip" data-f="dead">Revoked / expired</button>
+              </div>
+              <button class="btn btn-ghost btn-sm btn-danger hide" id="btn-clear-dead">Clear dead</button>
+              <button class="btn btn-ghost btn-sm" id="btn-refresh">Refresh</button>
+            </div>
+          </div>
+          <div class="msg" id="list-msg"></div>
+          <table id="invite-table">
+            <thead><tr><th>Note</th><th>Type</th><th>Created by</th><th>Created</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+            <tbody id="invite-rows"></tbody>
+          </table>
+          <div class="empty hide" id="invites-empty"></div>
+        </div>
+      </main>
     </div>
   </div>
 
   <script>
     const KEY_STORE = "level_admin_key";
     const $ = (id) => document.getElementById(id);
+    let accounts = [], invites = [];
+    let accountFilter = "all", inviteFilter = "all";
 
-    function adminKey() { return localStorage.getItem(KEY_STORE) || ""; }
+    function adminKey() { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } }
 
     function renderKeyState() {
       const has = !!adminKey();
       $("key-setup").classList.toggle("hide", has);
       $("key-saved").classList.toggle("hide", !has);
+      $("main").classList.toggle("hide", !has);
       if (has) { loadInvites(); loadAccounts(); }
     }
-
     $("btn-save-key").addEventListener("click", () => {
       const v = $("admin-key").value.trim();
       if (!v) return;
@@ -133,221 +203,245 @@
       $("admin-key").value = "";
       renderKeyState();
     });
-    $("btn-forget-key").addEventListener("click", () => {
-      localStorage.removeItem(KEY_STORE);
-      renderKeyState();
-    });
+    $("btn-forget-key").addEventListener("click", () => { localStorage.removeItem(KEY_STORE); renderKeyState(); });
 
-    async function apiPost(path, body) {
-      const res = await fetch(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": adminKey() },
-        body: JSON.stringify(body),
-      });
+    async function api(method, path, body) {
+      const opts = { method, headers: { "X-Admin-Key": adminKey() } };
+      if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+      const res = await fetch(path, opts);
       if (res.status === 403) throw new Error("Admin key rejected — check it and re-save.");
-      if (!res.ok) throw new Error("Request failed (" + res.status + ").");
+      if (!res.ok) {
+        let detail = ""; try { detail = (await res.json()).detail || ""; } catch (_) {}
+        throw new Error(detail || ("Request failed (" + res.status + ")."));
+      }
       return res.json();
     }
-    async function apiGet(path) {
-      const res = await fetch(path, { headers: { "X-Admin-Key": adminKey() } });
-      if (res.status === 403) throw new Error("Admin key rejected — check it and re-save.");
-      if (!res.ok) throw new Error("Request failed (" + res.status + ").");
-      return res.json();
-    }
+    const apiGet = (p) => api("GET", p);
+    const apiPost = (p, b) => api("POST", p, b || {});
 
     function fmt(iso) { return iso ? String(iso).slice(0, 10) : "—"; }
+    function esc(v) {
+      return String(v == null ? "" : v).replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function flash(el, cls, text) { el.className = "msg " + cls; el.textContent = text; }
 
+    // ── Magic search: every typed word must appear somewhere in the row ────────
+    function terms() { return $("search").value.toLowerCase().split(/\s+/).filter(Boolean); }
+    function matches(hay, ts) { const h = hay.toLowerCase(); return ts.every((t) => h.includes(t)); }
+    function hl(text, ts) {
+      let out = esc(text || "");
+      if (!ts.length || !text) return out || "—";
+      const re = new RegExp("(" + ts.map((t) => esc(t).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
+      return out.replace(/(<[^>]*>)|([^<]+)/g, (m, tag, txt) => tag || txt.replace(re, "<mark>$1</mark>"));
+    }
+    function setCount(id, shown, total) { $(id).textContent = shown === total ? "(" + total + ")" : "(" + shown + " of " + total + ")"; }
+    function render() { renderAccounts(); renderInvites(); }
+
+    $("search").addEventListener("input", render);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "/" && document.activeElement !== $("search") && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
+        e.preventDefault(); $("search").focus();
+      } else if (e.key === "Escape" && document.activeElement === $("search")) {
+        $("search").value = ""; render();
+      }
+    });
+    function wireChips(id, set) {
+      $(id).addEventListener("click", (e) => {
+        const b = e.target.closest(".chip"); if (!b) return;
+        $(id).querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === b));
+        set(b.dataset.f); render();
+      });
+    }
+    wireChips("account-chips", (f) => { accountFilter = f; });
+    wireChips("invite-chips", (f) => { inviteFilter = f; });
+
+    // ── Create invite ───────────────────────────────────────────────────────────
     $("btn-create").addEventListener("click", async () => {
       const email = $("coach-email").value.trim();
       const note = $("invite-note").value.trim();
       const msg = $("create-msg"), linkbox = $("create-link"), btn = $("btn-create");
-      msg.className = "msg"; msg.textContent = ""; linkbox.classList.add("hide");
+      msg.className = "msg"; linkbox.classList.add("hide");
       btn.disabled = true;
       try {
         const r = await apiPost("/api/admin/invites", { email, note });
         linkbox.textContent = r.link;
         linkbox.classList.remove("hide");
-        if (email && r.email_configured) {
-          msg.className = "msg ok";
-          msg.textContent = "Invite emailed to " + email + ". Link is also shown below as a backup.";
-        } else if (email && !r.email_configured) {
-          msg.className = "msg warn";
-          msg.textContent = "No email provider configured, so nothing was sent. Copy the link below and send it manually.";
-        } else {
-          msg.className = "msg ok";
-          msg.textContent = "Invite created. Copy the link below and send it to the coach.";
-        }
+        if (email && r.email_configured) flash(msg, "ok", "Invite emailed to " + email + ". The link is below as a backup (click to copy).");
+        else if (email) flash(msg, "warn", "No email provider configured, so nothing was sent. Copy the link below and send it manually.");
+        else flash(msg, "ok", "Invite created. Click the link below to copy it.");
         $("coach-email").value = ""; $("invite-note").value = "";
         loadInvites();
       } catch (e) {
-        msg.className = "msg warn";
-        msg.textContent = e.message || "Something went wrong.";
+        flash(msg, "warn", e.message || "Something went wrong.");
       } finally {
         btn.disabled = false;
       }
     });
-
-    // Click the link box to copy.
     $("create-link").addEventListener("click", () => {
-      navigator.clipboard.writeText($("create-link").textContent).then(() => {
-        const m = $("create-msg"); m.className = "msg ok"; m.textContent = "Link copied to clipboard.";
-      });
+      navigator.clipboard.writeText($("create-link").textContent).then(() => flash($("create-msg"), "ok", "Link copied to clipboard."));
     });
 
-    async function loadInvites() { $("btn-refresh").click(); }
+    // ── Invites ─────────────────────────────────────────────────────────────────
+    const isDead = (inv) => inv.state === "revoked" || inv.state === "expired";
+    async function loadInvites() {
+      try { invites = await apiGet("/api/admin/invites"); $("list-msg").className = "msg"; }
+      catch (e) { flash($("list-msg"), "warn", e.message || "Couldn't load invites."); }
+      renderInvites();
+    }
+    $("btn-refresh").addEventListener("click", loadInvites);
 
+    function inviteHay(inv) {
+      return [inv.note, inv.created_by, inv.redeemed_by, inv.state, inv.kind, inv.team_name,
+              isDead(inv) ? "dead" : "", fmt(inv.created_at)].join(" ");
+    }
+    function renderInvites() {
+      const ts = terms(), rows = $("invite-rows");
+      const dead = invites.filter(isDead).length;
+      $("btn-clear-dead").classList.toggle("hide", !dead);
+      $("btn-clear-dead").textContent = "Clear " + dead + " dead";
+      const shown = invites.filter((inv) =>
+        (inviteFilter === "all" || (inviteFilter === "dead" ? isDead(inv) : inv.state === inviteFilter)) &&
+        matches(inviteHay(inv), ts));
+      setCount("invites-count", shown.length, invites.length);
+      rows.innerHTML = "";
+      $("invite-table").classList.toggle("hide", !shown.length);
+      $("invites-empty").classList.toggle("hide", !!shown.length);
+      $("invites-empty").textContent = invites.length ? "No invites match." : "No invites yet.";
+      for (const inv of shown) {
+        const tr = document.createElement("tr");
+        if (isDead(inv)) tr.className = "dead";
+        const statusLabel = inv.state === "redeemed" && inv.redeemed_by ? "redeemed · " + inv.redeemed_by : inv.state;
+        const kind = inv.kind === "assistant"
+          ? '<span class="pill kind">' + hl("assistant", ts) + "</span>" + (inv.team_name ? "<div class='keystate'>" + hl(inv.team_name, ts) + "</div>" : "")
+          : '<span class="pill kind">' + hl("coach", ts) + "</span>";
+        const createdBy = inv.created_by === "admin" ? '<span class="pill">' + hl("admin", ts) + "</span>" : hl(inv.created_by, ts);
+        tr.innerHTML =
+          "<td>" + hl(inv.note, ts) + "</td><td>" + kind + "</td><td>" + createdBy + "</td>" +
+          "<td>" + fmt(inv.created_at) + "</td><td>" + (inv.state === "revoked" ? "—" : fmt(inv.expires_at)) + "</td>" +
+          '<td><span class="pill ' + esc(inv.state) + '">' + hl(statusLabel, ts) + "</span></td>" +
+          '<td><div class="actions"></div></td>';
+        const actions = tr.querySelector(".actions");
+        if (inv.state === "pending") {
+          const b = button("Revoke", "btn-ghost btn-danger");
+          b.addEventListener("click", () => revokeInvite(inv.id, b));
+          actions.appendChild(b);
+        } else if (isDead(inv)) {
+          const b = button("Remove", "btn-ghost");
+          b.addEventListener("click", () => removeInvite(inv.id, b));
+          actions.appendChild(b);
+        }
+        rows.appendChild(tr);
+      }
+    }
+    function button(text, cls) {
+      const b = document.createElement("button");
+      b.className = "btn btn-sm " + cls; b.textContent = text;
+      return b;
+    }
     async function revokeInvite(id, btn) {
-      const listMsg = $("list-msg");
       if (!confirm("Revoke this invite link? Anyone who already has it will no longer be able to use it.")) return;
       btn.disabled = true;
-      try {
-        await apiPost("/api/admin/invites/" + id + "/revoke", {});
-        listMsg.className = "msg ok"; listMsg.textContent = "Invite revoked.";
-        loadInvites();
-      } catch (e) {
-        listMsg.className = "msg warn"; listMsg.textContent = e.message || "Revoke failed.";
-        btn.disabled = false;
+      try { await apiPost("/api/admin/invites/" + id + "/revoke"); flash($("list-msg"), "ok", "Invite revoked."); loadInvites(); }
+      catch (e) { flash($("list-msg"), "warn", e.message || "Revoke failed."); btn.disabled = false; }
+    }
+    async function removeInvite(id, btn) {
+      btn.disabled = true;
+      try { await api("DELETE", "/api/admin/invites/" + id); invites = invites.filter((i) => i.id !== id); renderInvites(); }
+      catch (e) { flash($("list-msg"), "warn", e.message || "Remove failed."); btn.disabled = false; }
+    }
+    $("btn-clear-dead").addEventListener("click", async () => {
+      const n = invites.filter(isDead).length;
+      if (!confirm("Remove all " + n + " revoked / expired invites from the list? They're already dead links.")) return;
+      try { const r = await apiPost("/api/admin/invites/clear-dead"); flash($("list-msg"), "ok", "Removed " + r.deleted + " dead invite(s)."); loadInvites(); }
+      catch (e) { flash($("list-msg"), "warn", e.message || "Clear failed."); }
+    });
+
+    // ── Accounts (impersonate / dump / suspend) ─────────────────────────────────
+    async function loadAccounts() {
+      try { accounts = await apiGet("/api/admin/accounts"); $("accounts-msg").className = "msg"; }
+      catch (e) { flash($("accounts-msg"), "warn", e.message || "Couldn't load accounts."); }
+      renderAccounts();
+    }
+    $("btn-refresh-accounts").addEventListener("click", loadAccounts);
+
+    function accountHay(a) {
+      const teams = (a.teams || []).map((t) => t.team_name + " " + t.role).join(" ");
+      return [a.display_name, a.email, teams, a.active_team_name, a.status === "disabled" ? "suspended disabled" : a.status,
+              "#" + a.id].join(" ");
+    }
+    function renderAccounts() {
+      const ts = terms(), rows = $("account-rows");
+      const shown = accounts.filter((a) => (accountFilter === "all" || a.status === accountFilter) && matches(accountHay(a), ts));
+      setCount("accounts-count", shown.length, accounts.length);
+      rows.innerHTML = "";
+      $("accounts-table").classList.toggle("hide", !shown.length);
+      $("accounts-empty").classList.toggle("hide", !!shown.length);
+      $("accounts-empty").textContent = accounts.length ? "No accounts match." : "No accounts yet.";
+      for (const a of shown) {
+        const tr = document.createElement("tr");
+        const suspended = a.status === "disabled";
+        const teams = (a.teams && a.teams.length)
+          ? a.teams.map((t) => '<span class="team-chip' + (t.squad_id === a.squad_id ? " active" : "") + '"' +
+              (t.squad_id === a.squad_id ? ' title="Active team"' : "") + ">" + hl(t.team_name || "(unnamed)", ts) +
+              '<span class="role">' + hl(t.role, ts) + "</span></span>").join("")
+          : '<span class="keystate">' + hl(a.active_team_name || ("squad #" + a.squad_id), ts) + "</span>";
+        tr.innerHTML =
+          "<td><div>" + hl(a.display_name, ts) + "</div><div class='keystate'>" + hl(a.email, ts) + "</div></td>" +
+          "<td>" + teams + "</td>" +
+          "<td>" + (suspended ? '<span class="pill warn">' + hl("suspended", ts) + "</span>" : '<span class="pill">' + hl(a.status || "—", ts) + "</span>") + "</td>" +
+          "<td>" + fmt(a.created_at) + "</td><td>" + fmt(a.last_login_at) + "</td>" +
+          '<td><div class="actions"></div></td>';
+        const actions = tr.querySelector(".actions");
+        const imp = button("Impersonate", "btn-primary");
+        imp.addEventListener("click", () => impersonate(a.id, a.display_name, imp));
+        const dump = button("Dump", "btn-ghost");
+        dump.addEventListener("click", () => dumpAccount(a.id, tr, dump));
+        const mod = button(suspended ? "Reactivate" : "Suspend", "btn-ghost" + (suspended ? "" : " btn-danger"));
+        mod.addEventListener("click", () => toggleSuspend(a.id, a.display_name, suspended, mod));
+        actions.append(imp, dump, mod);
+        rows.appendChild(tr);
       }
     }
-
-    $("btn-refresh").addEventListener("click", async () => {
-      const listMsg = $("list-msg"), table = $("invite-table"), rows = $("invite-rows");
-      listMsg.className = "msg"; listMsg.textContent = "";
-      try {
-        const invites = await apiGet("/api/admin/invites");
-        rows.innerHTML = "";
-        if (!invites.length) {
-          table.classList.add("hide");
-          listMsg.className = "msg"; listMsg.style.display = "block";
-          listMsg.textContent = "No invites yet.";
-          return;
-        }
-        for (const inv of invites) {
-          const tr = document.createElement("tr");
-          const status = inv.redeemed
-            ? '<span class="pill redeemed">redeemed</span>'
-            : inv.expired
-              ? '<span class="pill warn">revoked / expired</span>'
-              : '<span class="pill pending">pending</span>';
-          const createdBy = inv.created_by === "admin"
-            ? '<span class="pill">admin</span>'
-            : (inv.created_by || "—");
-          tr.innerHTML = "<td>" + (inv.note || "—") + "</td><td>" + createdBy +
-                         "</td><td>" + fmt(inv.created_at) +
-                         "</td><td>" + fmt(inv.expires_at) + "</td><td>" + status + "</td><td></td>";
-          // Only a live, unredeemed link can be revoked.
-          if (!inv.redeemed && !inv.expired) {
-            const rev = document.createElement("button");
-            rev.className = "btn btn-ghost"; rev.textContent = "Revoke";
-            rev.style.cssText = "padding:7px 12px;font-size:13px;";
-            rev.addEventListener("click", () => revokeInvite(inv.id, rev));
-            tr.lastElementChild.appendChild(rev);
-          }
-          rows.appendChild(tr);
-        }
-        table.classList.remove("hide");
-      } catch (e) {
-        listMsg.className = "msg warn"; listMsg.textContent = e.message || "Couldn't load invites.";
-      }
-    });
-
-    // ── Accounts (impersonate / dump) ──────────────────────────────────────────
-    async function loadAccounts() { $("btn-refresh-accounts").click(); }
-    $("btn-refresh-accounts").addEventListener("click", async () => {
-      const msg = $("accounts-msg"), table = $("accounts-table"), rows = $("account-rows");
-      msg.className = "msg"; msg.textContent = "";
-      try {
-        const accounts = await apiGet("/api/admin/accounts");
-        rows.innerHTML = "";
-        if (!accounts.length) {
-          table.classList.add("hide");
-          msg.className = "msg"; msg.style.display = "block"; msg.textContent = "No accounts yet.";
-          return;
-        }
-        for (const a of accounts) {
-          const tr = document.createElement("tr");
-          const suspended = a.status === "disabled";
-          const statusPill = suspended
-            ? '<span class="pill warn">suspended</span>'
-            : '<span class="pill">' + (a.status || "—") + '</span>';
-          tr.innerHTML =
-            "<td><div>" + (a.display_name || "—") + "</div>" +
-            "<div class='keystate'>" + a.email + "</div></td>" +
-            "<td>squad #" + a.squad_id + "</td>" +
-            "<td>" + statusPill + "</td>" +
-            "<td>" + fmt(a.last_login_at) + "</td><td></td>";
-          const actions = tr.lastElementChild;
-          const imp = document.createElement("button");
-          imp.className = "btn btn-primary"; imp.textContent = "Impersonate";
-          imp.style.cssText = "margin-right:6px;padding:7px 12px;font-size:13px;";
-          imp.addEventListener("click", () => impersonate(a.id, a.display_name, imp));
-          const dump = document.createElement("button");
-          dump.className = "btn btn-ghost"; dump.textContent = "Dump";
-          dump.style.cssText = "margin-right:6px;padding:7px 12px;font-size:13px;";
-          dump.addEventListener("click", () => dumpAccount(a.id, dump));
-          const mod = document.createElement("button");
-          mod.className = "btn btn-ghost"; mod.textContent = suspended ? "Reactivate" : "Suspend";
-          mod.style.cssText = "padding:7px 12px;font-size:13px;" +
-            (suspended ? "" : "color:#c0392b;");
-          mod.addEventListener("click", () => toggleSuspend(a.id, a.display_name, suspended, mod));
-          actions.appendChild(imp); actions.appendChild(dump); actions.appendChild(mod);
-          rows.appendChild(tr);
-        }
-        table.classList.remove("hide");
-      } catch (e) {
-        msg.className = "msg warn"; msg.textContent = e.message || "Couldn't load accounts.";
-      }
-    });
 
     async function impersonate(id, name, btn) {
-      const msg = $("accounts-msg");
       btn.disabled = true;
       try {
-        await apiPost("/api/admin/accounts/" + id + "/impersonate", {});
-        msg.className = "msg ok";
-        msg.textContent = "Signed in as " + (name || ("account " + id)) + ". Opening the app in a new tab…";
+        await apiPost("/api/admin/accounts/" + id + "/impersonate");
+        flash($("accounts-msg"), "ok", "Signed in as " + (name || ("account " + id)) + ". Opening the app in a new tab…");
         window.open("/", "_blank");
-      } catch (e) {
-        msg.className = "msg warn"; msg.textContent = e.message || "Impersonate failed.";
-      } finally {
-        btn.disabled = false;
-      }
+      } catch (e) { flash($("accounts-msg"), "warn", e.message || "Impersonate failed."); }
+      finally { btn.disabled = false; }
     }
-
     async function toggleSuspend(id, name, suspended, btn) {
-      const msg = $("accounts-msg");
       const who = name || ("account " + id);
       const verb = suspended ? "reactivate" : "suspend";
       if (!suspended && !confirm("Suspend " + who + "? They'll be signed out and blocked from logging in, using the app, and creating invites. Their outstanding invite links will also be revoked.")) return;
       btn.disabled = true;
       try {
-        const r = await apiPost("/api/admin/accounts/" + id + "/" + verb, {});
-        msg.className = "msg ok";
-        msg.textContent = suspended
-          ? ("Reactivated " + who + ".")
-          : ("Suspended " + who + (r.invites_revoked ? " and revoked " + r.invites_revoked + " outstanding invite(s)." : "."));
-        loadAccounts();
-        loadInvites();
-      } catch (e) {
-        msg.className = "msg warn"; msg.textContent = e.message || (verb + " failed.");
-        btn.disabled = false;
-      }
+        const r = await apiPost("/api/admin/accounts/" + id + "/" + verb);
+        flash($("accounts-msg"), "ok", suspended ? ("Reactivated " + who + ".")
+          : ("Suspended " + who + (r.invites_revoked ? " and revoked " + r.invites_revoked + " outstanding invite(s)." : ".")));
+        loadAccounts(); loadInvites();
+      } catch (e) { flash($("accounts-msg"), "warn", e.message || (verb + " failed.")); btn.disabled = false; }
     }
-
-    async function dumpAccount(id, btn) {
-      const msg = $("accounts-msg");
+    // Dump shows inline, in a detail row under the account (click again to close).
+    async function dumpAccount(id, tr, btn) {
+      const next = tr.nextElementSibling;
+      if (next && next.classList.contains("detail")) { next.remove(); return; }
       btn.disabled = true;
       try {
         const d = await apiGet("/api/admin/accounts/" + id + "/dump");
         const team = d.squad ? (d.squad.team_name || "(no team name)") : "(no squad)";
-        msg.className = "msg ok";
-        msg.textContent = team + " — players: " + d.counts.players +
-          ", matches: " + d.counts.matches + ", tournaments: " + d.counts.tournaments;
-      } catch (e) {
-        msg.className = "msg warn"; msg.textContent = e.message || "Dump failed.";
-      } finally {
-        btn.disabled = false;
-      }
+        const det = document.createElement("tr");
+        det.className = "detail";
+        det.innerHTML = '<td colspan="6"><strong>' + esc(team) + "</strong> — players: " + d.counts.players +
+          ", matches: " + d.counts.matches + ", tournaments: " + d.counts.tournaments +
+          (d.matches.length ? "<br>Latest matches: " + d.matches.slice(-5).reverse()
+            .map((m) => esc(fmt(m.date) + " v " + (m.opponent || "?") + " (" + m.status + ")")).join(" · ") : "") + "</td>";
+        tr.after(det);
+      } catch (e) { flash($("accounts-msg"), "warn", e.message || "Dump failed."); }
+      finally { btn.disabled = false; }
     }
 
     renderKeyState();

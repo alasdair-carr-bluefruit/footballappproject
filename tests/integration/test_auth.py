@@ -265,6 +265,53 @@ def test_admin_revoke_single_invite(clients):
     assert next(i for i in after if i["id"] == inv_id)["expired"] is True
 
 
+def test_admin_invite_states_and_removing_dead_ones(clients, session):
+    hdr = {"X-Admin-Key": ADMIN}
+    c = clients()
+    _redeem(c, "used@example.com")                     # redeemed
+    _mint_invite(c, "live")                             # pending
+    _mint_invite(c, "to-revoke")
+    _mint_invite(c, "to-expire")
+    invites = {i["note"]: i for i in c.get("/api/admin/invites", headers=hdr).json()}
+    c.post(f"/api/admin/invites/{invites['to-revoke']['id']}/revoke", headers=hdr)
+    stale = session.get(InviteDB, invites["to-expire"]["id"])
+    stale.expires_at = "2001-01-01T00:00:00+00:00"     # ran out naturally
+    session.add(stale)
+    session.commit()
+
+    listed = {i["note"]: i for i in c.get("/api/admin/invites", headers=hdr).json()}
+    assert listed["used@example.com"]["state"] == "redeemed"
+    assert listed["used@example.com"]["redeemed_by"] == "used@example.com"
+    assert listed["live"]["state"] == "pending"
+    assert listed["to-revoke"]["state"] == "revoked"
+    assert listed["to-expire"]["state"] == "expired"
+    assert listed["live"]["kind"] == "coach"
+
+    # Live and redeemed invites can't be removed; dead ones can.
+    for note in ("live", "used@example.com"):
+        assert c.delete(f"/api/admin/invites/{listed[note]['id']}", headers=hdr).status_code == 400
+    assert c.delete(f"/api/admin/invites/{listed['to-revoke']['id']}", headers=hdr).status_code == 200
+    assert c.post("/api/admin/invites/clear-dead", headers=hdr).json() == {"deleted": 1}
+    left = {i["note"] for i in c.get("/api/admin/invites", headers=hdr).json()}
+    assert left == {"used@example.com", "live"}
+
+    # Gated like every other admin route.
+    assert c.delete(f"/api/admin/invites/{listed['live']['id']}").status_code == 403
+    assert c.post("/api/admin/invites/clear-dead").status_code == 403
+
+
+def test_admin_accounts_list_teams_with_roles(clients):
+    coach = clients()
+    _redeem(coach, "teams@example.com")
+    assert coach.put("/api/squad/info", json={"team_name": "Rovers U9"}).status_code == 200
+    accounts = coach.get("/api/admin/accounts", headers={"X-Admin-Key": ADMIN}).json()
+    acct = next(a for a in accounts if a["email"] == "teams@example.com")
+    assert acct["active_team_name"] == "Rovers U9"
+    assert acct["teams"] == [
+        {"squad_id": acct["squad_id"], "team_name": "Rovers U9", "role": "head"}
+    ]
+
+
 def test_moderation_endpoints_gated_by_admin_key(clients):
     coach = clients()
     _redeem(coach, "gate@example.com")

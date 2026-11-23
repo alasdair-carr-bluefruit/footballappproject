@@ -16,10 +16,20 @@ from backend.auth.email import send_login_link
 from backend.auth.session import set_session_cookie
 from backend.auth.tokens import hash_token, is_expired, iso_in, new_token, now_iso
 from backend.db.database import get_session
-from backend.db.models import AccountDB, InviteDB, MatchDB, PlayerDB, SquadDB, TournamentDB
+from backend.db.models import (
+    AccountDB,
+    InviteDB,
+    MatchDB,
+    PlayerDB,
+    SquadDB,
+    SquadMembershipDB,
+    TournamentDB,
+)
 from backend.settings import INVITE_TTL_DAYS, admin_key, app_base_url, resend_api_key
 
 router = APIRouter()
+
+_REVOKED_EXPIRY = "2000-01-01T00:00:00+00:00"  # far-past = a dead invite link (revoked)
 
 
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
@@ -67,37 +77,99 @@ def create_invite(body: InviteCreate, session: Session = Depends(get_session)) -
     }
 
 
+def _team_names(session: Session, squad_ids: set[int]) -> dict[int, str]:
+    if not squad_ids:
+        return {}
+    rows = session.exec(select(SquadDB).where(SquadDB.id.in_(squad_ids))).all()  # type: ignore[union-attr]
+    return {sq.id: (sq.team_name or "") for sq in rows if sq.id is not None}
+
+
+def _invite_state(inv: InviteDB) -> str:
+    """redeemed | pending | revoked | expired — revoked = the admin/suspension
+    sentinel expiry, expired = ran out naturally. Both are dead links."""
+    if inv.redeemed_at is not None:
+        return "redeemed"
+    if inv.expires_at == _REVOKED_EXPIRY:
+        return "revoked"
+    return "expired" if is_expired(inv.expires_at) else "pending"
+
+
 @router.get("/invites", dependencies=[Depends(require_admin)])
 def list_invites(session: Session = Depends(get_session)) -> list[dict]:
     """List invites (status only — never the token) so you can see who's outstanding."""
     invites = session.exec(select(InviteDB).order_by(InviteDB.id.desc())).all()  # type: ignore[attr-defined]
-    # Resolve inviter account ids → emails so the portal shows who created each.
+    # Resolve inviter / redeemer account ids → emails so the portal shows who's who.
     email_by_id = {a.id: a.email for a in session.exec(select(AccountDB)).all()}
-    return [
-        {
+    teams = _team_names(session, {i.squad_id for i in invites if i.squad_id})
+    out = []
+    for inv in invites:
+        state = _invite_state(inv)
+        out.append({
             "id": inv.id,
             "note": inv.note,
             "created_at": inv.created_at,
             "expires_at": inv.expires_at,
-            "redeemed": inv.redeemed_at is not None,
+            "state": state,
+            "redeemed": state == "redeemed",
             "redeemed_at": inv.redeemed_at,
             # Unredeemed + past-expiry = expired or admin-revoked (a dead link).
-            "expired": inv.redeemed_at is None and is_expired(inv.expires_at),
+            "expired": state in ("revoked", "expired"),
             "account_id": inv.account_id,
+            "redeemed_by": email_by_id.get(inv.account_id, "") if inv.account_id else "",
             "invited_by_account_id": inv.invited_by_account_id,
             # "admin" for admin-minted invites; the coach's email for self-service ones.
             "created_by": email_by_id.get(inv.invited_by_account_id, "admin")
             if inv.invited_by_account_id else "admin",
-        }
-        for inv in invites
+            # "assistant" invites join an existing team; "" = a new coach (own team).
+            "kind": "assistant" if inv.role == "assistant" else "coach",
+            "team_name": teams.get(inv.squad_id, "") if inv.squad_id else "",
+        })
+    return out
+
+
+@router.delete("/invites/{invite_id}", dependencies=[Depends(require_admin)])
+def delete_invite(invite_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Remove a dead (revoked / expired) invite from the list. Live and redeemed
+    invites are refused: revoke a live one first; a redeemed one is the record of
+    how an account got in."""
+    inv = session.get(InviteDB, invite_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    if _invite_state(inv) not in ("revoked", "expired"):
+        raise HTTPException(
+            status_code=400, detail="Only revoked or expired invites can be removed"
+        )
+    session.delete(inv)
+    session.commit()
+    return {"id": invite_id, "deleted": True}
+
+
+@router.post("/invites/clear-dead", dependencies=[Depends(require_admin)])
+def clear_dead_invites(session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Remove every revoked / expired invite in one go."""
+    dead = [
+        inv for inv in session.exec(select(InviteDB).where(InviteDB.redeemed_at.is_(None))).all()  # type: ignore[union-attr]
+        if _invite_state(inv) in ("revoked", "expired")
     ]
+    for inv in dead:
+        session.delete(inv)
+    session.commit()
+    return {"deleted": len(dead)}
 
 
 # ── Account support tooling (investigate / impersonate) ─────────────────────────
 @router.get("/accounts", dependencies=[Depends(require_admin)])
 def list_accounts(session: Session = Depends(get_session)) -> list[dict]:
-    """List all coach accounts so you can find the one to investigate."""
+    """List all coach accounts so you can find the one to investigate — with every
+    team each one is on (and their role there), so the portal can search by team."""
     accounts = session.exec(select(AccountDB).order_by(AccountDB.id.desc())).all()  # type: ignore[attr-defined]
+    memberships = session.exec(select(SquadMembershipDB)).all()
+    teams = _team_names(session, {m.squad_id for m in memberships} | {a.squad_id for a in accounts})
+    by_account: dict[int, list[dict]] = {}
+    for m in memberships:
+        by_account.setdefault(m.account_id, []).append(
+            {"squad_id": m.squad_id, "team_name": teams.get(m.squad_id, ""), "role": m.role}
+        )
     return [
         {
             "id": a.id,
@@ -105,6 +177,11 @@ def list_accounts(session: Session = Depends(get_session)) -> list[dict]:
             "display_name": a.display_name,
             "status": a.status,
             "squad_id": a.squad_id,
+            "active_team_name": teams.get(a.squad_id, ""),
+            "teams": sorted(
+                by_account.get(a.id, []),  # type: ignore[arg-type]
+                key=lambda t: (t["role"] != "head", t["team_name"].lower()),
+            ),
             "created_at": a.created_at,
             "last_login_at": a.last_login_at,
         }
@@ -160,7 +237,6 @@ def impersonate_account(
 # A disabled account is already locked out everywhere: get_current_account (deps)
 # only resolves status=="active", and login only mails links to active accounts —
 # so suspending blocks login, all app access AND invite creation in one flip.
-_REVOKED_EXPIRY = "2000-01-01T00:00:00+00:00"  # far-past = a dead invite link
 
 
 @router.post("/accounts/{account_id}/suspend", dependencies=[Depends(require_admin)])
