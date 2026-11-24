@@ -14,6 +14,9 @@ Mid-quarter point: transitions 0->1, 2->3, 4->5, 6->7
 """
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -61,6 +64,71 @@ def normalize_position(pos: str | Position) -> str:
     if s in _FWD_POSITIONS:
         return "FWD"
     return s
+
+
+# ── Granular positions (squad toggle, 2026-11-24) ──────────────────────────────
+#
+# Picks are stored as given: band codes (DEF/MID/FWD) and/or granular codes
+# (LB, CB, RB, LM, CM, CAM, RM, LW, CF, RW). The squad's toggle only changes how
+# they are READ, so a coach can switch it on, try it, and switch it off losslessly:
+#   off → every pick reads as its band (an LW pick = FWD), variety counts bands;
+#   on  → granular picks are exact, variety counts granular positions (LW ≠ RW).
+# A band pick always covers its whole band in either mode, so a squad that turns
+# granular on before re-doing everyone's positions still gets sensible plans.
+# The engine enters the mode with ``position_mode()`` for the length of one run.
+
+GRANULAR_PICKS: tuple[str, ...] = ("LB", "CB", "RB", "LM", "CM", "CAM", "RM", "LW", "CF", "RW")
+_GRANULAR_ALIAS = {"CB2": "CB", "CM2": "CM", "CF2": "CF"}
+_granular_mode: ContextVar[bool] = ContextVar("granular_positions", default=False)
+
+
+@contextmanager
+def position_mode(granular: bool) -> Iterator[None]:
+    """Read positions granularly (or by band) for the duration of the block."""
+    token = _granular_mode.set(bool(granular))
+    try:
+        yield
+    finally:
+        _granular_mode.reset(token)
+
+
+def granular_position(pos: str | Position) -> str:
+    """Formation slot → pickable position: CB2→CB, CM2→CM, CF2→CF; others unchanged."""
+    s = str(pos)
+    return _GRANULAR_ALIAS.get(s, s)
+
+
+def position_type(pos: str | Position) -> str:
+    """Position-variety key: the granular position in granular mode, else the band."""
+    return granular_position(pos) if _granular_mode.get() else normalize_position(pos)
+
+
+def picks_allow(picks: list[str] | None, pos: str | Position) -> bool:
+    """Do a player's position picks cover this slot? (Empty picks = anywhere.)"""
+    if not picks:
+        return True
+    band = normalize_position(pos)
+    if band in picks:
+        return True  # a band pick covers the whole band
+    if _granular_mode.get():
+        return granular_position(pos) in picks
+    return any(normalize_position(p) == band for p in picks)
+
+
+def move_keeps_picks(player: Player, from_pos: str | Position, to_pos: str | Position) -> bool:
+    """A late swap pass may not move a player out of a position they picked.
+
+    (Moving someone who was already out of position is fine — it can only help.)
+    """
+    picks = player.preferred_positions
+    return picks_allow(picks, to_pos) or not picks_allow(picks, from_pos)
+
+
+def picks_label(picks: list[str]) -> list[str]:
+    """Picks as the coach currently sees them: as stored when granular, else by band."""
+    if _granular_mode.get():
+        return list(picks)
+    return list(dict.fromkeys(normalize_position(p) for p in picks))
 
 
 def is_def_position(pos: str | Position) -> bool:

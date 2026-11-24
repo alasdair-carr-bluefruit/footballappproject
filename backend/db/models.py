@@ -1,5 +1,5 @@
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import UniqueConstraint, false
 from sqlmodel import Field, SQLModel
 
 
@@ -15,6 +15,9 @@ class SquadDB(SQLModel, table=True):
     name: str = "My Squad"
     team_name: str = ""
     team_logo: str = ""  # base64 DataURL or empty string
+    # Read position picks granularly (LB/CB/RB…) instead of by band. Picks are
+    # stored either way, so switching this off and on again loses nothing.
+    granular_positions: bool = Field(default=False, sa_column_kwargs={"server_default": false()})
 
 
 # ── Multi-user identity (v1.1) ──────────────────────────────────────────────────

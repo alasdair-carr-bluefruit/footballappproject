@@ -14,7 +14,14 @@ from __future__ import annotations
 
 from backend.models.game_config import DEFAULT_CONFIG, GameConfig
 from backend.models.player import GKTier
-from backend.models.rotation import Position, RotationPlan, is_def_position, normalize_position
+from backend.models.rotation import (
+    Position,
+    RotationPlan,
+    is_def_position,
+    picks_allow,
+    picks_label,
+    position_type,
+)
 
 
 def validate(
@@ -125,14 +132,15 @@ def _warn_out_of_preference(plan: RotationPlan, players: list) -> list:
             for pos, p in slot.lineup.items():
                 if p is not player:
                     continue
-                norm = normalize_position(pos)
-                if norm not in prefs:
-                    counts[norm] = counts.get(norm, 0) + 1
+                if picks_allow(prefs, pos):
+                    continue
+                norm = position_type(pos)
+                counts[norm] = counts.get(norm, 0) + 1
         for norm, count in sorted(counts.items()):
             warnings.append(
                 f"Out of position: {player.name} plays {norm} in {count} "
                 f"slot{'s' if count != 1 else ''} but only picked "
-                f"{', '.join(prefs)}"
+                f"{', '.join(picks_label(prefs))}"
             )
     return warnings
 
@@ -226,7 +234,7 @@ def _check_def_restrictions(plan: RotationPlan, players: list) -> list:
 
 def _check_position_variety(plan: RotationPlan, players: list, config: GameConfig) -> list:
     # Max position types = number of distinct outfield types in the formation + GK
-    outfield_types = {normalize_position(p) for p in config.formation.outfield_positions()}
+    outfield_types = {position_type(p) for p in config.formation.outfield_positions()}
     max_types = len(outfield_types) + 1  # +1 for GK
     violations = []
     for player in players:
@@ -236,7 +244,7 @@ def _check_position_variety(plan: RotationPlan, players: list, config: GameConfi
             for pos, p in slot.lineup.items()
             if p is player
         }
-        normalised = {normalize_position(pos) for pos in positions_used}
+        normalised = {position_type(pos) for pos in positions_used}
         if len(normalised) > max_types:
             violations.append(
                 f"Position variety violated: {player.name} plays "

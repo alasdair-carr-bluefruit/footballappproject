@@ -27,7 +27,8 @@ from backend.models.rotation import (
     RotationPlan,
     SlotAssignment,
     is_def_position,
-    normalize_position,
+    move_keeps_picks,
+    position_type,
 )
 
 
@@ -144,6 +145,11 @@ def _swap_is_valid(
     if is_def_position(pos_j) and player_i.def_restricted:
         return False
 
+    # Don't move anyone out of a position they picked (matters most with granular
+    # positions on, where LB → RB is a real move).
+    if not (move_keeps_picks(player_i, pos_i, pos_j) and move_keeps_picks(player_j, pos_j, pos_i)):
+        return False
+
     # Prevent duplicate: player must not already exist in the destination slot
     slot_i_players = {id(p) for pos, p in slots[i].lineup.items() if pos != pos_i}
     slot_j_players = {id(p) for pos, p in slots[j].lineup.items() if pos != pos_j}
@@ -238,7 +244,7 @@ def _transition_ok_after_swap(
 
 
 def _norm_pos(pos: Position) -> str:
-    return normalize_position(pos)
+    return position_type(pos)
 
 
 def _position_variety_ok(slots: list, slot_idx: int, player: Player, new_pos_label: str) -> bool:

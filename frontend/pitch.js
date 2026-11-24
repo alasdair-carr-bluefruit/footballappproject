@@ -1,5 +1,5 @@
 import { api, setLostControlHandler } from "./api.js";
-import { state, refreshShirtNumbers, displayPos, can, setPlanEditable } from "./state.js";
+import { state, refreshShirtNumbers, displayPos, can, setPlanEditable, picksAllow, picksLabel, posType } from "./state.js";
 import { loadHome } from "./season.js";
 import { loadTournamentLobby } from "./tournament.js";
 import { showToast, withSaveToast } from "./toast.js";
@@ -84,7 +84,7 @@ function planGridData(md) {
   players.forEach(p => { perSlot[p.name] = Array(totalSlots).fill(null); });
   md.slots.forEach(slot => {
     Object.entries(slot.lineup).forEach(([pos, p]) => {
-      if (perSlot[p.name]) perSlot[p.name][slot.slot_index] = normalizePos(pos);
+      if (perSlot[p.name]) perSlot[p.name][slot.slot_index] = pos; // raw slot key (LB, CM2…)
     });
   });
 
@@ -153,7 +153,7 @@ function planFlags(md = state.matchData) {
     if (!prefs.length) return;
     const counts = {};
     perSlot[p.name].forEach(pos => {
-      if (pos && !prefs.includes(pos)) counts[pos] = (counts[pos] || 0) + 1;
+      if (pos && !picksAllow(prefs, pos)) counts[posType(pos)] = (counts[posType(pos)] || 0) + 1;
     });
     Object.entries(counts).sort().forEach(([pos, count]) => {
       outOfPos.push({ name: p.name, pos, count, prefs });
@@ -240,7 +240,7 @@ function planFlagLines(flags) {
   const offPref = [...byPlayer.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .map(([name, { count, positions, prefs }]) =>
-      `<b>${name}</b> plays ${_andList(positions)} for ${count} slot${count !== 1 ? "s" : ""} — picked ${_andList(prefs.map(displayPos))}`
+      `<b>${name}</b> plays ${_andList(positions)} for ${count} slot${count !== 1 ? "s" : ""} — picked ${_andList(picksLabel(prefs).map(displayPos))}`
     );
   const lines = offPref.slice(0, MAX_OFF_PREF_LINES);
   if (offPref.length > lines.length) {
@@ -325,11 +325,12 @@ function buildPlanGrid(listEl, md = state.matchData, opts = {}) {
     const prefs = preferred_positions || [];
 
     const chipsHtml = slots.map((pos, i) => {
-      const changed = opts.markChanges && i > 0 && pos !== slots[i - 1] ? " chip-changed" : "";
+      const key = x => (x ? posType(x) : null);
+      const changed = opts.markChanges && i > 0 && key(pos) !== key(slots[i - 1]) ? " chip-changed" : "";
       if (!pos) return `<span class="slot-chip bench${changed}" title="${slotLabels[i]}">–</span>`;
-      const offPref = prefs.length && !prefs.includes(pos) ? " chip-offpref" : "";
+      const offPref = !picksAllow(prefs, pos) ? " chip-offpref" : "";
       const note = offPref ? ` — not a position ${name} picked` : "";
-      return `<span class="slot-chip pos-${pos.toLowerCase()}${changed}${offPref}" title="${slotLabels[i]}: ${displayPos(pos)}${note}">
+      return `<span class="slot-chip pos-${normalizePos(pos).toLowerCase()}${changed}${offPref}" title="${slotLabels[i]}: ${displayPos(pos)}${note}">
         <span class="chip-quarter">${slotLabels[i]}</span>
         <span class="chip-pos">${displayPos(pos)}</span>
       </span>`;
@@ -455,7 +456,7 @@ function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
         const changed = opts.markChanges && i > 0 && prev !== p.name ? " chip-changed" : "";
         const under = flagged.has(p.name) ? " under" : "";
         const prefs = p.preferred_positions || [];
-        const offPref = prefs.length && !prefs.includes(normalizePos(posKey)) ? " chip-offpref" : "";
+        const offPref = !picksAllow(prefs, posKey) ? " chip-offpref" : "";
         const title = offPref ? `${p.name} — ${displayPos(posKey)} isn't a position they picked` : p.name;
         grid.appendChild(cell(`plan-cell pos-${band}${changed}${under}${offPref}`, gridName(p.name), title));
       }

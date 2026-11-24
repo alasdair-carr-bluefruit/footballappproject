@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { state, ensureGameConfigs, refreshShirtNumbers, displayPos, can, setPlanEditable } from "./state.js";
+import { state, ensureGameConfigs, refreshShirtNumbers, displayPos, can, setPlanEditable, bandOf } from "./state.js";
 import { ensureAssistants, planOwnerChip, bindPlanOwnerChip, renderReviewMark } from "./plan-owner.js";
 import { showScreen, openMatch, enterReviewView, buildReviewCard, setReviewShare } from "./pitch.js";
 import { tournamentSelectSize, updateFairnessLabel, getRotationValue } from "./setup-form.js";
@@ -230,7 +230,9 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
 
   players.forEach(p => {
     const isChecked = !isEditing || currentAvailableIds == null || currentAvailableIds.has(p.id);
-    const activePosSet = new Set(_effectivePositions(p, existingOverrides));
+    // Chips are by line (GK/DEF/MID/ATT); detailed picks (LB, LW…) show as their line.
+    const picks = _effectivePositions(p, existingOverrides);
+    const activePosSet = new Set(picks.map(bandOf));
 
     const chipsHtml = ALL_POS.map(pos =>
       `<button type="button" class="pos-chip${activePosSet.has(pos) ? " active" : ""}" data-pos="${pos}">${displayPos(pos)}</button>`
@@ -239,6 +241,7 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
     const li = document.createElement("li");
     li.className = "avail-item";
     li.dataset.pid = p.id;
+    li.dataset.picks = JSON.stringify(picks);
     li.innerHTML = `
       <label class="avail-label">
         <input type="checkbox" class="avail-check" data-pid="${p.id}" ${isChecked ? "checked" : ""} />
@@ -270,9 +273,16 @@ document.getElementById("tournament-squad-list").addEventListener("click", e => 
 
   chip.classList.toggle("active");
 
+  // Keep a player's detailed picks inside any line that stays on (same rule as
+  // the player form), so a tournament tweak doesn't flatten LB/LW back to DEF/ATT.
+  const picks = JSON.parse(li.dataset.picks || "[]");
   const newPositions = allChips
     .filter(c => c.classList.contains("active"))
-    .map(c => c.dataset.pos);
+    .flatMap(c => {
+      const band = c.dataset.pos;
+      const detail = picks.filter(p => p !== band && bandOf(p) === band);
+      return picks.includes(band) || !detail.length ? [band] : detail;
+    });
 
   state.pendingPositionChanges[pid] = newPositions;
 });

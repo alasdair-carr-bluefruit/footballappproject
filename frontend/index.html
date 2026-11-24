@@ -651,6 +651,13 @@
       </div>
       <button class="btn btn-secondary btn-sm" id="btn-save-team-info">Save</button>
     </div>
+    <label class="switch-row granular-row" id="granular-row">
+      <span>Detailed positions <small class="form-hint">LB, CB, RB, LW… instead of DEF / MID / ATT</small></span>
+      <span class="switch">
+        <input type="checkbox" id="input-granular" />
+        <span class="switch-slider"></span>
+      </span>
+    </label>
 
     <ul class="player-list" id="player-list"></ul>
     <div class="squad-footer">
@@ -668,12 +675,7 @@
         <p class="field-error" id="input-name-error" role="alert" hidden></p>
 
         <label>Can Play</label>
-        <div class="position-checkboxes" id="position-checkboxes">
-          <label class="pos-check"><input type="checkbox" value="GK" /><span class="pos-label pos-gk">GK</span></label>
-          <label class="pos-check"><input type="checkbox" value="DEF" /><span class="pos-label pos-def">DEF</span></label>
-          <label class="pos-check"><input type="checkbox" value="MID" /><span class="pos-label pos-mid">MID</span></label>
-          <label class="pos-check"><input type="checkbox" value="FWD" /><span class="pos-label pos-fwd">ATT</span></label>
-        </div>
+        <div class="position-checkboxes" id="position-checkboxes"><!-- rendered by screens.js (band or detailed) --></div>
         <label class="switch-row keeper-only-row" id="keeper-only-row" hidden>
           <span>Keeper only? <small class="form-hint">Never plays outfield</small></span>
           <span class="switch">
@@ -999,6 +1001,17 @@
   </div>
 
   <!-- ── Modal: Delete Player confirmation ────────────────────────────────── -->
+  <div class="swap-overlay" id="granular-overlay" hidden>
+    <div class="swap-panel">
+      <h3 class="swap-title">Turn on detailed positions?</h3>
+      <p class="reinstate-info">You'll need to set each player's positions (LB, CB, RB, LW…) — edit each player in your squad. Until you do, their DEF / MID / ATT picks still count for every position in that line. Each detailed position counts separately when the plan rotates players (LW and RW are two positions). You can switch back any time — nothing is lost.</p>
+      <div class="player-action-buttons">
+        <button class="btn btn-primary btn-full" id="btn-granular-confirm">Turn on</button>
+        <button class="btn btn-secondary btn-full" id="btn-granular-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div class="swap-overlay" id="delete-player-overlay" hidden>
     <div class="swap-panel">
       <h3 class="swap-title">Remove player?</h3>

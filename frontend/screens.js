@@ -1,5 +1,8 @@
 import { api } from "./api.js";
-import { state, refreshShirtNumbers, refreshTeams, displayPos, isAssistant } from "./state.js";
+import {
+  state, refreshShirtNumbers, refreshTeams, displayPos, isAssistant, can,
+  isGranular, bandOf, picksLabel, GRANULAR_GROUPS,
+} from "./state.js";
 import { showScreen } from "./pitch.js";
 import { loadHome } from "./season.js";
 import { loadTournamentHome } from "./tournament.js";
@@ -179,6 +182,8 @@ export async function loadSquad() {
       placeholder.hidden = false;
     }
   }
+  document.getElementById("input-granular").checked = isGranular();
+  document.getElementById("granular-row").hidden = !can("manage_team");
 
   // Rebuild shirt number map and detect conflicts
   const players = await refreshShirtNumbers();
@@ -208,8 +213,9 @@ export async function loadSquad() {
     if (p.gk_status === "specialist") {
       badges.push('<span class="badge badge-gk">Keeper only</span>');
     } else {
-      prefs.forEach(pos => {
-        const isBest = pos === p.best_position;
+      const best = isGranular() ? p.best_position : bandOf(p.best_position || "");
+      picksLabel(prefs).forEach(pos => {
+        const isBest = pos === best;
         const cls = isBest ? "badge badge-pos badge-best" : "badge badge-pos";
         badges.push(`<span class="${cls}">${displayPos(pos)}</span>`);
       });
@@ -271,10 +277,12 @@ function openPlayerForm(player = null) {
       if (["preferred", "can_play"].includes(player.gk_status)) prefs.push("GK");
     }
   }
-  document.querySelectorAll("#position-checkboxes input").forEach(cb => {
-    cb.checked = prefs.includes(cb.value);
-  });
-  updateBestPositionOptions(prefs, player?.best_position || "");
+  formOriginalPrefs = [...prefs];
+  formOriginalBest = player?.best_position || "";
+  renderPositionCheckboxes(prefs);
+  updateBestPositionOptions(
+    checkedPositions(), isGranular() ? formOriginalBest : bandOf(formOriginalBest),
+  );
   document.getElementById("input-keeper-only").checked = player?.gk_status === "specialist";
   updatePositionConsequence();
   // "Save & add another" only makes sense when adding.
@@ -283,17 +291,71 @@ function openPlayerForm(player = null) {
   document.getElementById("input-name").focus();
 }
 
+// ── Position picks: DEF/MID/ATT, or LB/CB/RB… when the team uses detailed positions.
+// Picks are stored as given, so the team toggle is reversible: in band mode a
+// detailed pick shows as its band and is kept on save while that band stays
+// ticked; in detailed mode a band pick pre-ticks every position in its line.
+let formOriginalPrefs = [];
+let formOriginalBest = "";
+
+function posCheck(value, label, band, checked) {
+  return `<label class="pos-check"><input type="checkbox" value="${value}"${checked ? " checked" : ""} />`
+    + `<span class="pos-label pos-${band}">${label}</span></label>`;
+}
+
+function renderPositionCheckboxes(prefs) {
+  const box = document.getElementById("position-checkboxes");
+  if (!isGranular()) {
+    const bands = new Set(prefs.map(bandOf));
+    box.className = "position-checkboxes";
+    box.innerHTML = [["GK", "GK", "gk"], ["DEF", "DEF", "def"], ["MID", "MID", "mid"], ["FWD", "ATT", "fwd"]]
+      .map(([v, label, band]) => posCheck(v, label, band, bands.has(v))).join("");
+    return;
+  }
+  const has = p => prefs.includes(p) || prefs.includes(bandOf(p));
+  box.className = "position-checkboxes position-checkboxes-granular";
+  box.innerHTML = `<div class="pos-row">${posCheck("GK", "GK", "gk", prefs.includes("GK"))}</div>`
+    + GRANULAR_GROUPS.map(g => `<div class="pos-row">${
+      g.picks.map(p => posCheck(p, p, g.band.toLowerCase(), has(p))).join("")
+    }</div>`).join("");
+}
+
+function checkedPositions() {
+  return [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
+}
+
+// What to store: detailed mode stores the ticks; band mode keeps any detailed
+// picks inside a band that's still ticked, so switching back loses nothing.
+function picksToSave() {
+  const ticked = checkedPositions();
+  if (isGranular()) return ticked;
+  return ticked.flatMap(b => {
+    const detail = formOriginalPrefs.filter(p => p !== b && bandOf(p) === b);
+    return formOriginalPrefs.includes(b) || !detail.length ? [b] : detail;
+  });
+}
+
+function bestToSave() {
+  const chosen = document.getElementById("input-best-position").value;
+  if (!isGranular() && chosen && bandOf(formOriginalBest) === chosen) return formOriginalBest;
+  return chosen;
+}
+
 // Only GK ticked → ask outright whether they're keeper-only (never outfield),
 // rather than silently making them so (owner decision 2026-11-24).
 function updatePositionConsequence() {
-  const checked = [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
+  const checked = checkedPositions();
   document.getElementById("keeper-only-row").hidden = !(checked.length === 1 && checked[0] === "GK");
 }
 
 function updateBestPositionOptions(selectedPositions, currentBest) {
   const sel = document.getElementById("input-best-position");
   sel.innerHTML = '<option value="">Not set</option>';
-  selectedPositions.forEach(pos => {
+  const options = [...selectedPositions];
+  // A band "best" from before detailed positions still stands while that line has picks.
+  if (currentBest && !options.includes(currentBest) && isGranular()
+      && options.some(p => bandOf(p) === currentBest)) options.push(currentBest);
+  options.forEach(pos => {
     const opt = document.createElement("option");
     opt.value = pos;
     opt.textContent = displayPos(pos);
@@ -304,9 +366,8 @@ function updateBestPositionOptions(selectedPositions, currentBest) {
 
 // Update best position dropdown when checkboxes change
 document.getElementById("position-checkboxes").addEventListener("change", () => {
-  const checked = [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
   const currentBest = document.getElementById("input-best-position").value;
-  updateBestPositionOptions(checked, checked.includes(currentBest) ? currentBest : "");
+  updateBestPositionOptions(checkedPositions(), currentBest);
   updatePositionConsequence();
 });
 
@@ -354,6 +415,33 @@ document.getElementById("btn-save-team-info").addEventListener("click", async ()
     btn.textContent = "Save";
   }
 });
+// Detailed positions toggle — confirm on the way in (positions need setting);
+// switching off needs no confirm because the detailed picks are kept.
+async function setGranular(on) {
+  const saved = await withSaveToast(() => api.updateTeamInfo({ granular_positions: on }));
+  if (saved) {
+    state.teamInfo = saved;
+    showToast(on ? "Detailed positions on — edit each player to set them."
+      : "Back to DEF / MID / ATT. Detailed picks are kept if you switch back.");
+  }
+  loadSquad();
+}
+document.getElementById("input-granular").addEventListener("change", e => {
+  if (e.target.checked) {
+    e.target.checked = false; // only on once confirmed
+    document.getElementById("granular-overlay").hidden = false;
+  } else {
+    setGranular(false);
+  }
+});
+document.getElementById("btn-granular-confirm").addEventListener("click", () => {
+  document.getElementById("granular-overlay").hidden = true;
+  setGranular(true);
+});
+document.getElementById("btn-granular-cancel").addEventListener("click", () => {
+  document.getElementById("granular-overlay").hidden = true;
+});
+
 document.getElementById("btn-add-player").addEventListener("click", () => openPlayerForm());
 document.getElementById("input-name").addEventListener("input", () => clearFieldError("input-name", "input-name-error"));
 document.getElementById("btn-cancel-player").addEventListener("click", closePlayerForm);
@@ -364,8 +452,8 @@ document.getElementById("player-form").addEventListener("click", e => {
 
 document.querySelector("#player-form form").addEventListener("submit", async e => {
   e.preventDefault();
-  const preferred = [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
-  const bestPos = document.getElementById("input-best-position").value;
+  const preferred = picksToSave();
+  const bestPos = bestToSave();
 
   // Derive gk_status from position selections
   let gkStatus;

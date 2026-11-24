@@ -23,25 +23,44 @@ router = APIRouter()
 class TeamInfo(BaseModel):
     team_name: str = ""
     team_logo: str = ""  # base64 DataURL
+    granular_positions: bool = False
+
+
+class TeamInfoUpdate(BaseModel):
+    """Any field left out (None) is left as it is."""
+    team_name: str | None = None
+    team_logo: str | None = None
+    granular_positions: bool | None = None
+
+
+def _team_info(squad: SquadDB) -> TeamInfo:
+    return TeamInfo(
+        team_name=squad.team_name, team_logo=squad.team_logo,
+        granular_positions=bool(squad.granular_positions),
+    )
 
 
 @router.get("/info", response_model=TeamInfo)
 def get_team_info(squad: SquadDB = Depends(get_current_squad)) -> TeamInfo:
-    return TeamInfo(team_name=squad.team_name, team_logo=squad.team_logo)
+    return _team_info(squad)
 
 
 @router.put("/info", response_model=TeamInfo)
 def update_team_info(
-    info: TeamInfo,
+    info: TeamInfoUpdate,
     session: Session = Depends(get_session),
     squad: SquadDB = Depends(require("manage_team")),
 ) -> TeamInfo:
-    squad.team_name = info.team_name
-    squad.team_logo = info.team_logo
+    if info.team_name is not None:
+        squad.team_name = info.team_name
+    if info.team_logo is not None:
+        squad.team_logo = info.team_logo
+    if info.granular_positions is not None:
+        squad.granular_positions = info.granular_positions
     session.add(squad)
     session.commit()
     session.refresh(squad)
-    return TeamInfo(team_name=squad.team_name, team_logo=squad.team_logo)
+    return _team_info(squad)
 
 
 # ── Players ───────────────────────────────────────────────────────────────────

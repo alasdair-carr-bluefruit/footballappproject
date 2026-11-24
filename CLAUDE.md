@@ -217,6 +217,13 @@ football-app-project/
   GK specialist status is hard. **DEF is not special (owner, 2026-11-24):** an unticked
   DEF is a soft preference like any other position; `def_restricted` is no longer set
   (cleared by migration `a3d7c1e9f4b2`, engine paths dormant). See ADR 0005.
+- **Granular positions (squad toggle `granular_positions`, 2026-11-24):** picks may be
+  band codes (DEF/MID/FWD) or detailed (LB, CB, RB, LM, CM, CAM, RM, LW, CF, RW). Stored as
+  given; the toggle only changes how they're READ, so it's reversible. Engine code must use
+  `position_type()` (variety key) and `picks_allow()` (pick check) from `models.rotation`, never
+  compare `normalize_position()` against picks directly. `generate_rotation`/`adjust_rotation`
+  enter `position_mode(match.granular_positions)`; frontend mirrors in `state.js`
+  (`picksAllow`/`posType`/`displayPos`).
 - `gk_status` is derived from position selections in the UI; only-GK ticked becomes
   `specialist` only when the coach turns on the explicit "Keeper only?" switch
 

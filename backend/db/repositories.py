@@ -82,7 +82,15 @@ def player_db_to_domain(p: PlayerDB) -> Player:
     )
 
 
-def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squad]:
+def squad_uses_granular(session: Session, squad_id: int) -> bool:
+    """The squad's granular-positions toggle (see models.rotation.position_mode)."""
+    squad = session.get(SquadDB, squad_id)
+    return bool(squad and squad.granular_positions)
+
+
+def match_db_to_domain(
+    m: MatchDB, players: list[PlayerDB], granular: bool = False,
+) -> tuple[Match, Squad]:
     if m.tournament_id:
         # Tournament matches use a custom config derived from stored period structure
         total_duration = m.quarters * m.quarter_length_mins
@@ -113,6 +121,7 @@ def match_db_to_domain(m: MatchDB, players: list[PlayerDB]) -> tuple[Match, Squa
         fairness_value=m.fairness_value,
         rotation_intensity=m.rotation_intensity,
         share_gk=bool(m.share_gk),
+        granular_positions=granular,
     )
     squad = Squad(players=[player_db_to_domain(p) for p in players])
     return match, squad

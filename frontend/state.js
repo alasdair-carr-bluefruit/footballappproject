@@ -67,7 +67,43 @@ export const state = {
 const _DISP_DEF = new Set(["DEF", "LB", "CB", "CB2", "RB"]);
 const _DISP_MID = new Set(["MID", "LM", "CM", "CM2", "RM", "CAM"]);
 const _DISP_FWD = new Set(["FWD", "ATT", "LW", "CF", "CF2", "RW"]);
+// ── Granular positions (squad toggle) — mirrors backend/models/rotation.py ────
+// Picks are stored as given (bands and/or LB/CB/RB…); the toggle only changes how
+// they're read, so switching it off and on again loses nothing.
+export const GRANULAR_GROUPS = [
+  { band: "DEF", picks: ["LB", "CB", "RB"] },
+  { band: "MID", picks: ["LM", "CM", "CAM", "RM"] },
+  { band: "FWD", picks: ["LW", "CF", "RW"] },
+];
+const _GRAN_ALIAS = { CB2: "CB", CM2: "CM", CF2: "CF" };
+export const isGranular = () => !!(state.teamInfo && state.teamInfo.granular_positions);
+export const granularPos = pos => _GRAN_ALIAS[pos] || pos;
+export function bandOf(pos) {
+  if (_DISP_DEF.has(pos)) return "DEF";
+  if (_DISP_MID.has(pos)) return "MID";
+  if (_DISP_FWD.has(pos)) return "FWD";
+  return pos;
+}
+// Variety/compare key: the granular position when on, else the band.
+export const posType = pos => (isGranular() ? granularPos(pos) : bandOf(pos));
+// Do these picks cover this slot? Empty = happy anywhere; a band pick covers its band.
+export function picksAllow(picks, pos) {
+  if (!picks || !picks.length) return true;
+  const band = bandOf(pos);
+  if (picks.includes(band)) return true;
+  if (isGranular()) return picks.includes(granularPos(pos));
+  return picks.some(p => bandOf(p) === band);
+}
+// Picks as the coach should see them right now (bands, de-duped, when off).
+export function picksLabel(picks) {
+  return isGranular() ? [...picks] : [...new Set(picks.map(bandOf))];
+}
+
 export function displayPos(pos) {
+  // Granular on: show the real position (CB2 → CB); band picks still read DEF/MID/ATT.
+  if (isGranular() && bandOf(pos) !== pos && !["DEF", "MID", "FWD", "ATT"].includes(pos)) {
+    return granularPos(pos);
+  }
   if (_DISP_DEF.has(pos)) return "DEF";
   if (_DISP_MID.has(pos)) return "MID";
   if (_DISP_FWD.has(pos)) return "ATT";

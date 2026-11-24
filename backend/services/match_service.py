@@ -22,6 +22,7 @@ from backend.db.repositories import (
     match_db_to_domain,
     save_rotation,
     set_available_ids,
+    squad_uses_granular,
 )
 from backend.models.game_config import (
     GameConfig,
@@ -175,7 +176,9 @@ def generate_and_save_rotation(
     For tournament matches this also feeds cross-match cumulative fairness
     (prior slots) and the consecutive sit-out floor (must-play players).
     """
-    match, squad = match_db_to_domain(m, players_db)
+    match, squad = match_db_to_domain(
+        m, players_db, granular=squad_uses_granular(session, m.squad_id),
+    )
 
     prior_slots = None
     must_play = None

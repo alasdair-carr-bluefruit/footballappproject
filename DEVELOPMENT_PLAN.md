@@ -69,10 +69,18 @@ slot put), one LIVE marker, Next starts the next period once its clock has run, 
 settings per team ✓ · keep 6v6 · stats in minutes · shirt numbers fine as-is · **never:** parent
 view, 11v11, league cap warnings · MoM/assists low priority.
 
-**Next: granular positions** — a squad-info toggle; turning it on shows a "you'll need to set
-each player's positions" confirm, then position picks become LB/CB/RB, LM/CM/RM/CAM, LW/CF/RW
-(mainly 9v9). Engine change → staging. **Owner 2026-11-24:** each granular position counts as its
-own position for rotation variety (LW and RW = 2, LB and RB = 2).
+**Granular positions — built 2026-11-24, on `staging` (SW v65), not yet on `main`.** "Detailed
+positions" switch on the squad page (`squads.granular_positions`, migration `c4f1a8e2d7b3`); turning
+it on asks first. Picks become GK · LB/CB/RB · LM/CM/CAM/RM · LW/CF/RW (CB2→CB, CM2→CM, CF2→CF).
+**Reversible by design (owner wanted coaches to try it):** picks are stored as given and the toggle
+only changes how they're read (`models.rotation.position_mode` / `picks_allow`). Off = a detailed
+pick reads as its line; a band pick always covers its whole line, so squads half-converted still
+plan sensibly. Each detailed position counts for rotation variety when on (LW ≠ RW). Also fixed
+for both modes: a same-slot repair pass stops the greedy assigner stranding a narrow picker (e.g.
+DEF-only at RM), and late swap passes (skill balance, mid-quarter alignment) can no longer move a
+player out of a pick. Tournament chips stay by line but keep detailed picks. Tests:
+`tests/unit/algorithm/test_granular_positions.py`, `tests/integration/test_granular_positions_api.py`,
+`tests/e2e/test_granular_positions.py`.
 
 ## ▶ Next up (recommendation, 2026-11-23)
 

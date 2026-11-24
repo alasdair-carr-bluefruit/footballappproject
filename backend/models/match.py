@@ -22,6 +22,8 @@ class Match:
     # Specialist-GK time sharing: True = keeper rotates out for equal time,
     # False = keeper in goal all match, None = legacy squad-size heuristic.
     share_gk: bool | None = None
+    # Squad toggle: read position picks granularly (LB ≠ RB). See models.rotation.
+    granular_positions: bool = False
 
     @property
     def half_quarters(self) -> int:

@@ -227,6 +227,7 @@ def _after_change(session: Session, account: AccountDB) -> dict:
         "team_info": {
             "team_name": active.team_name if active else "",
             "team_logo": active.team_logo if active else "",
+            "granular_positions": bool(active and active.granular_positions),
         },
     }
 

@@ -25,7 +25,10 @@ from backend.models.rotation import (
     RotationPlan,
     SlotAssignment,
     is_def_position,
-    normalize_position,
+    move_keeps_picks,
+    picks_allow,
+    position_mode,
+    position_type,
 )
 
 
@@ -43,6 +46,21 @@ def _fairness_value_for(match: Match) -> int:
 
 
 def generate_rotation(
+    squad: Squad,
+    match: Match,
+    prior_slots: dict | None = None,
+    previous_match_zero_slot_players: set | None = None,
+    specialist_gk_max_slots: int | None = None,
+) -> RotationPlan:
+    """Generate a full rotation plan (see ``_generate_rotation``), reading position
+    picks in the squad's granular/band mode for the whole run."""
+    with position_mode(match.granular_positions):
+        return _generate_rotation(
+            squad, match, prior_slots, previous_match_zero_slot_players, specialist_gk_max_slots,
+        )
+
+
+def _generate_rotation(
     squad: Squad,
     match: Match,
     prior_slots: dict | None = None,
@@ -162,6 +180,21 @@ def generate_rotation(
 
 
 def adjust_rotation(
+    original_plan: RotationPlan,
+    edits: dict[int, dict[str, str]],
+    squad: Squad,
+    match: Match,
+    previous_match_zero_slot_players: set | None = None,
+) -> tuple[RotationPlan, list[dict]]:
+    """Re-generate unlocked slots around manual edits (see ``_adjust_rotation``),
+    in the squad's granular/band position mode."""
+    with position_mode(match.granular_positions):
+        return _adjust_rotation(
+            original_plan, edits, squad, match, previous_match_zero_slot_players,
+        )
+
+
+def _adjust_rotation(
     original_plan: RotationPlan,
     edits: dict[int, dict[str, str]],
     squad: Squad,
@@ -341,10 +374,13 @@ def _align_mid_quarter_positions(
                 continue
             if is_def_position(h2_pos) and h2_occupant.def_restricted:
                 continue
+            if not (move_keeps_picks(h1_player, h2_pos, pos)
+                    and move_keeps_picks(h2_occupant, pos, h2_pos)):
+                continue
             # Skip if moving h2_occupant to h2_pos would give them a 3rd position type
-            h2_pos_label = normalize_position(h2_pos)
+            h2_pos_label = position_type(h2_pos)
             occupant_positions = {
-                normalize_position(p)
+                position_type(p)
                 for s in plan.slots for p, pl in s.lineup.items()
                 if pl is h2_occupant and p != Position.GK
             }
@@ -385,7 +421,7 @@ def _build_slots(
     for pre_slot in pre_filled.values():
         for pos, player in pre_slot.lineup.items():
             slot_counts[player] += 1
-            position_sets[player].add(normalize_position(pos))
+            position_sets[player].add(position_type(pos))
             if pos == Position.GK:
                 remaining_gk[id(player)] = max(0, remaining_gk.get(id(player), 0) - 1)
 
@@ -480,7 +516,7 @@ def _position_types(plan: RotationPlan, player: Player) -> set:
     which is precisely why keepers were the ones left sitting out long blocks.
     """
     return {
-        normalize_position(pos)
+        position_type(pos)
         for slot in plan.slots
         for pos, pl in slot.lineup.items()
         if pl is player and pos != Position.GK
@@ -510,7 +546,7 @@ def _eligible_for(player: Player, pos: Position) -> bool:
     """Position eligibility, including the hard DEF restriction."""
     if is_def_position(pos) and player.def_restricted:
         return False
-    return _can_play_position(player, normalize_position(pos))
+    return _can_play_position(player, pos)
 
 
 def _max_pos_types(config: GameConfig, rotation_intensity: int) -> int:
@@ -519,7 +555,7 @@ def _max_pos_types(config: GameConfig, rotation_intensity: int) -> int:
     Same formula as ``_assign_outfield_positions`` — 0 (specialist) → 1 type,
     50 → ~2, 100 (all-rounder) → every type in the formation.
     """
-    types = {normalize_position(k) for k in config.formation.outfield_positions()}
+    types = {position_type(k) for k in config.formation.outfield_positions()}
     return max(1, round(1 + (len(types) - 1) * rotation_intensity / 100))
 
 
@@ -813,7 +849,7 @@ def _assign_outfield_positions(
     pos_enum = {key: Position(key) for key in pos_keys}
 
     # How many distinct outfield position types exist in this formation
-    outfield_types = {normalize_position(k) for k in pos_keys}
+    outfield_types = {position_type(k) for k in pos_keys}
     num_outfield_types = len(outfield_types)  # e.g. 3 for DEF/MID/FWD
 
     # rotation_intensity controls how many position types a player can accumulate:
@@ -822,7 +858,7 @@ def _assign_outfield_positions(
 
     def free_candidates(pos_label: str, pool: list) -> list:
         """Players who can take pos_label without exceeding the position type limit."""
-        norm = normalize_position(pos_label)
+        norm = position_type(pos_label)
         return [
             p for p in pool
             if norm in position_sets[p] or len(position_sets[p]) < max_pos_types
@@ -831,12 +867,11 @@ def _assign_outfield_positions(
     remaining = list(pos_enum.keys())
     while remaining and unassigned:
         def pool_for(lbl: str) -> list:
-            norm = normalize_position(lbl)
-            # Filter by preferred_positions (hard constraint) and DEF restriction
+            # Filter by preferred_positions (soft — see fallback) and DEF restriction
             p = [
                 x for x in unassigned
                 if not (is_def_position(lbl) and x.def_restricted)
-                and _can_play_position(x, norm)
+                and _can_play_position(x, lbl)
             ]
             # Fallback: if nobody's preferred_positions match, use anyone eligible
             if not p:
@@ -853,20 +888,52 @@ def _assign_outfield_positions(
         assigned[pos_enum[pos_label]] = player
         unassigned.remove(player)
 
+    _repair_out_of_pick(assigned)
+
     for pos, player in assigned.items():
         slot.lineup[pos] = player
-        position_sets[player].add(normalize_position(pos))
+        position_sets[player].add(position_type(pos))
         slot_counts[player] += 1
 
 
-def _can_play_position(player: Player, norm_pos: str) -> bool:
-    """Return True if a player's preferred_positions allow this position type.
+def _repair_out_of_pick(assigned: dict) -> None:
+    """Swap positions within one slot to put out-of-pick players back in a pick.
+
+    The greedy most-constrained-first pass can strand a narrow picker: it fills
+    the back line with play-anywhere players, then the DEF-only (or LB-only)
+    player is the last one left for RM. Swapping labels within the slot never
+    changes who plays, so time and sub counts are untouched. A swap is taken only
+    when the mover lands in a pick and the other player doesn't leave one, so
+    out-of-pick count strictly falls and the loop ends.
+    """
+    improved = True
+    while improved:
+        improved = False
+        for pos_a, a in list(assigned.items()):
+            if _can_play_position(a, pos_a):
+                continue
+            for pos_b, b in list(assigned.items()):
+                if b is a or not _can_play_position(a, pos_b):
+                    continue
+                if is_def_position(pos_b) and a.def_restricted:
+                    continue
+                if is_def_position(pos_a) and b.def_restricted:
+                    continue
+                if not move_keeps_picks(b, pos_b, pos_a):
+                    continue
+                assigned[pos_a], assigned[pos_b] = b, a
+                improved = True
+                break
+            if improved:
+                break
+
+
+def _can_play_position(player: Player, pos: str) -> bool:
+    """Return True if a player's position picks cover this slot (band or granular).
 
     Players with empty preferred_positions can play anything (backward compat).
     """
-    if not player.preferred_positions:
-        return True
-    return norm_pos in player.preferred_positions
+    return picks_allow(player.preferred_positions, pos)
 
 
 def _pick_for_position(
@@ -880,13 +947,13 @@ def _pick_for_position(
     High rotation (all-rounder): prefer players who HAVEN'T played this
     position yet, spreading experience across preferred positions.
     """
-    norm_label = normalize_position(pos_label)
+    norm_label = position_type(pos_label)
 
     if rotation_intensity < 40:
         # Low rotation: prefer best_position match, then already plays
         best_match = [
             p for p in candidates
-            if p.best_position and normalize_position(p.best_position) == norm_label
+            if p.best_position and picks_allow([p.best_position], pos_label)
         ]
         if best_match:
             return min(best_match, key=lambda p: len(position_sets[p]))

@@ -2317,6 +2317,16 @@ html, body {
   flex-wrap: wrap;
 }
 
+.granular-row {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 14px;
+}
+.granular-row small { display: block; }
+.position-checkboxes-granular { flex-direction: column; gap: 6px; }
+.position-checkboxes-granular .pos-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.position-checkboxes-granular .pos-check .pos-label { padding: 7px 12px; min-width: 44px; text-align: center; }
+
 .pos-check {
   display: block;
   cursor: pointer;

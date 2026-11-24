@@ -38,6 +38,7 @@ from backend.db.repositories import (
     set_goals,
     set_removed,
     set_rested_ids,
+    squad_uses_granular,
 )
 from backend.models.game_config import (
     DEFAULT_FORMATIONS,
@@ -448,7 +449,9 @@ def adjust_match_rotation(
     else:
         players_db = all_players
 
-    match, squad = match_db_to_domain(db_match, players_db)
+    match, squad = match_db_to_domain(
+        db_match, players_db, granular=squad_uses_granular(session, db_match.squad_id),
+    )
     id_to_player = {p.id: p for p in players_db if p.id is not None}
 
     current_plan = match_service.reconstruct_plan(
@@ -796,7 +799,9 @@ def remove_player_from_match(
     all_players = get_players(session, db_match.squad_id)
     players_db = [p for p in all_players if p.id in set(avail_ids)]
 
-    match, domain_squad = match_db_to_domain(db_match, players_db)
+    match, domain_squad = match_db_to_domain(
+        db_match, players_db, granular=squad_uses_granular(session, db_match.squad_id),
+    )
     id_to_player = {p.id: p for p in players_db if p.id is not None}
 
     # Reconstruct current plan; lock all slots before from_slot, then re-generate
@@ -843,7 +848,9 @@ def reinstate_player_in_match(
     all_players = get_players(session, db_match.squad_id)
     players_db = [p for p in all_players if p.id in set(avail_ids)]
 
-    match, domain_squad = match_db_to_domain(db_match, players_db)
+    match, domain_squad = match_db_to_domain(
+        db_match, players_db, granular=squad_uses_granular(session, db_match.squad_id),
+    )
     id_to_player = {p.id: p for p in players_db if p.id is not None}
 
     # Lock all slots up to current_slot, then re-generate the rest
