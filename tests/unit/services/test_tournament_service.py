@@ -57,7 +57,7 @@ class TestApplyPositionOverrides:
     def test_gk_only_becomes_specialist(self):
         [out] = tournament_service.apply_position_overrides([self._player(1)], {"1": ["GK"]})
         assert out.gk_status == "specialist"
-        assert out.def_restricted is True  # GK-only excludes DEF
+        assert out.def_restricted is False  # DEF is never special (owner, 2026-11-24)
         assert json.loads(out.preferred_positions) == ["GK"]
 
     def test_gk_plus_others_becomes_can_play(self):
@@ -65,10 +65,11 @@ class TestApplyPositionOverrides:
         assert out.gk_status == "can_play"
         assert out.def_restricted is False  # DEF is allowed
 
-    def test_no_gk_becomes_emergency_and_def_restricted_derived(self):
+    def test_no_gk_becomes_emergency_and_def_stays_soft(self):
         [out] = tournament_service.apply_position_overrides([self._player(1)], {"1": ["MID", "FWD"]})
         assert out.gk_status == "emergency_only"
-        assert out.def_restricted is True  # no DEF in the selection
+        # Unticked DEF is a soft preference like any position — no def_restricted flag.
+        assert out.def_restricted is False
 
     def test_untouched_player_returned_unchanged(self):
         p = self._player(2)

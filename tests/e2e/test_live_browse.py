@@ -26,7 +26,7 @@ def _season_to_live(page: Page, seeded_squad) -> None:
     page.click("#btn-generate")
     expect(page.locator("#screen-review")).to_be_visible()
     page.click("#btn-review-start")
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
 
 
 def _tournament_to_live(page: Page, seeded_squad) -> None:
@@ -40,7 +40,7 @@ def _tournament_to_live(page: Page, seeded_squad) -> None:
     page.locator("#lobby-match-list .match-item-main").first.click()
     expect(page.locator("#screen-review")).to_be_visible()
     page.click("#btn-review-start")
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
 
 
 _LIVE_NAV = {"season": _season_to_live, "tournament": _tournament_to_live}

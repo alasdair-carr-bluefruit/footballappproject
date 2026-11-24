@@ -42,6 +42,10 @@ def test_auth_gate_redeem_signout_and_magic_link(auth_server, page: Page):
     # Finish setup → landing, now with a sign-out affordance (auth is on).
     page.fill("#tutorial-team-name", "E2E United")
     page.click("#btn-tutorial-start")
+    # Onboarding goes straight on to adding players; back out to the landing.
+    expect(page.locator("#player-form")).to_be_visible()
+    page.click("#btn-cancel-player")
+    page.click("#btn-squad-back")
     expect(page.locator("#screen-landing")).to_be_visible()
     expect(page.locator("#btn-signout")).to_be_visible()
 
@@ -77,6 +81,10 @@ def _redeem_and_setup(base: str, page: Page, team_name: str, email: str) -> None
     expect(page.locator("#screen-tutorial")).to_be_visible()
     page.fill("#tutorial-team-name", team_name)
     page.click("#btn-tutorial-start")
+    # Onboarding goes straight on to adding players; back out to the landing.
+    expect(page.locator("#player-form")).to_be_visible()
+    page.click("#btn-cancel-player")
+    page.click("#btn-squad-back")
     expect(page.locator("#screen-landing")).to_be_visible()
     # Dismiss the first-run squad-building tip (its scrim intercepts mode-card
     # clicks); mirrors the app's own dismissSquadTip().

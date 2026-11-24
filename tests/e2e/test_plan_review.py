@@ -88,7 +88,7 @@ def test_review_browse_tinker_and_start(seeded_squad, page: Page, flow):
     # Start from the review screen → live pitch.
     page.click("#btn-review-start")
     expect(page.locator("#screen-pitch")).to_be_visible()
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
 
 
 @pytest.mark.parametrize("flow", ["season", "tournament"])

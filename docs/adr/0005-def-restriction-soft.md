@@ -21,3 +21,12 @@ GK specialist status remains hard.
 - Don't "fix" the `pool_for` fallback into a hard rule; tests must not assert DEF is never used.
 - Docs describe DEF as strongly avoided, not guaranteed (CLAUDE.md, requirements.md §3.2).
 - Revisit only if coaches report the warning isn't enough.
+
+## Update — 2026-11-24 (later the same day): DEF is no longer special
+
+Owner: an unticked DEF should behave exactly like an unticked MID or ATT. The UI no longer
+sets `def_restricted`, tournament position overrides no longer derive it, and Alembic revision
+`a3d7c1e9f4b2` clears it on every player. `preferred_positions` carries the preference, so
+DEF is now a plain soft pick. The engine's `def_restricted` code paths stay (dormant) for
+API compatibility. The "No DEF" badge is gone. GK-only is still special, but only when the
+coach says yes to the explicit "Keeper only?" switch.

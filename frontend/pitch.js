@@ -352,7 +352,8 @@ function buildPlanGrid(listEl, md = state.matchData, opts = {}) {
     listEl.appendChild(li);
   });
 
-  // Skill totals row
+  // Skill totals row (hidden unless the coach turned on "Show skill balance")
+  if (!state.showSkillRow) return;
   const skillLi = document.createElement("li");
   skillLi.className = "report-row report-row-skill";
   const skillChipsHtml = md.slots.map((slot, i) =>
@@ -403,6 +404,16 @@ function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
     return el;
   };
 
+  // Grid cells show first names; a shared first name gets the surname initial.
+  const allNames = [...new Set(md.slots.flatMap(sl => Object.values(sl.lineup).map(p => p.name)))];
+  const firstOf = n => n.trim().split(/\s+/)[0];
+  const gridName = n => {
+    const first = firstOf(n);
+    const clash = allNames.some(o => o !== n && firstOf(o) === first);
+    const rest = n.trim().split(/\s+/).slice(1).join(" ");
+    return clash && rest ? `${first} ${rest[0]}` : first;
+  };
+
   // Split into stacked grids of at most CHUNK slots (one grid per match-half), so
   // an 8-slot quarters match reads as two 4-column tables (Q1a–Q2b / Q3a–Q4b)
   // instead of one cramped 8-column strip. A 4-slot (halves) match stays single.
@@ -421,7 +432,9 @@ function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
     for (let i = start; i < end; i++) {
       const selected = opts.selectedSlot === i ? " plan-head-selected" : "";
       const selectable = opts.onSlotSelect ? " plan-head-selectable" : "";
-      const head = cell(`plan-cell plan-head${selectable}${selected}`, slotLabels[i]);
+      // Plain-language header: "Q1" over "start" / "mid" (the half-way sub).
+      const head = cell(`plan-cell plan-head${selectable}${selected}`, "");
+      head.innerHTML = `${slotLabels[i].slice(0, -1)}<small class="plan-head-sub">${i % 2 === 0 ? "start" : "mid"}</small>`;
       if (opts.onSlotSelect) {
         head.title = "Tap to swap this whole quarter";
         head.addEventListener("click", () => opts.onSlotSelect(i));
@@ -444,13 +457,15 @@ function buildPositionGrid(containerEl, md = state.matchData, opts = {}) {
         const prefs = p.preferred_positions || [];
         const offPref = prefs.length && !prefs.includes(normalizePos(posKey)) ? " chip-offpref" : "";
         const title = offPref ? `${p.name} — ${displayPos(posKey)} isn't a position they picked` : p.name;
-        grid.appendChild(cell(`plan-cell pos-${band}${changed}${under}${offPref}`, playerToken(p.name), title));
+        grid.appendChild(cell(`plan-cell pos-${band}${changed}${under}${offPref}`, gridName(p.name), title));
       }
     });
 
-    // Skill-total row.
-    grid.appendChild(cell("plan-rowlabel plan-skill-label", "⚡"));
-    for (let i = start; i < end; i++) grid.appendChild(cell("plan-cell plan-skill", String(md.slots[i].skill_total ?? "?")));
+    // Skill-total row — behind the review screen's "Show skill balance" toggle.
+    if (state.showSkillRow) {
+      grid.appendChild(cell("plan-rowlabel plan-skill-label", "⚡"));
+      for (let i = start; i < end; i++) grid.appendChild(cell("plan-cell plan-skill", String(md.slots[i].skill_total ?? "?")));
+    }
 
     containerEl.appendChild(grid);
   }
@@ -805,7 +820,12 @@ function render() {
       const name = player?.name ?? "";
       const isEmpty = !name;
       const isGk = posKey === "GK";
-      const swapHandler = state.editMode ? () => openSwapPicker(state.currentSlot, posKey, name) : null;
+      // Tinkering: tap opens the swap picker. Live: a short tap on a player opens
+      // Goal / Remove (injured) — the long-press goal still works.
+      const liveTap = !state.editMode && !isEmpty && player?.id != null
+        && state.matchData.match.status === "in_progress" && canRecordGoalHere();
+      const swapHandler = state.editMode ? () => openSwapPicker(state.currentSlot, posKey, name)
+        : liveTap ? () => openPlayerActionMenu(player, { posKey }) : null;
       const dragData = state.editMode && !isEmpty ? { slotIndex: state.currentSlot, posKey } : null;
       const circle = playerCircle(name || posKey, displayPos(posKey), incoming.has(name), outgoing.has(name), isGk, swapHandler, dragData);
       if (isEmpty) circle.classList.add("empty-slot");
@@ -844,15 +864,7 @@ function render() {
       if (isRemoved) {
         li.addEventListener("click", () => openReinstateOverlay(p));
       } else {
-        let benchPressTimer = null;
-        li.addEventListener("pointerdown", () => {
-          benchPressTimer = setTimeout(() => {
-            benchPressTimer = null;
-            openPlayerActionMenu(p);
-          }, 600);
-        });
-        li.addEventListener("pointerup",    () => clearTimeout(benchPressTimer));
-        li.addEventListener("pointerleave", () => clearTimeout(benchPressTimer));
+        li.addEventListener("click", () => openPlayerActionMenu(p, { bench: true }));
       }
     }
 
@@ -869,7 +881,8 @@ function render() {
   const endMatchBar = document.getElementById("end-match-bar");
   const isCompleted = state.matchData.match.status === "completed";
   const isLastSlot = state.currentSlot === state.matchData.slots.length - 1;
-  document.getElementById("live-pitch-badge").classList.toggle("visible", state.matchStarted && !isCompleted);
+  // One LIVE marker: the "● LIVE" next to the period name (it also tells you
+  // which period is live while browsing). The header and on-pitch copies are gone.
 
   // Manual assign bar: visible in review mode when not already in manual/edit mode
   const manualAssignBar = document.getElementById("manual-assign-bar");
@@ -903,7 +916,7 @@ function render() {
     // button itself becomes "End Match", so hide the bar there to avoid two
     // buttons both labelled "End Match".
     endMatchBar.hidden = isCompleted || isLastSlot;
-    liveBadge.hidden = isCompleted;
+    liveBadge.hidden = true;
     // "Return to plan review" only while the match hasn't progressed past period 1
     document.getElementById("btn-return-plan").hidden = state.liveSlot !== 0 || isCompleted;
     btnPrev.disabled = state.currentSlot === 0 || state.editMode;
@@ -1022,6 +1035,7 @@ function renderReport() {
 }
 
 function showMatch() {
+  syncBackLabels();
   state.showingReport = false;
   state.showingChanges = false;
   document.querySelector(".pitch-wrapper").style.display = "";
@@ -1128,7 +1142,8 @@ function enterPitchView(data) {
 let reviewSwapSel = null;  // slot_index selected as the first half of a pending swap
 
 function slotSwapLabel(slotIndex) {
-  return periodLabel(slotIndex).label;
+  const { label } = periodLabel(slotIndex);
+  return `${label.slice(0, -1)} ${slotIndex % 2 === 0 ? "start" : "mid"}`;
 }
 
 async function performSlotSwap(aIdx, bIdx) {
@@ -1181,7 +1196,17 @@ function enterFulltimeView(data) {
   showFulltime();
 }
 
+// Back buttons go to the tournament lobby for a tournament match, else the
+// season match list — label them for where they actually go.
+function syncBackLabels() {
+  const toLobby = state.pitchBackContext === "tournament" && state.activeTournamentId;
+  const label = toLobby ? "◀ Tournament" : "◀ Matches";
+  document.getElementById("btn-pitch-back").textContent = label;
+  document.getElementById("btn-review-back").textContent = label;
+}
+
 function renderReview() {
+  syncBackLabels();
   const match = state.matchData.match;
   const date = new Date(match.date + "T12:00:00");
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -1213,6 +1238,15 @@ function renderReview() {
     selectedSlot: reviewSwapSel,
   });
   grid.appendChild(buildCountsStrip(state.matchData, flags.names));
+  const skillToggle = document.createElement("button");
+  skillToggle.type = "button";
+  skillToggle.className = "btn-link plan-skill-toggle";
+  skillToggle.textContent = state.showSkillRow ? "Hide skill balance" : "Show skill balance";
+  skillToggle.addEventListener("click", () => {
+    state.showSkillRow = !state.showSkillRow;
+    renderReview();
+  });
+  grid.appendChild(skillToggle);
 
   const hint = document.getElementById("review-swap-hint");
   if (swappable) {
@@ -1232,6 +1266,22 @@ function renderReview() {
     || state.lockedSlots.size > 0
     || !!state.manualRotationMode;
   renderPlanFlags(document.getElementById("review-warning"), flags, { tinkered });
+  renderOwedNote(match);
+}
+
+// Advisory season fairness (never automatic): before kick-off of a season match,
+// name the players in this plan who are behind from earlier matches (rested, or
+// short-changed), so the coach can tinker more time their way if they choose.
+function renderOwedNote(match) {
+  const el = document.getElementById("review-owed");
+  const inPlan = new Set(state.matchData.slots.flatMap(sl =>
+    [...Object.values(sl.lineup), ...(sl.bench || [])].map(p => p.name)));
+  const owed = (!match.tournament_id && !state.matchStarted ? state.owedTime || [] : [])
+    .filter(o => inPlan.has(o.name));
+  el.hidden = owed.length === 0;
+  if (!owed.length) return;
+  el.textContent = `Owed time from earlier matches: ${owed.map(o => `${o.name} ${o.owed_mins}′`).join(" · ")}. `
+    + "Tinker to give them more if you like.";
 }
 
 // Hands the current review screen's plan(s) to the Share button. Both flows call
@@ -1375,6 +1425,15 @@ document.getElementById("btn-next").addEventListener("click", async () => {
     // "Start period" prompt, so browsing ahead never commits or locks anything.
     // Let the prompt re-appear when landing on the next-period boundary again.
     state.newPeriodHintSlot = null;
+    // Except when the live period's time is up: then Next from the live period
+    // simply starts the next one (no "Start quarter / Browse only" prompt).
+    if (periodTimeUp(prevSlotObj) && state.currentSlot % 2 === 0
+        && periodOf(state.currentSlot) === livePeriod() + 1) {
+      startViewedPeriod();
+      const label = state.matchData.match.period_label || "Quarter";
+      showToast(`${label} ${periodOf(state.currentSlot) + 1} started`);
+      return;
+    }
 
     // Manual mode: carry prev slot's lineup into the next empty slot, then auto-tinker
     if (state.manualRotationMode) {
@@ -1609,7 +1668,21 @@ document.getElementById("btn-timer-reset").addEventListener("click", () => {
   if (readTimer() && confirm("Reset the match clock to 0:00?")) resetMatchTimer();
 });
 
-document.getElementById("btn-new-period-reset").addEventListener("click", () => {
+// True when the coach is moving on from the live period and its clock has run
+// (near enough) its full length — so Next means "start the next period".
+function periodTimeUp(fromSlot) {
+  if (!state.matchStarted || !can("run_matchday") || state.manualRotationMode) return false;
+  if (state.matchData.match.status !== "in_progress" || !timerEnabled()) return false;
+  if (!fromSlot || periodOf(fromSlot.slot_index) !== livePeriod()) return false;
+  const timerState = readTimer();
+  if (!timerState || timerState.pausedAt != null) return false;
+  const periodSecs = (state.matchData.match.quarter_length_mins || 10) * 60;
+  return timerElapsedSecs(timerState) >= periodSecs - 30;
+}
+
+document.getElementById("btn-new-period-reset").addEventListener("click", startViewedPeriod);
+
+function startViewedPeriod() {
   // Commit: the viewed period becomes the live one. Advance liveSlot, persist it
   // (this is the only progress write now), and reset the clock for the new period.
   state.liveSlot = state.currentSlot;
@@ -1619,7 +1692,7 @@ document.getElementById("btn-new-period-reset").addEventListener("click", () => 
   state.newPeriodHintSlot = state.currentSlot;
   document.getElementById("new-period-hint").hidden = true;
   render();
-});
+}
 
 document.getElementById("btn-new-period-dismiss").addEventListener("click", () => {
   // Just browsing — leave the live period where it is, only suppress the prompt here.
@@ -1780,10 +1853,13 @@ document.getElementById("btn-return-plan").addEventListener("click", async () =>
 });
 
 // ── Player removal ─────────────────────────────────────────────────────────────
-function openPlayerActionMenu(player) {
+function openPlayerActionMenu(player, { bench = false, posKey = null } = {}) {
   if (!can("run_matchday")) return;
   state.pendingActionPlayer = player;
+  state.pendingActionPos = posKey;  // set = on the pitch in the viewed slot
   document.getElementById("player-action-title").textContent = player.name;
+  // Goals belong to the live period; a bench player can't score.
+  document.getElementById("btn-action-goal").hidden = bench || !canRecordGoalHere();
   document.getElementById("player-action-overlay").hidden = false;
 }
 
@@ -1818,13 +1894,65 @@ document.getElementById("btn-action-remove").addEventListener("click", async () 
   if (!state.pendingActionPlayer || !state.matchData) { state.pendingActionPlayer = null; return; }
 
   const player = state.pendingActionPlayer;
+  const posKey = state.pendingActionPos;
   state.pendingActionPlayer = null;
+  state.pendingActionPos = null;
 
+  // On the pitch with someone on the bench: ask who comes on first, so the rest
+  // of the current line-up stays exactly as it is (see openInjuryPicker).
+  const benchNow = (state.matchData.slots[state.currentSlot]?.bench || [])
+    .filter(p => !(String(p.id) in state.removedPlayers));
+  if (posKey && benchNow.length) {
+    openInjuryPicker(player, posKey, benchNow);
+    return;
+  }
+  await removeFromMatch(player, state.currentSlot);
+});
+
+// "Who comes on for X?" — the injured/leaving player is swapped for the chosen
+// bench player in the current slot (locked, so nobody else moves), then removed
+// from the NEXT slot on, which is all the engine re-plans. Removing them from the
+// current slot directly would let the engine reshuffle the other players mid-period.
+function openInjuryPicker(player, posKey, bench) {
+  document.getElementById("swap-title").textContent = `Who comes on for ${player.name}?`;
+  const list = document.getElementById("swap-list");
+  list.innerHTML = "";
+  bench.forEach(p => {
+    const count = slotCountForPlayer(p.name);
+    const li = document.createElement("li");
+    li.className = "swap-item";
+    li.innerHTML = `<span class="swap-name">${p.name}</span><span class="swap-pos">Bench · ${count} slot${count !== 1 ? "s" : ""}</span>`;
+    li.addEventListener("click", async () => {
+      document.getElementById("swap-overlay").hidden = true;
+      const slotIndex = state.currentSlot;
+      const statusEl = document.getElementById("adjust-status");
+      statusEl.textContent = "Making the sub…";
+      statusEl.hidden = false;
+      try {
+        const lockAll = state.matchData.slots.map(sl => sl.slot_index);
+        const result = await api.adjustRotation(
+          state.matchData.match.id, { [slotIndex]: { [posKey]: p.id } }, lockAll,
+        );
+        state.matchData.slots = result.slots;
+        state.lockedSlots.add(slotIndex);
+      } catch (err) {
+        statusEl.hidden = true;
+        alert("Could not make the sub: " + err.message);
+        return;
+      }
+      await removeFromMatch(player, slotIndex + 1);
+    });
+    list.appendChild(li);
+  });
+  document.getElementById("swap-overlay").hidden = false;
+}
+
+async function removeFromMatch(player, fromSlot) {
   const statusEl = document.getElementById("adjust-status");
   statusEl.hidden = false;
   try {
     statusEl.textContent = "Regenerating plan…";
-    const result = await api.removePlayer(state.matchData.match.id, player.id, state.currentSlot);
+    const result = await api.removePlayer(state.matchData.match.id, player.id, fromSlot);
     statusEl.hidden = true;
     state.removedPlayers = result.removed_players || {};
     state.matchData.slots = result.slots;
@@ -1835,7 +1963,7 @@ document.getElementById("btn-action-remove").addEventListener("click", async () 
     statusEl.hidden = true;
     alert("Could not remove player: " + err.message);
   }
-});
+}
 
 document.getElementById("btn-reinstate-cancel").addEventListener("click", () => {
   document.getElementById("reinstate-overlay").hidden = true;

@@ -13,7 +13,7 @@
 
 ## Project Summary
 
-A mobile-first Progressive Web App for grassroots youth football coaches to manage fair player rotation across a match. The system generates a full rotation plan (who plays where, when) across configurable match structures, enforcing GK tier priorities, DEF restrictions, position preferences, equal/competitive playing time, and soft skill-balance goals.
+A mobile-first Progressive Web App for grassroots youth football coaches to manage fair player rotation across a match. The system generates a full rotation plan (who plays where, when) across configurable match structures, enforcing GK tier priorities, position preferences, equal/competitive playing time, and soft skill-balance goals.
 
 **Owner:** Personal project — multiple grassroots coaches (~8 live). Magic-link sign-in, invite-only.
 
@@ -21,7 +21,7 @@ A mobile-first Progressive Web App for grassroots youth football coaches to mana
 
 ## Current Phase
 
-**Multi-user (v1.1) — SHIPPED & LIVE (built on `feat/multi-user`; everything is on `main` now).** Magic-link auth (no
+**Multi-user (v1.1) — SHIPPED & LIVE (everything is on `main`).** Magic-link auth (no
 PIN), invite-only onboarding, `AccountDB`/`InviteDB`/`LoginTokenDB`, the `deps.py`
 isolation seam (`get_current_account`/`get_current_squad` + `owned_*` IDOR guards),
 early-access capture + Resend email, and a separate static marketing site
@@ -86,7 +86,7 @@ Next significant work: see **Current Phase** above and DEVELOPMENT_PLAN.md (Tier
 | Frontend | Vanilla JS (ES modules), Pico.css, PWA/Service Worker |
 | Testing | pytest + pytest-bdd (Gherkin), pytest-asyncio |
 | Linting | ruff, mypy |
-| Hosting | **Live: Railway + Neon Postgres + Cloudflare** (app.keepthingslevel.com), single shared multi-user instance. Old Render single-user clones retained as fallback until each coach is migrated. |
+| Hosting | **Live: Railway + Neon Postgres + Cloudflare** (app.keepthingslevel.com), single shared multi-user instance. Render is retired (render.yaml/Procfile removed 2026-11-24). |
 
 ---
 
@@ -214,12 +214,11 @@ football-app-project/
   but this is best-effort, not a hard guarantee: when the preferred pool for a
   slot empties, the position assigner falls back to any eligible player rather
   than leave a position unfilled (`_assign_outfield_positions` → `pool_for`).
-  GK specialist status is hard. DEF restriction (`def_restricted`) is strongly avoided
-  but, like position picks, **soft by design (owner decision 2026-11-24):** in a squeezed
-  squad `pool_for`'s last resort (`return p if p else unassigned`) can place a
-  DEF-restricted player at DEF rather than leave a hole, and the coach sees it as an
-  "out of position" plan warning. Don't "fix" this into a hard rule.
-- `def_restricted` and `gk_status` are derived from position selections in the UI
+  GK specialist status is hard. **DEF is not special (owner, 2026-11-24):** an unticked
+  DEF is a soft preference like any other position; `def_restricted` is no longer set
+  (cleared by migration `a3d7c1e9f4b2`, engine paths dormant). See ADR 0005.
+- `gk_status` is derived from position selections in the UI; only-GK ticked becomes
+  `specialist` only when the coach turns on the explicit "Keeper only?" switch
 
 ### Shirt numbers
 - Optional `shirt_number: int | None` stored on PlayerDB

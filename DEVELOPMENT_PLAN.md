@@ -17,7 +17,9 @@ FA FutureFit guides are live on `keepthingslevel.com/blog/`.
   the ⚠ tone only after the coach has tinkered. Competitive mode stays selectable.
 - **FA copy accuracy:** only FA-owned sources; never imply FA endorsement; the U6–U11 / U12–U16
   equal-time split is a county-guidance *club policy*, not an FA mandate.
-- **DEF restriction stays soft** (owner, 2026-11-24) — the out-of-position warning covers it.
+- **DEF is not special** (owner, 2026-11-24) — unticked DEF = soft, like any position (ADR 0005).
+- **CI installs from `uv.lock`** — unpinned `pip install` had CI red Sep–Nov 2026 on a FastAPI
+  version production never ran. Never go back to an unpinned install.
 - `mid_period_subs` / `max_subs` is a **soft** cap (fair time + full team win over it).
 
 ---
@@ -37,6 +39,41 @@ Loose ends from moving the production database from Neon us-east-1 to London
 - [x] **Measure after the move** — done 2026-09-29: `Server-Timing` shows ~16ms per query
       (was ~260ms) with 0 new connections per request (pooling works; distance was the cause).
 
+## Ease-of-use sprint (from the 2026-11-24 audit + owner review)
+
+**Built locally 2026-11-24, frontend only (not pushed yet):** settings remembered per team (from the
+team's latest match/tournament, so it works on any device), age groups under the size buttons
+(U8–U9 / U10–U11 / U12–U13, no "FutureFit" wording), "N of M coming" on both player pickers,
+"Keeper only" / "No DEF" badges + a warning in the player form, no skill stars on the tournament
+picker, tap a live player → Goal / Injured (injured asks who comes on and keeps the rest of the
+slot put), one LIVE marker, Next starts the next period once its clock has run, plan grid with
+"Q1 start/mid" headers + first names + skill row behind a toggle, onboarding → add players,
+"Save & add another", back/button labels.
+
+**Built locally 2026-11-24, round 2 (backend → goes via staging):**
+- ✅ **Login fix:** `pool_pre_ping` + `pool_recycle` on the Postgres engine (Neon drops idle
+  connections → first request 500 → "Something went wrong"), plus one quiet retry on request-link.
+- **CI fixed:** installs from `uv.lock` (was red since Sep on FastAPI 0.165).
+- ✅ Login + CI fixes **SHIPPED** to staging + main 2026-11-24 (`dc5b116`, SW v62). The rest below is still local.
+- **Rested vs unavailable:** unticking a player on the season picker offers Unavailable
+  (default) / Rested. Rested is stored (`match_rested`, migration `b8e2f4a6c9d1`).
+  `GET /api/matches/stats/owed` gives the advisory "N′ owed" per player, from finished Equal-play season
+  matches. It shows on the picker and the review screen. The engine is untouched. Tournaments don't have it (one-day event).
+- **DEF not special:** migration `a3d7c1e9f4b2` clears `def_restricted`; "No DEF" badge removed.
+- **Keeper only? asked explicitly** when only GK is ticked.
+- **Housekeeping:** `render.yaml` / `Procfile` deleted; `feat/multi-user`, `feature/v0.4-ui`,
+  `feature/v0.5-api` deleted locally + on GitHub. Manual left for the owner: shut down the Render
+  services; Neon London staging branch + delete the US project (infra list above).
+
+**Owner decisions (2026-11-24):** season fairness = advisory flag ✓ · keeper: no engine change ·
+settings per team ✓ · keep 6v6 · stats in minutes · shirt numbers fine as-is · **never:** parent
+view, 11v11, league cap warnings · MoM/assists low priority.
+
+**Next: granular positions** — a squad-info toggle; turning it on shows a "you'll need to set
+each player's positions" confirm, then position picks become LB/CB/RB, LM/CM/RM/CAM, LW/CF/RW
+(mainly 9v9). Engine change → staging. **Owner 2026-11-24:** each granular position counts as its
+own position for rotation variety (LW and RW = 2, LB and RB = 2).
+
 ## ▶ Next up (recommendation, 2026-11-23)
 
 Tier 1 is done and T3.2 phases 1–2 are live, so the order below is by risk to live coaches
@@ -46,11 +83,8 @@ first, then value × effort. Details for each are in the tier sections further d
    the US, which privacy policy §6 no longer allows. Manual, ~30 min, highest-priority non-code item.
 2. ~~Make `def_restricted` truly hard~~ — **dropped (owner, 2026-11-24).** The last-resort
    fallback is acceptable: the coach already sees an "out of position" warning, so it stays soft.
-3. **League daily playing-time cap in tournaments** (Cornwall rules section below) — a coach can
-   currently breach a league rule without being told. Start as a warning on the tournament
-   review screen (age group → cap), not an engine constraint.
-4. **T2.1 Man of the Match + assists** — the remaining share-image items; small, visible, and
-   feeds the growth loop.
+3. ~~League daily playing-time cap in tournaments~~ — **dropped (owner, 2026-11-24).**
+4. **T2.1 Man of the Match + assists** — owner: low priority (2026-11-24).
 5. ~~**T2.2 SEO cornerstone**~~ — on-site content built 2026-11-23 (4 guides + hub); sitemaps submitted to Google + Bing; remaining: outreach.
 6. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
    which a coach asks for first. Open question for the owner: should assistants be able to *run*

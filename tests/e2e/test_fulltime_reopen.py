@@ -37,7 +37,7 @@ def _play_to_fulltime(page: Page, base: str, flow: str, opponent: str) -> None:
 
     expect(page.locator("#screen-review")).to_be_visible()
     page.click("#btn-review-start")
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
     advance_to_report(page)
     page.click("#btn-next")  # summary's "Confirm ▶" -> full time
     expect(page.locator("#screen-fulltime")).to_be_visible()

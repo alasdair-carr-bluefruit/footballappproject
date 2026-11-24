@@ -205,4 +205,28 @@ document.addEventListener("click", e => {
   btn.setAttribute("aria-expanded", String(show));
 });
 
+// ── "8 of 9 coming" availability count (season + tournament player pickers) ──
+// Every row starts ticked, so without a count it's easy to plan in a child who
+// isn't there. A MutationObserver keeps it right through re-renders and guest
+// rows being added/removed; a delegated change listener covers the ticks.
+function bindAvailCount(listId, countId) {
+  const list = document.getElementById(listId);
+  const out = document.getElementById(countId);
+  if (!list || !out) return;
+  const update = () => {
+    const boxes = list.querySelectorAll('input[type="checkbox"]');
+    const ticked = list.querySelectorAll('input[type="checkbox"]:checked').length;
+    const rested = [...list.querySelectorAll('.reason-chip.active[data-reason="rested"]')]
+      .filter(c => !c.closest(".avail-item")?.querySelector('input[type="checkbox"]')?.checked).length;
+    out.textContent = boxes.length
+      ? `${ticked} of ${boxes.length} coming${rested ? ` · ${rested} rested` : ""}` : "";
+  };
+  list.addEventListener("change", update);
+  new MutationObserver(update).observe(list, {
+    childList: true, subtree: true, attributes: true, attributeFilter: ["class"],
+  });
+}
+bindAvailCount("avail-list", "avail-count");
+bindAvailCount("tournament-squad-list", "tournament-avail-count");
+
 export { updateFairnessLabel, getRotationValue, selectSize, selectPeriods, tournamentSelectSize, buildMaxSubsOptions };

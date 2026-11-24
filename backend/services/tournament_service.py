@@ -61,7 +61,9 @@ def apply_position_overrides(
                 p2.gk_status = "can_play"
             else:
                 p2.gk_status = "emergency_only"
-            p2.def_restricted = len(positions) > 0 and "DEF" not in positions
+            # DEF unticked is a soft preference like any other position (owner,
+            # 2026-11-24) — preferred_positions carries it, no def_restricted flag.
+            p2.def_restricted = False
             result.append(p2)
         else:
             result.append(p)

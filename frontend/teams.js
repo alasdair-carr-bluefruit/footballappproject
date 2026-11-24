@@ -299,6 +299,9 @@ function resetTeamCaches() {
   state.cachedSquadPlayers = [];
   state.goalCounts = {};
   state.removedPlayers = {};
+  state.seasonMatches = null;   // remembered-settings source (per team)
+  state.tournamentList = null;
+  state.owedTime = null;
 }
 
 async function primeTeamInfo() {

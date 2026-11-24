@@ -145,3 +145,21 @@ def seeded_squad(live_server):
         if r.status_code not in (201, 422):  # 422 = already seeded on a re-run
             r.raise_for_status()
     return live_server
+
+
+@pytest.fixture(autouse=True)
+def _fresh_plans(request):
+    """Start each seeded-squad test with no matches or tournaments.
+
+    New Match / New Tournament pre-fill from the team's latest plan (remembered
+    settings), so on the shared session server one test's choices (timer off,
+    7v7, ...) would otherwise leak into the next test's defaults.
+    """
+    if "seeded_squad" in request.fixturenames:
+        base = request.getfixturevalue("seeded_squad")
+        with httpx.Client(base_url=base, timeout=10) as api:
+            for m in api.get("/api/matches/").json():
+                api.delete(f"/api/matches/{m['id']}")
+            for t in api.get("/api/tournaments/").json():
+                api.delete(f"/api/tournaments/{t['id']}")
+    yield

@@ -37,6 +37,7 @@ from backend.db.repositories import (
     set_available_ids,
     set_goals,
     set_removed,
+    set_rested_ids,
 )
 from backend.models.game_config import (
     DEFAULT_FORMATIONS,
@@ -309,6 +310,16 @@ def _plan_payload(session: Session, db_match: MatchDB, can_edit: bool) -> dict[s
 
 class RotationRequest(BaseModel):
     available_player_ids: list[int] | None = None  # None = all players
+    # Not picked because the coach RESTED them (owed time later); everyone else not
+    # picked is unavailable. None = leave what's stored.
+    rested_player_ids: list[int] | None = None
+
+
+def _save_rested(session: Session, match_id: int, body: "RotationRequest | None") -> None:
+    if body is None or body.rested_player_ids is None:
+        return
+    picked = set(body.available_player_ids or [])
+    set_rested_ids(session, match_id, [p for p in body.rested_player_ids if p not in picked])
 
 
 @router.post("/{match_id}/rotation")
@@ -349,6 +360,7 @@ def generate_match_rotation(
         )
 
     match_service.generate_and_save_rotation(session, db_match, players_db)
+    _save_rested(session, match_id, body)
     plan_changed(session, db_match, access)
     session.commit()
     # An assistant's first plan for a season match → let the head coach know (a
@@ -394,6 +406,7 @@ def create_blank_rotation(
 
     num_slots = config.total_slots
     create_blank_plan(session, match_id, num_slots, [p.id for p in players_db])
+    _save_rested(session, match_id, body)
     plan_changed(session, db_match, access)
     session.commit()
 
@@ -508,6 +521,16 @@ def save_match_goals(
     session.add(db_match)
     session.commit()
     return {"status": "saved"}
+
+
+@router.get("/stats/owed")
+def get_owed_time(
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(get_current_squad),
+) -> list[dict[str, Any]]:
+    """Advisory season fairness: minutes each player is behind their fair share
+    across finished season matches (rested counts; unavailable doesn't)."""
+    return analytics.owed_minutes(session, squad.id)
 
 
 @router.get("/stats/season")

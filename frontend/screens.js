@@ -72,16 +72,13 @@ document.getElementById("btn-tutorial-start").addEventListener("click", async ()
   await withSaveToast(() => api.updateTeamInfo({ team_name: name, team_logo: logo }));
   state.teamInfo = { team_name: name, team_logo: logo };
   localStorage.setItem("gaffer_onboarded", "1");
-  showScreen("screen-landing");
   renderTeamPills();  // reflect the just-named team on the landing pill
-  showSquadTip();
+  // Straight on to the squad with the first Add Player form open (back from the
+  // squad lands on the home screen as usual).
+  state.squadBackContext = "landing";
+  await loadSquad();
+  openPlayerForm();
 });
-
-function showSquadTip() {
-  if (localStorage.getItem("gaffer_squad_tip_dismissed")) return;
-  document.getElementById("squad-onboarding").style.display = "flex";
-  document.querySelector(".landing").classList.add("landing--onboarding");
-}
 
 function dismissSquadTip() {
   document.getElementById("squad-onboarding").style.display = "none";
@@ -207,16 +204,15 @@ export async function loadSquad() {
   players.forEach(p => {
     const badges = [];
     const prefs = p.preferred_positions || [];
-    if (prefs.length > 0) {
+    // Keeper-only is a big consequence of the position picks, so show it.
+    if (p.gk_status === "specialist") {
+      badges.push('<span class="badge badge-gk">Keeper only</span>');
+    } else {
       prefs.forEach(pos => {
         const isBest = pos === p.best_position;
         const cls = isBest ? "badge badge-pos badge-best" : "badge badge-pos";
         badges.push(`<span class="${cls}">${displayPos(pos)}</span>`);
       });
-    } else {
-      // Legacy fallback
-      if (p.gk_status === "specialist") badges.push('<span class="badge badge-gk">GK</span>');
-      if (p.def_restricted) badges.push('<span class="badge badge-def">No DEF</span>');
     }
 
     let numberBadge = "";
@@ -279,8 +275,19 @@ function openPlayerForm(player = null) {
     cb.checked = prefs.includes(cb.value);
   });
   updateBestPositionOptions(prefs, player?.best_position || "");
+  document.getElementById("input-keeper-only").checked = player?.gk_status === "specialist";
+  updatePositionConsequence();
+  // "Save & add another" only makes sense when adding.
+  document.getElementById("btn-save-add-another").hidden = !!player;
 
   document.getElementById("input-name").focus();
+}
+
+// Only GK ticked → ask outright whether they're keeper-only (never outfield),
+// rather than silently making them so (owner decision 2026-11-24).
+function updatePositionConsequence() {
+  const checked = [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
+  document.getElementById("keeper-only-row").hidden = !(checked.length === 1 && checked[0] === "GK");
 }
 
 function updateBestPositionOptions(selectedPositions, currentBest) {
@@ -300,6 +307,7 @@ document.getElementById("position-checkboxes").addEventListener("change", () => 
   const checked = [...document.querySelectorAll("#position-checkboxes input:checked")].map(cb => cb.value);
   const currentBest = document.getElementById("input-best-position").value;
   updateBestPositionOptions(checked, checked.includes(currentBest) ? currentBest : "");
+  updatePositionConsequence();
 });
 
 function closePlayerForm() {
@@ -361,8 +369,11 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
 
   // Derive gk_status from position selections
   let gkStatus;
-  if (preferred.includes("GK") && preferred.length === 1) {
-    gkStatus = "specialist"; // GK only
+  const keeperOnly = document.getElementById("input-keeper-only").checked;
+  if (preferred.includes("GK") && preferred.length === 1 && keeperOnly) {
+    gkStatus = "specialist"; // the coach said yes to "Keeper only?"
+  } else if (preferred.includes("GK") && preferred.length === 1) {
+    gkStatus = "preferred"; // GK only ticked, but may play outfield if needed
   } else if (bestPos === "GK") {
     gkStatus = "preferred"; // GK is their best position
   } else if (preferred.includes("GK")) {
@@ -371,8 +382,8 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
     gkStatus = "emergency_only"; // GK not selected
   }
 
-  // Derive def_restricted: if positions are specified and DEF isn't among them
-  const defRestricted = preferred.length > 0 && !preferred.includes("DEF");
+  // DEF unticked = a soft preference like any other position (owner, 2026-11-24).
+  const defRestricted = false;
 
   const shirtRaw = document.getElementById("input-shirt-number").value.trim();
   const data = {
@@ -396,6 +407,7 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
   }
 
   const btn = e.submitter || document.querySelector("#player-form [type=submit]");
+  const addAnother = btn?.value === "another" && id === null;
   btn.disabled = true;
   try {
     if (id !== null) {
@@ -409,6 +421,12 @@ document.querySelector("#player-form form").addEventListener("submit", async e =
     return;
   } finally {
     btn.disabled = false;
+  }
+  if (addAnother) {
+    await loadSquad();          // refresh the list behind the form (+ duplicate check)
+    openPlayerForm();
+    showToast(`${data.name} added`);
+    return;
   }
   closePlayerForm();
   loadSquad();

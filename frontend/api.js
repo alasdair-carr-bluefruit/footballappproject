@@ -126,6 +126,7 @@ export const api = {
   setMatchOwner:     (id, accountId) => request(`/matches/${id}/owner`, { method: "PUT", body: { account_id: accountId } }),
   saveGoals:         (id, goals, opponentGoals, hideScore, ownGoals) => request(`/matches/${id}/goals`, { method: "POST", body: { goals, opponent_goals: opponentGoals || 0, ...(ownGoals == null ? {} : { own_goals: ownGoals }), ...(hideScore == null ? {} : { hide_score: hideScore ? 1 : 0 }) } }),
   getSeasonStats:    ()   => request("/matches/stats/season"),
+  getOwedTime:       ()   => request("/matches/stats/owed"),
   getPlayerHistory:  (id) => request(`/matches/stats/player/${id}`),
 
   // Config

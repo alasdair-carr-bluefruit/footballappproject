@@ -48,7 +48,7 @@ def test_timer_hidden_when_switched_off(seeded_squad, page: Page):
     page.click("#btn-generate")
     page.click("#btn-review-start")
     expect(page.locator("#screen-pitch")).to_be_visible()
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
     expect(page.locator("#match-timer")).to_be_hidden()
 
 

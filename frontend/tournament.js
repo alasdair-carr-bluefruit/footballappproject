@@ -30,6 +30,7 @@ async function loadTournamentHome() {
     return;
   }
   list.innerHTML = "";
+  state.tournamentList = tournaments;  // New Tournament pre-fills from the latest one
 
   if (tournaments.length === 0) {
     list.innerHTML = "<li class='empty-state'>No tournaments yet — tap New Tournament to start</li>";
@@ -72,21 +73,31 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
   state.editingTournamentId = null;
   document.getElementById("new-tournament-title").textContent = "New Tournament";
   document.getElementById("btn-new-tournament-back").textContent = "◀ Tournaments";
-  document.getElementById("btn-create-tournament").textContent = "Next: Select Players →";
+  document.getElementById("btn-create-tournament").textContent = "Create & pick players →";
   document.getElementById("tournament-num-matches").closest("label").hidden = false;
   document.getElementById("tournament-name-input").value = "";
   document.getElementById("tournament-date").value = new Date().toISOString().split("T")[0];
-  document.getElementById("tournament-duration").value = "10";
-  document.getElementById("tournament-halftime").checked = false;
-  document.getElementById("tournament-show-timer").checked = true;
-  document.getElementById("tournament-share-gk").checked = true;
-  document.getElementById("tournament-fairness-slider").value = 0;
-  updateFairnessLabel(0, "tournament-fairness-value", "tournament-fairness-warning");
-  const defaultRotRadio = document.querySelector('input[name="tournament-rotation"][value="100"]');
-  if (defaultRotRadio) defaultRotRadio.checked = true;
   document.getElementById("tournament-num-matches").value = "4";
   document.getElementById("tournament-max-subs").innerHTML = "";  // drop any stale value so the size default is used
-  tournamentSelectSize(5);
+  // Remember settings per team (mirrors season's New Match): start from this
+  // team's most recently created tournament, else the defaults.
+  const tournaments = state.tournamentList || await api.getTournaments().catch(() => []);
+  const last = tournaments.reduce((a, t) => (!a || t.id > a.id ? t : a), null);
+  document.getElementById("tournament-duration").value = String(last?.match_duration_mins || 10);
+  document.getElementById("tournament-halftime").checked = !!last?.has_halftime;
+  document.getElementById("tournament-show-timer").checked = last ? last.show_timer !== 0 : true;
+  document.getElementById("tournament-share-gk").checked = last ? last.share_gk !== 0 : true;
+  const fairness = last?.fairness_value || 0;
+  document.getElementById("tournament-fairness-slider").value = fairness;
+  updateFairnessLabel(fairness, "tournament-fairness-value", "tournament-fairness-warning");
+  const rotRadio = document.querySelector(`input[name="tournament-rotation"][value="${last?.rotation_intensity ?? 100}"]`)
+    || document.querySelector('input[name="tournament-rotation"][value="100"]');
+  if (rotRadio) rotRadio.checked = true;
+  tournamentSelectSize(last?.team_size || 5, last?.max_subs);
+  const formationSelect = document.getElementById("tournament-formation-select");
+  if (last?.formation && [...formationSelect.options].some(o => o.value === last.formation)) {
+    formationSelect.value = last.formation;
+  }
   showScreen("screen-new-tournament");
 });
 
@@ -141,7 +152,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     const updated = await api.updateTournament(state.editingTournamentId, payload)
       .catch(err => { alert(err.message); return null; });
     btn.disabled = false;
-    btn.textContent = "Next: Select Players →";
+    btn.textContent = "Save & pick players →";
     if (!updated) return;
     // Go to squad screen so coach can confirm/change players too
     loadTournamentSquadScreen(state.editingTournamentId, state.pendingNumMatches);
@@ -149,7 +160,7 @@ document.getElementById("new-tournament-form").addEventListener("submit", async 
     const tournament = await api.createTournament(payload)
       .catch(err => { alert(err.message); return null; });
     btn.disabled = false;
-    btn.textContent = "Next: Select Players →";
+    btn.textContent = "Create & pick players →";
     if (!tournament) return;
     loadTournamentSquadScreen(tournament.id, state.pendingNumMatches);
   }
@@ -181,6 +192,9 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
   desc.textContent = isEditing
     ? "Update who's available. Changes will regenerate all planned matches."
     : `Select who's available today. ${numMatches} match${numMatches !== 1 ? "es" : ""} will be generated.`;
+
+  // Back goes to the lobby when editing, else the tournament list — say which.
+  document.getElementById("btn-tournament-squad-back").textContent = isEditing ? "◀ Tournament" : "◀ Tournaments";
 
   const generateBtn = document.getElementById("btn-generate-all-matches");
   generateBtn.textContent = isEditing ? "Update Matches ▶" : "Generate Matches ▶";
@@ -229,7 +243,6 @@ async function loadTournamentSquadScreen(tournamentId, numMatches) {
       <label class="avail-label">
         <input type="checkbox" class="avail-check" data-pid="${p.id}" ${isChecked ? "checked" : ""} />
         <span class="avail-name">${p.name}</span>
-        ${p.skill_rating != null ? `<span class="avail-skill">★${p.skill_rating}</span>` : ""}
       </label>
       <div class="pos-chips">${chipsHtml}</div>
     `;
@@ -279,7 +292,6 @@ async function renderTournamentSquadGuests(tournamentId) {
         <input type="checkbox" class="avail-check" data-pid="${p.id}" checked />
         <span class="avail-name">${p.name}</span>
         <span class="avail-guest-tag">Guest</span>
-        ${p.skill_rating != null ? `<span class="avail-skill">★${p.skill_rating}</span>` : ""}
         <button class="btn-icon avail-remove-guest editor-only" data-pid="${p.id}" title="Remove">✕</button>
       </label>
     `;
@@ -448,7 +460,7 @@ document.getElementById("btn-edit-tournament").addEventListener("click", async (
   document.getElementById("tournament-num-matches").value = currentGroupCount || 1;
   document.getElementById("tournament-num-matches").closest("label").hidden = false;
   document.getElementById("btn-new-tournament-back").textContent = "◀ Back";
-  document.getElementById("btn-create-tournament").textContent = "Next: Select Players →";
+  document.getElementById("btn-create-tournament").textContent = "Save & pick players →";
   tournamentSelectSize(t.team_size || 5, t.max_subs);
   // Select the saved formation once options are populated
   const formationSelect = document.getElementById("tournament-formation-select");
@@ -688,7 +700,8 @@ document.getElementById("guest-player-form").addEventListener("submit", async e 
   } else {
     gkStatus = "emergency_only";
   }
-  const defRestricted = preferred.length > 0 && !preferred.includes("DEF");
+  // DEF unticked = a soft preference like any other position (owner, 2026-11-24).
+  const defRestricted = false;
 
   const btn = document.getElementById("btn-add-guest-confirm");
   btn.disabled = true;
@@ -780,6 +793,7 @@ async function enterTournamentReview(id) {
   state.reviewMode = "tournament-all";
   refreshShirtNumbers();
   showScreen("screen-review");
+  document.getElementById("btn-review-back").textContent = "◀ Tournament";
   document.getElementById("review-actions-single").hidden = true;
   document.getElementById("review-warning").hidden = true;
   renderReviewMark("tournament", null);

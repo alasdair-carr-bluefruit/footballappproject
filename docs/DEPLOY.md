@@ -6,7 +6,7 @@ Domain: the app runs at **app.keepthingslevel.com**; the apex
 **keepthingslevel.com** is reserved for the marketing / how-to site (a separate
 static host — not this Railway service).
 
-> This deploy is fully isolated from the existing single-user Render instances.
+> Render is retired (2026-11-24); this is the only deploy.
 > It's a **new app** on a **new, empty database**. Nothing here touches or
 > migrates the old instances — they stay up as a fallback until you retire them.
 
@@ -66,7 +66,7 @@ is why a stray `main` redeploy anywhere else is behaviourally identical.
 ## 3. Railway — the app
 
 1. New Railway project → **Deploy from GitHub repo** → pick this repo,
-   branch `feat/multi-user` (switch to `main` once you merge — see §7).
+   branch `main` (production; `staging` for the staging environment).
 2. Railway auto-detects the `Dockerfile` and builds from it. No build/start
    command config needed — the image's `CMD` runs uvicorn on Railway's injected
    `$PORT`.
@@ -178,7 +178,7 @@ curl -X POST https://app.keepthingslevel.com/api/admin/accounts/1/impersonate -H
 - Railway production builds from `main` (auto-deploy on push); Railway staging builds
   from `staging`. Risky changes go via `staging` first — see `docs/STAGING.md`.
 - Send invites to a couple of coaches, confirm they can onboard, then widen.
-- Leave the old Render instances running until you're confident, then retire them.
+- Render single-user instances: retired 2026-11-24 (config removed from the repo).
 
 ---
 

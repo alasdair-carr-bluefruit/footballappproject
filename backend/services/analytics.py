@@ -17,6 +17,8 @@ from backend.db.repositories import (
     get_goals,
     get_plan_slots,
     get_players,
+    get_removed,
+    get_rested_ids,
     rotations_by_match,
 )
 from backend.models.rotation import normalize_position
@@ -95,6 +97,64 @@ def _players_from_agg(
     ]
     players_data.sort(key=lambda x: (-x["slots_played"], x["name"]))
     return players_data
+
+
+# Below this many owed minutes it's noise (one slot is 5–15 minutes).
+OWED_MIN_MINUTES = 5
+
+
+def owed_minutes(session: Session, squad_id: int) -> list[dict[str, Any]]:
+    """Advisory season-long fairness (owner decision 2026-11-24: flag, don't
+    auto-adjust). For each finished season match on Equal play, the minutes played
+    are shared fairly between everyone who was there OR rested; a player's debt is
+    their fair share minus what they played. Unavailable players owe/are owed
+    nothing for that match, and a player taken off injured is left out of it.
+    Competitive matches are skipped (uneven time is the point there).
+
+    Returns [{player_id, name, owed_mins, rested}] for players at least
+    OWED_MIN_MINUTES behind, most owed first.
+    """
+    matches = [
+        m for m in _season_matches(session, squad_id, ordered=True)
+        if m.status == "completed" and (m.fairness_value or 0) <= 15
+    ]
+    rotations = _rotations_by_match(session, matches)
+    owed: dict[int, float] = {}
+    rested_count: dict[int, int] = {}
+    for m in matches:
+        if m.id not in rotations:
+            continue
+        available = set(get_available_ids(session, m.id))
+        if not available:
+            continue  # legacy match with no stored availability — can't tell who was there
+        rested = set(get_rested_ids(session, m.id)) - available
+        removed = {int(k) for k in get_removed(session, m.id)}
+        share_group = (available - removed) | rested
+        if not share_group:
+            continue
+        slot_mins = m.quarter_length_mins / 2
+        played: dict[int, float] = {}
+        for slot in get_plan_slots(session, m.id):
+            for pid in slot["lineup"].values():
+                if pid and int(pid) in share_group:
+                    played[int(pid)] = played.get(int(pid), 0.0) + slot_mins
+        fair = sum(played.values()) / len(share_group)
+        for pid in share_group:
+            owed[pid] = owed.get(pid, 0.0) + fair - played.get(pid, 0.0)
+        for pid in rested:
+            rested_count[pid] = rested_count.get(pid, 0) + 1
+
+    names = {p.id: p.name for p in get_players(session, squad_id) if p.id is not None}
+    rows = [
+        {
+            "player_id": pid, "name": names[pid],
+            "owed_mins": round(mins), "rested": rested_count.get(pid, 0),
+        }
+        for pid, mins in owed.items()
+        if pid in names and mins >= OWED_MIN_MINUTES
+    ]
+    rows.sort(key=lambda r: (-r["owed_mins"], r["name"]))
+    return rows
 
 
 def season_stats(session: Session, squad_id: int) -> list[dict[str, Any]]:

@@ -31,6 +31,7 @@ async function loadHome() {
     return;
   }
   list.innerHTML = "";
+  state.seasonMatches = matches;  // New Match pre-fills from the latest one
 
   if (matches.length === 0) {
     list.innerHTML = "<li class='empty-state'>No matches yet — tap New Match to start</li>";
@@ -111,22 +112,40 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   document.getElementById("new-match-title").textContent = "New Match";
   document.getElementById("match-date").value = new Date().toISOString().split("T")[0];
   document.getElementById("opponent-input").value = "";
-  document.getElementById("match-show-timer").checked = true;
-  document.getElementById("match-share-gk").checked = true;
   document.getElementById("btn-generate").disabled = false;
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
-  document.getElementById("fairness-slider").value = 0;
-  updateFairnessLabel(0);
-  // Reset rotation to All-rounder (default)
-  const defRotRadio = document.querySelector('input[name="rotation"][value="100"]');
-  if (defRotRadio) defRotRadio.checked = true;
 
   await ensureGameConfigs();
 
-  // Set default size selection
-  selectSize(5);
+  // Remember settings per team: start from this team's most recently created
+  // match (server data, so it follows the team across devices and coaches);
+  // a team's first match falls back to the 5v5 defaults.
+  const matches = state.seasonMatches || await api.getMatches().catch(() => []);
+  const last = matches.reduce((a, m) => (!a || m.id > a.id ? m : a), null);
+  applyMatchSettings(last);
   showScreen("screen-new-match");
 });
+
+// Fill the setup form's match settings (not date/opponent/venue) from an
+// existing match, or the defaults when `m` is null.
+function applyMatchSettings(m) {
+  selectSize(m?.team_size || 5);
+  if (m) {
+    selectPeriods(m.quarters === 2 ? 2 : 4);
+    const formation = document.getElementById("formation-select");
+    if ([...formation.options].some(o => o.value === m.formation)) formation.value = m.formation;
+    document.getElementById("match-length").value = String(m.quarter_length_mins ?? 10);
+  }
+  document.getElementById("match-show-timer").checked = m ? m.show_timer !== 0 : true;
+  document.getElementById("match-share-gk").checked = m ? m.share_gk !== 0 : true;
+  const fairness = m?.fairness_value || 0;
+  document.getElementById("fairness-slider").value = fairness;
+  updateFairnessLabel(fairness);
+  const rot = String(m?.rotation_intensity ?? 100);
+  const rotRadio = document.querySelector(`input[name="rotation"][value="${rot}"]`)
+    || document.querySelector('input[name="rotation"][value="100"]');
+  if (rotRadio) rotRadio.checked = true;
+}
 
 // Edit a planned match — reopen the setup form pre-filled (mirrors the tournament
 // edit pencil). On Generate/Manual the match is updated in place, then re-planned.
@@ -141,21 +160,7 @@ async function openEditMatch(m) {
   document.querySelectorAll(".ha-btn").forEach(b =>
     b.classList.toggle("active", b.dataset.ha === state.selectedHomeAway));
 
-  // Size rebuilds formation options + default length/periods; then apply the
-  // match's own stored structure/length/timer on top.
-  selectSize(m.team_size || 5);
-  selectPeriods(m.quarters === 2 ? 2 : 4);
-  document.getElementById("formation-select").value = m.formation;
-  document.getElementById("match-length").value = String(m.quarter_length_mins ?? 10);
-  document.getElementById("match-show-timer").checked = m.show_timer !== 0;
-  document.getElementById("match-share-gk").checked = m.share_gk !== 0;
-
-  document.getElementById("fairness-slider").value = m.fairness_value || 0;
-  updateFairnessLabel(m.fairness_value || 0);
-  const rot = String(m.rotation_intensity ?? 100);
-  const rotRadio = document.querySelector(`input[name="rotation"][value="${rot}"]`)
-    || document.querySelector('input[name="rotation"][value="100"]');
-  if (rotRadio) rotRadio.checked = true;
+  applyMatchSettings(m);
 
   document.getElementById("btn-generate").disabled = false;
   document.getElementById("btn-generate").textContent = "Generate Rotation ▶";
@@ -200,23 +205,58 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
     show_timer,
   };
 
-  const players = await api.getPlayers().catch(() => []);
+  const [players, owed] = await Promise.all([
+    api.getPlayers().catch(() => []),
+    api.getOwedTime().catch(() => []),
+  ]);
+  state.owedTime = owed;
+  const owedById = Object.fromEntries(owed.map(o => [o.player_id, o]));
   const list = document.getElementById("avail-list");
   list.innerHTML = "";
   players.forEach(p => {
+    const o = owedById[p.id];
+    const owedTag = o
+      ? `<span class="avail-owed" title="Behind their fair share across earlier matches${o.rested ? ` (rested ${o.rested}×)` : ""}">${o.owed_mins}′ owed</span>`
+      : "";
     const li = document.createElement("li");
     li.className = "avail-item";
     li.innerHTML = `
       <label class="avail-label">
         <input type="checkbox" value="${p.id}" checked />
         <span class="avail-name">${p.name}</span>
+        ${owedTag}
       </label>
+      <div class="avail-reason" hidden>
+        <button type="button" class="reason-chip active" data-reason="unavailable">Unavailable</button>
+        <button type="button" class="reason-chip" data-reason="rested">Rested</button>
+      </div>
     `;
     list.appendChild(li);
   });
 
   showScreen("screen-match-squad");
 });
+
+// Not coming → why? Unavailable (ill, away) owes nothing later; Rested (the
+// coach's choice) is owed time in later matches — see "N′ owed".
+document.getElementById("avail-list").addEventListener("change", e => {
+  const cb = e.target.closest('input[type="checkbox"]');
+  if (!cb) return;
+  const reason = cb.closest(".avail-item").querySelector(".avail-reason");
+  if (reason) reason.hidden = cb.checked;
+});
+document.getElementById("avail-list").addEventListener("click", e => {
+  const chip = e.target.closest(".reason-chip");
+  if (!chip) return;
+  chip.parentElement.querySelectorAll(".reason-chip").forEach(c => c.classList.toggle("active", c === chip));
+});
+
+function restedIds() {
+  return [...document.querySelectorAll("#avail-list .avail-item")]
+    .filter(li => !li.querySelector("input").checked
+      && li.querySelector('.reason-chip.active[data-reason="rested"]'))
+    .map(li => parseInt(li.querySelector("input").value));
+}
 
 // Back from player selection to config
 document.getElementById("btn-match-squad-back").addEventListener("click", () => {
@@ -240,13 +280,15 @@ document.getElementById("btn-generate").addEventListener("click", async () => {
   btn.textContent = "Generating…";
   showGenerating();
 
-  const selectedIds = [...document.querySelectorAll("#avail-list input:checked")].map(
+  const selectedIds = [...document.querySelectorAll('#avail-list input[type="checkbox"]:checked')].map(
     cb => parseInt(cb.value)
   );
 
   try {
     const matchId = await persistMatchConfig();
-    const data = await api.generateRotation(matchId, { available_player_ids: selectedIds });
+    const data = await api.generateRotation(matchId, {
+      available_player_ids: selectedIds, rested_player_ids: restedIds(),
+    });
     state.editingMatchId = null;
     btn.disabled = false;
     btn.textContent = "Generate Rotation ▶";
@@ -279,13 +321,15 @@ async function startManualPlan() {
   btn.disabled = true;
   btn.textContent = "Setting up…";
 
-  const selectedIds = [...document.querySelectorAll("#avail-list input:checked")].map(
+  const selectedIds = [...document.querySelectorAll('#avail-list input[type="checkbox"]:checked')].map(
     cb => parseInt(cb.value)
   );
 
   try {
     const matchId = await persistMatchConfig();
-    const data = await api.blankRotation(matchId, { available_player_ids: selectedIds });
+    const data = await api.blankRotation(matchId, {
+      available_player_ids: selectedIds, rested_player_ids: restedIds(),
+    });
     state.editingMatchId = null;
     btn.disabled = false;
     btn.textContent = "Manually create plan";

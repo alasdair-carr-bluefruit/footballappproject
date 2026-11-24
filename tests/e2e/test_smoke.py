@@ -69,7 +69,7 @@ def test_season_golden_path(seeded_squad, page: Page):
     page.click("#btn-review-plan")
     expect(page.locator("#screen-review")).to_be_visible()
     page.click("#btn-review-start")
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
     advance_to_report(page)
 
     # End the match → full-time screen with our team named.
@@ -110,7 +110,7 @@ def test_tournament_golden_path(seeded_squad, page: Page):
     page.locator("#lobby-match-list .match-item-main").first.click()
     expect(page.locator("#screen-review")).to_be_visible()
     page.click("#btn-review-start")
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
     advance_to_report(page)
     page.click("#btn-next")  # summary's "Confirm ▶" -> full time
     expect(page.locator("#screen-fulltime")).to_be_visible()
@@ -136,7 +136,7 @@ def test_failed_save_surfaces_retry_toast(seeded_squad, page: Page):
     page.click("#btn-generate")
     expect(page.locator("#screen-review")).to_be_visible()
     page.click("#btn-review-start")
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
     advance_to_report(page)
 
     # Make the goals save fail, then end the match.

@@ -181,7 +181,7 @@ def test_assistant_creates_and_runs_their_own_plan(auth_server, page: Page, flow
     page.click("#btn-adjust")
     expect(page.locator("#edit-mode-badge")).to_be_hidden()
     page.click("#btn-start-match-cta")
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
     expect(page.locator("#end-match-bar")).to_be_visible()
 
     # Back to the list: their plan is annotated + deletable; the head coach's is neither.
@@ -280,7 +280,7 @@ def test_one_device_runs_a_live_match_and_another_can_take_control(
         page.locator("#lobby-match-list .match-item-main").first.click()
     expect(page.locator("#screen-review")).to_be_visible()
     page.click("#btn-review-start")
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
     expect(page.locator("#control-banner")).to_be_hidden()
 
     # The head coach opens the same match on another device: live, but view-only.
@@ -332,6 +332,10 @@ def test_head_coach_manages_assistants_in_settings(auth_server, page: Page):
     page.click("#btn-join-create")
     page.fill("#tutorial-team-name", "Hawks")
     page.click("#btn-tutorial-start")
+    # Onboarding goes straight on to adding players; back out to the landing.
+    expect(page.locator("#player-form")).to_be_visible()
+    page.click("#btn-cancel-player")
+    page.click("#btn-squad-back")
     expect(page.locator("#screen-landing")).to_be_visible()
     expect(page.locator("#assistant-banner")).to_be_hidden()
     page.evaluate(

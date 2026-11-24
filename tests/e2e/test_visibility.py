@@ -129,7 +129,7 @@ def test_live_controls_visibility(seeded_squad, page: Page, flow):
     _PLAN_REVIEW_NAV[flow](page, seeded_squad)
     page.click("#btn-start-match-cta")
 
-    expect(page.locator("#live-badge")).to_be_visible()
+    expect(page.locator("#slot-label .slot-live-badge")).to_be_visible()
     expect(page.locator("#end-match-bar")).to_be_visible()
     expect(page.locator("#match-timer")).to_be_visible()
     expect(page.locator("#start-match-bar")).to_be_hidden()

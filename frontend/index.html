@@ -74,7 +74,7 @@
         </label>
       </div>
 
-      <button class="btn btn-primary btn-full btn-lg" id="btn-tutorial-start">Let's Go!</button>
+      <button class="btn btn-primary btn-full btn-lg" id="btn-tutorial-start">Next: add your players →</button>
     </div>
   </div>
 
@@ -508,10 +508,10 @@
 
       <label>Team Size</label>
       <div class="size-picker" id="size-picker">
-        <button type="button" class="size-btn" data-size="5">5v5</button>
+        <button type="button" class="size-btn" data-size="5">5v5<small class="size-age">U8–U9</small></button>
         <button type="button" class="size-btn" data-size="6">6v6</button>
-        <button type="button" class="size-btn" data-size="7">7v7</button>
-        <button type="button" class="size-btn" data-size="9">9v9</button>
+        <button type="button" class="size-btn" data-size="7">7v7<small class="size-age">U10–U11</small></button>
+        <button type="button" class="size-btn" data-size="9">9v9<small class="size-age">U12–U13</small></button>
       </div>
 
       <label>
@@ -597,6 +597,7 @@
       <h2>Select Players</h2>
     </header>
     <p class="screen-desc">Select who's available today.</p>
+    <p class="avail-count" id="avail-count" aria-live="polite"></p>
     <ul class="avail-list padded" id="avail-list"></ul>
     <div class="squad-footer">
       <button class="btn btn-primary btn-full btn-lg" id="btn-generate">Generate Rotation ▶</button>
@@ -631,7 +632,7 @@
   <!-- ── Screen: Squad ────────────────────────────────────────────────────── -->
   <div id="screen-squad" class="screen" hidden>
     <header class="header header-sub">
-      <button class="btn-back" id="btn-squad-back">◀ Matches</button>
+      <button class="btn-back" id="btn-squad-back">◀ Home</button>
       <h2>Squad</h2>
       <div class="team-pill-slot" id="team-pill-squad"></div>
     </header>
@@ -673,6 +674,13 @@
           <label class="pos-check"><input type="checkbox" value="MID" /><span class="pos-label pos-mid">MID</span></label>
           <label class="pos-check"><input type="checkbox" value="FWD" /><span class="pos-label pos-fwd">ATT</span></label>
         </div>
+        <label class="switch-row keeper-only-row" id="keeper-only-row" hidden>
+          <span>Keeper only? <small class="form-hint">Never plays outfield</small></span>
+          <span class="switch">
+            <input type="checkbox" id="input-keeper-only" />
+            <span class="switch-slider"></span>
+          </span>
+        </label>
         <p class="form-hint">Pick every position this player is happy in. The FA discourages fixing children into one position before 12 — a child who's tallest at eight may be average at fourteen.</p>
 
         <label>
@@ -696,6 +704,7 @@
           <button class="btn btn-secondary" type="button" id="btn-cancel-player">Cancel</button>
           <button class="btn btn-primary" type="submit">Save</button>
         </div>
+        <button class="btn btn-secondary btn-full" type="submit" id="btn-save-add-another" value="another">Save &amp; add another</button>
       </form>
     </div>
   </div>
@@ -753,10 +762,10 @@
       </label>
       <label>Team Size</label>
       <div class="size-picker" id="tournament-size-picker">
-        <button type="button" class="size-btn" data-size="5">5v5</button>
+        <button type="button" class="size-btn" data-size="5">5v5<small class="size-age">U8–U9</small></button>
         <button type="button" class="size-btn" data-size="6">6v6</button>
-        <button type="button" class="size-btn" data-size="7">7v7</button>
-        <button type="button" class="size-btn" data-size="9">9v9</button>
+        <button type="button" class="size-btn" data-size="7">7v7<small class="size-age">U10–U11</small></button>
+        <button type="button" class="size-btn" data-size="9">9v9<small class="size-age">U12–U13</small></button>
       </div>
       <label>
         Formation
@@ -832,7 +841,7 @@
         </label>
       </div>
       <div class="field-info" id="tournament-share-gk-info" hidden>A specialist keeper rotates out so everyone gets equal time. Turn off to keep them in goal for the whole match.</div>
-      <button class="btn btn-primary btn-full" type="submit" id="btn-create-tournament">Next: Select Players →</button>
+      <button class="btn btn-primary btn-full" type="submit" id="btn-create-tournament">Create &amp; pick players →</button>
     </form>
   </div>
 
@@ -843,6 +852,7 @@
       <h2>Select Players</h2>
     </header>
     <p class="screen-desc" id="tournament-squad-desc">Select who's available today.</p>
+    <p class="avail-count" id="tournament-avail-count" aria-live="polite"></p>
     <ul class="avail-list padded" id="tournament-squad-list"></ul>
     <div class="squad-footer">
       <button class="btn btn-secondary btn-full editor-only" id="btn-tournament-add-guest">+ Add temporary player</button>
@@ -1054,7 +1064,7 @@
     </div>
 
     <div class="goal-tip editor-only" id="goal-tip" hidden>
-      <span class="goal-tip-text">Hold a player to record a goal ⚽ · Tap the badge to undo</span>
+      <span class="goal-tip-text">Tap a player for goal or injury ⚽ · Tap the badge to undo</span>
       <button class="goal-tip-dismiss" id="btn-goal-tip-dismiss" aria-label="Dismiss">✕</button>
     </div>
 
@@ -1125,13 +1135,13 @@
       </div>
     </div>
 
-    <!-- Player action overlay (bench long-press) -->
+    <!-- Player action overlay (tap a player while live) -->
     <div class="swap-overlay" id="player-action-overlay" hidden>
       <div class="swap-panel">
         <h3 class="swap-title" id="player-action-title">Player</h3>
         <div class="player-action-buttons">
           <button class="btn btn-primary btn-full" id="btn-action-goal">⚽ Record Goal</button>
-          <button class="btn btn-danger btn-full" id="btn-action-remove">Remove from match</button>
+          <button class="btn btn-danger btn-full" id="btn-action-remove">Injured or leaving — remove</button>
           <button class="btn btn-secondary btn-full" id="btn-action-cancel">Cancel</button>
         </div>
       </div>
@@ -1177,6 +1187,7 @@
     </div>
 
     <div class="review-warning" id="review-warning" hidden></div>
+    <p class="review-owed" id="review-owed" hidden></p>
 
     <div class="review-swap-hint" id="review-swap-hint" hidden></div>
 

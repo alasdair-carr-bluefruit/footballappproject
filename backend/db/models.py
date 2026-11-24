@@ -261,6 +261,17 @@ class MatchAvailabilityDB(SQLModel, table=True):
     player_id: int
 
 
+class MatchRestedDB(SQLModel, table=True):
+    """A squad player the coach chose to REST for this match (not picked, but owed
+    time later). Players simply not picked are unavailable and owe nothing."""
+    __tablename__ = "match_rested"  # type: ignore[assignment]
+    __table_args__ = (UniqueConstraint("match_id", "player_id", name="uq_rested_match_player"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    match_id: int = Field(foreign_key="matches.id", index=True)
+    player_id: int
+
+
 class RemovedPlayerDB(SQLModel, table=True):
     __tablename__ = "removed_players"  # type: ignore[assignment]
     __table_args__ = (UniqueConstraint("match_id", "player_id", name="uq_removed_match_player"),)

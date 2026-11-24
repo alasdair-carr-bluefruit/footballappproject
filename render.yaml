@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: gaffer
-    env: python
-    plan: free
-    buildCommand: pip install -e ".[api]"
-    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT

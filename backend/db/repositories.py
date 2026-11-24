@@ -12,6 +12,7 @@ from backend.db.models import (
     InviteDB,
     MatchAvailabilityDB,
     MatchDB,
+    MatchRestedDB,
     PlayerDB,
     RemovedPlayerDB,
     RotationPlanDB,
@@ -274,6 +275,24 @@ def set_available_ids(session: Session, match_id: int, ids: list[int]) -> None:
     session.commit()
 
 
+def get_rested_ids(session: Session, match_id: int) -> list[int]:
+    return [
+        r.player_id
+        for r in session.exec(
+            select(MatchRestedDB).where(MatchRestedDB.match_id == match_id)
+            .order_by(MatchRestedDB.id)  # type: ignore[arg-type]
+        ).all()
+    ]
+
+
+def set_rested_ids(session: Session, match_id: int, ids: list[int]) -> None:
+    """Replace the match's rested players (the coach's "Rested" picks)."""
+    session.execute(sql_delete(MatchRestedDB).where(MatchRestedDB.match_id == match_id))
+    for pid in dict.fromkeys(ids):
+        session.add(MatchRestedDB(match_id=match_id, player_id=pid))
+    session.commit()
+
+
 def set_goals(session: Session, match_id: int, goals_by_id: dict[str, int]) -> None:
     if not get_rotation(session, match_id):
         return
@@ -317,7 +336,9 @@ def delete_squad_data(
     match_ids = select(MatchDB.id).where(MatchDB.squad_id == squad_id)
     slot_ids = select(SlotDB.id).where(SlotDB.match_id.in_(match_ids))  # type: ignore[attr-defined]
     session.execute(sql_delete(SlotAssignmentDB).where(SlotAssignmentDB.slot_id.in_(slot_ids)))  # type: ignore[attr-defined]
-    for table in (SlotDB, GoalRecordDB, MatchAvailabilityDB, RemovedPlayerDB, RotationPlanDB):
+    for table in (
+        SlotDB, GoalRecordDB, MatchAvailabilityDB, MatchRestedDB, RemovedPlayerDB, RotationPlanDB,
+    ):
         session.execute(sql_delete(table).where(table.match_id.in_(match_ids)))  # type: ignore[attr-defined]
     session.execute(sql_delete(MatchDB).where(MatchDB.squad_id == squad_id))
     session.execute(sql_delete(TournamentDB).where(TournamentDB.squad_id == squad_id))
@@ -342,6 +363,7 @@ def delete_rotation(session: Session, match_id: int) -> None:
     _clear_slots(session, match_id)
     session.execute(sql_delete(GoalRecordDB).where(GoalRecordDB.match_id == match_id))
     session.execute(sql_delete(MatchAvailabilityDB).where(MatchAvailabilityDB.match_id == match_id))
+    session.execute(sql_delete(MatchRestedDB).where(MatchRestedDB.match_id == match_id))
     session.execute(sql_delete(RemovedPlayerDB).where(RemovedPlayerDB.match_id == match_id))
     session.execute(sql_delete(RotationPlanDB).where(RotationPlanDB.match_id == match_id))
 
