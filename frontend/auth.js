@@ -312,7 +312,9 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
   const msg = document.getElementById("login-msg");
   const devlink = document.getElementById("login-devlink");
   try {
-    const res = await api.requestLink(email);
+    // One quiet retry: a first request after an idle spell (server or database
+    // waking up) can fail once; asking again is harmless (a spare token expires).
+    const res = await api.requestLink(email).catch(() => api.requestLink(email));
     msg.textContent = "Check your email for a sign-in link. It expires shortly.";
     msg.hidden = false;
     // Dev convenience: no email provider configured → the API returns the link.

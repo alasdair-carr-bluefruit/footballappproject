@@ -21,10 +21,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
+
+      - uses: astral-sh/setup-uv@v6
 
       - name: Install
-        run: pip install -e ".[dev]"
+        # From uv.lock — the same pinned versions production runs (requirements.lock
+        # is exported from it). An unpinned `pip install` pulled FastAPI 0.165 and
+        # had CI red from Sep 2026 on a version production never ran.
+        run: |
+          uv sync --frozen --extra dev --extra api
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Lint
         # Blocking since 2026-11-14: the backlog was cleared to zero (E402 is

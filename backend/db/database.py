@@ -26,7 +26,14 @@ _BASELINE_REVISION = "4cf63d43cd4c"
 
 # check_same_thread is SQLite-only; PostgreSQL doesn't accept it
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, echo=False, connect_args=_connect_args)
+# Postgres (Neon): the compute suspends when idle and drops its connections, so a
+# pooled connection can be dead by the next request. pool_pre_ping tests it on
+# checkout (and reconnects) instead of failing the first request after a quiet
+# spell — which showed up as "Something went wrong" on a coach's first sign-in.
+_pool_args = (
+    {} if DATABASE_URL.startswith("sqlite") else {"pool_pre_ping": True, "pool_recycle": 240}
+)
+engine = create_engine(DATABASE_URL, echo=False, connect_args=_connect_args, **_pool_args)
 instrument(engine)  # per-request DB timing → Server-Timing header (see timing.py)
 
 
