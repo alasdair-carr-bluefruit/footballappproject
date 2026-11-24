@@ -144,9 +144,9 @@ def test_plan_grid_plain_headers_and_skill_toggle(seeded_squad, page: Page):
     grid = page.locator("#review-grid")
     expect(grid.locator(".plan-head").first).to_contain_text("start")
     expect(grid.locator(".plan-head").nth(1)).to_contain_text("mid")
-    expect(grid.locator(".plan-skill")).to_have_count(0)
+    expect(grid.locator(".plan-skill").first).to_be_visible()  # shown by default
     page.click(".plan-skill-toggle")
-    expect(grid.locator(".plan-skill").first).to_be_visible()
+    expect(grid.locator(".plan-skill")).to_have_count(0)
 
 
 # ── Squad entry ──────────────────────────────────────────────────────────────
@@ -211,6 +211,7 @@ def test_rested_player_shows_as_owed_next_time(seeded_squad, page: Page):
     expect(first.locator(".avail-reason")).to_be_visible()
     first.locator('.reason-chip[data-reason="rested"]').click()
     expect(page.locator("#avail-count")).to_contain_text("· 1 rested")
+    expect(first.locator("input[type=checkbox]")).not_to_be_checked()  # chip didn't re-tick
     page.click("#btn-generate")
     expect(page.locator("#screen-review")).to_be_visible()
 

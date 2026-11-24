@@ -12,6 +12,7 @@ export const state = {
   showingReport: false,
   showingChanges: false,
   editMode: false,
+  showSkillRow: true, // plan grid skill-balance row (owner: on by default)
   matchStarted: false, // true once "Start Match" has been tapped
   lockedSlots: new Set(), // slot indices locked by coach edits
   pendingSwap: null, // {slotIndex, posKey, currentPlayerName}

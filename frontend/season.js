@@ -224,12 +224,12 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
       <label class="avail-label">
         <input type="checkbox" value="${p.id}" checked />
         <span class="avail-name">${p.name}</span>
+        <span class="avail-reason" hidden>
+          <button type="button" class="reason-chip active" data-reason="unavailable">Unavailable</button>
+          <button type="button" class="reason-chip" data-reason="rested">Rested</button>
+        </span>
         ${owedTag}
       </label>
-      <div class="avail-reason" hidden>
-        <button type="button" class="reason-chip active" data-reason="unavailable">Unavailable</button>
-        <button type="button" class="reason-chip" data-reason="rested">Rested</button>
-      </div>
     `;
     list.appendChild(li);
   });
@@ -248,6 +248,7 @@ document.getElementById("avail-list").addEventListener("change", e => {
 document.getElementById("avail-list").addEventListener("click", e => {
   const chip = e.target.closest(".reason-chip");
   if (!chip) return;
+  e.preventDefault(); // chips sit inside the row's <label>: don't re-tick the player
   chip.parentElement.querySelectorAll(".reason-chip").forEach(c => c.classList.toggle("active", c === chip));
 });
 
