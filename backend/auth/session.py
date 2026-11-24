@@ -7,7 +7,7 @@ constant-time compare and rejects anything older than SESSION_MAX_AGE_DAYS.
 
 The signing key is credential-agnostic: whether the account authenticated via an
 invite redeem or a magic link, the issued session is identical, so adding new
-credential types later never touches this module (V1_MULTIUSER_PLAN.md §2).
+credential types later never touches this module (docs/archive/V1_MULTIUSER_PLAN.md §2).
 """
 from __future__ import annotations
 

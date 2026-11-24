@@ -21,4 +21,4 @@ free spins down; Koyeb free limits were unverified; Oracle free VM means real op
 
 - Replaces ~£25/mo with ~$5/mo and removes spin-down lag.
 - No destructive migration risk: old data is never touched by the new deployment.
-- Deploy Guide.md remains valid only for legacy per-coach fallback instances.
+- `docs/archive/deploy-legacy-render.md` remains valid only for legacy per-coach fallback instances.

@@ -97,6 +97,13 @@ text for legibility.
 
 ---
 
+### Colourblind-friendly theme (T2.3, shipped 2026-07-20)
+Settings → *Colour theme* offers **Level** (default) and **Colourblind-friendly**
+(`:root[data-theme="colourblind"]` in `style.css`, persisted as `gaffer_theme`). It re-maps the
+categorical GK/DEF/MID/FWD, player-state and status-badge tokens to an Okabe–Ito-based palette;
+Signal Lime stays. Non-hue cues (🧤 ↑ ↓ ⚽, position labels) carry meaning in both themes.
+Token values: `assets/brand/tokens.json` → `colourway` + `badge`.
+
 ## 4. Typography — three fonts
 
 Retro monospace for display/data, clean sans for helper text. This carries the

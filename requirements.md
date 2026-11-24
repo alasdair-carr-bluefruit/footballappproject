@@ -119,7 +119,7 @@ Coach can enter Tinkering mode at any point during a match to adjust the plan:
 - **Slot locking** — edited slots are locked; re-calculation only adjusts unlocked future slots
 - **Fairness warnings** — system shows which players gain/lose time (non-blocking)
 - Previous and Next buttons disabled while tinkering
-- Visual: paper texture + amber SVG wobble rings + "Tinkering" pill (Cabin Sketch font)
+- Visual: pitch tints one step lighter (Ghost Green), player coins invert with a dashed outline, and a Signal-Lime "TINKERING" pill shows (see BRAND.md §6)
 - Voice: "Tinker" to enter, "Done" to commit
 
 ---
@@ -217,15 +217,7 @@ Coach can enter Tinkering mode at any point during a match to adjust the plan:
 
 ---
 
-## 12. Planned Future Phases
+## 12. Roadmap
 
-Roadmap detail lives in DEVELOPMENT_PLAN.md (Forward Roadmap, Tiers 1–4).
-
-| Phase | Scope | Status |
-|-------|-------|--------|
-| v0.7 | Start Match lock, mid-match removal/reinstatement, player history view | ✓ shipped 2026-05 |
-| v0.8 | Tournament mode — cross-match slots, guest players, manual mode | ✓ shipped 2026-05 |
-| v0.9 | Consecutive sit-out constraint, match timer, tinkering warning clarity, in-app bug report | ✓ shipped 2026-07 |
-| refactor | app.js modularisation, shared season/tournament components, Playwright parity suite | ✓ shipped 2026-07 |
-| v1.0 | Plan-review screen (undo/redo dropped; export revisit → T3.3) | ✓ shipped 2026-07 |
-| v1.1 | Multi-user — magic-link auth, invite-only, Neon PostgreSQL, Railway; then multi-team + assistant coaches | ✓ shipped 2026-07 → 2026-11 |
+Status and the forward roadmap live in `DEVELOPMENT_PLAN.md`; shipped history in
+`docs/archive/CHANGELOG.md`. This spec is not a status tracker.

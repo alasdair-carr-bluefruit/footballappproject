@@ -1,0 +1,371 @@
+# Level — Changelog & shipped-work record
+
+> History cut from `DEVELOPMENT_PLAN.md` on 2026-11-24 so the roadmap only holds live work.
+> Verbatim as it stood then (oldest material first within each block). Not a source of truth
+> for current behaviour — read `CLAUDE.md` for that. Git history has everything else.
+
+---
+
+## Part 1 — State of the Project
+
+Everything through **v1.1 multi-user** is shipped and live on `app.keepthingslevel.com`
+(magic-link auth, invite-only, per-account squad isolation, marketing site + early
+access). The backend layering is healthy, the rotation algorithm is pure/tested/mutation-hardened,
+and the **frontend is no longer the problem child** — `app.js` is split into ES modules
+(`state`/`screens`/`pitch`/`setup-form`/`season`/`tournament`/`api`/`toast`), guarded by a
+Playwright smoke suite + CSS/HTML visibility tests, and season⇄tournament parity is a
+tested invariant. Test count: **583 collected** (457 `def test_` functions, 2026-11-23).
+
+### Documentation inconsistencies (from the 2026-07-10 audit) — all resolved
+
+| # | Original finding | Status |
+|---|---|---|
+| 1 | CLAUDE.md "Current Phase" ~6 weeks stale (said v0.7 next) | ✅ Resolved — CLAUDE.md tracks v1.1 shipped + Tier 1 next |
+| 2 | CLAUDE.md said goals keyed by player *name* | ✅ Resolved — doc corrected; goals keyed by `str(player_id)`, now in relational `GoalRecordDB` |
+| 3 | Flaky-test names in CLAUDE.md didn't exist | ✅ Resolved — RNG seeded (`conftest.py` seed 1234); Known Limitations rewritten with real names |
+| 4 | Test count said ~105 | ✅ Resolved — 583 collected (2026-11-23) |
+| 5 | requirements.md declared timer out of scope | ✅ Resolved — timer in scope (requirements.md §9.8, FR-38–40); shipped v0.9 |
+| 6 | requirements.md had no tournament FRs | ✅ Resolved — tournament FRs present |
+| 7 | Two competing futures (V1 evolve vs V2 rebuild) | ✅ Resolved — ADR 0001 "evolve, not rebuild"; V2 docs treated as a parts bin (see Part 2) |
+| 8 | Refactor tasks (Phase C) none done | ✅ Resolved — Phase C complete (C.1–C.7), app.js modularised, dup logic removed, migrations inspection-based |
+| 9 | Planning artefacts untracked in git | ✅ Resolved — `DEVELOPMENT_PLAN.md`, `docs/MULTI_TEAM_PLAN.md`, `V1_MULTIUSER_PLAN.md` (historical) + ADRs all committed |
+| 10 | Deploy guide institutionalised the N-instances model | ✅ Resolved — multi-user shipped; app runs as a single shared Railway + Neon instance |
+| 11 | `TournamentDB.squad_id` FK not enforced | ✅ Resolved — DB-table FKs to `squads.id` enforced in `backend/db/models.py` |
+| 12 | `docs/adr/` empty | ✅ Resolved — ADRs 0001–0004 written (evolve, magic-link, Railway/Neon, vanilla-JS modules) |
+
+---
+
+## Part 2 — Rebuild vs Evolve (decision recorded)
+
+**Decision: evolve, don't rebuild.** Captured in **`docs/adr/0001-evolve-not-rebuild.md`**
+(frontend module direction in `0004-frontend-vanilla-js-modules.md`). Rationale, in brief:
+
+- **Backend kept** — good layering, the rotation algorithm is the isolated/tested crown
+  jewel, and multi-tenancy was a mechanical change because isolation flows through one seam.
+- **Frontend restructured in place, no framework** — the pain was *monolith + no tests*, not
+  *vanilla JS*. Splitting into modules + a Playwright smoke suite fixed the fragility at a
+  fraction of a React rewrite's cost. **Done.**
+- **V2 rebuild docs = parts bin, not a plan** — adopted the multi-tenant schema *direction*,
+  plan-review/manual-mode concepts, and (originally) the tinker undo/redo idea. Deferred
+  indefinitely: local-first sync engine, React rebuild, ads/subscription tiers.
+- **Auth went straight to magic link**, skipping the PIN stage — see `0002-auth-magic-link-first.md`.
+
+*(The full 2026-07-10 audit narrative that backed this decision has been retired now that it's
+shipped; the ADRs are the source of truth.)*
+
+---
+
+## Part 3 — Completed phases (record)
+
+The original plan was ordered by dependency into Phases A–E. **All shipped:**
+
+- **Phase A — Housekeeping.** Docs reconciled, planning docs versioned, bug kanban seeded. ✅
+- **Phase B — v0.9 "Fairness & Trust."** Consecutive sit-out constraint, tinkering warning
+  clarity, match timer (count-up + countdown + vibration), rotating competitive messages,
+  in-app bug reporting. ✅
+- **Phase C — Refactor for leverage.** C.1–C.7: app.js → ES modules, Playwright smoke suite,
+  CSS/HTML visibility tests, mutation testing (all five algorithm modules hardened, RNG
+  seeded), service-layer extraction, schema normalisation (JSON blobs → `SlotDB`/
+  `SlotAssignmentDB`/`GoalRecordDB`/`MatchAvailabilityDB` via Alembic), analytics extraction,
+  `toast.js` retry helper, SW shell-cache fix. ✅
+- **Phase D — v1.0 "Plan Review" UX.** D.1 "Review the match plan" screen (season + tournament,
+  shared `#screen-review`) with per-player slot/skill totals and under-slotted warning. ✅
+  *(D.2 tinker undo/redo and D.3 export were moved out — undo/redo is now **deprioritised
+  altogether**; export revisit remains a low-priority Tier 3 item.)*
+- **Phase E — v1.1 Multi-user (magic link).** ✅ SHIPPED & LIVE (built on `feat/multi-user`, now on `main`).
+  Magic-link auth (no PIN ever), invite-only onboarding, `AccountDB`/`InviteDB`/
+  `LoginTokenDB`, `deps.py` isolation seam (`get_current_account`/`get_current_squad` +
+  `owned_*` IDOR guards), early-access capture + Resend email, Railway + Neon deploy.
+  **Scope note (historical):** it shipped as 1 account ↔ 1 squad. Since extended: multi-team
+  (T1.1, owner FK `SquadDB.account_id`) and per-team roles via `SquadMembershipDB` (T3.2).
+
+---
+
+
+---
+
+## Tier 1 + quality work (shipped Jul–Sep 2026)
+
+### 🔴 Tier 1 — Now
+
+**T1.1 Multi-team (one coach, several squads). — ✅ SHIPPED (2026-07-21).** *Real user demand —
+a live coach asked.* **Design: `docs/MULTI_TEAM_PLAN.md`.** Built the **simpler owner-FK model**
+the plan settled on rather than the join table: add **`SquadDB.account_id`** (owner) and
+**repurpose `AccountDB.squad_id` as the active-squad pointer**. *(The `SquadMembershipDB` join +
+roles followed in T3.2, swapped in behind `owned_squad` as planned.)*
+- **Data:** Alembic revision `b7f1e2a9c3d5` adds `squads.account_id` (plain indexed col, no DB
+  FK — avoids an accounts↔squads cycle) with an idempotent **backfill** from `accounts.squad_id`;
+  `redeem_invite` now stamps the owner. Backfill + idempotency verified against a copied
+  pre-migration DB.
+- **Isolation seam untouched:** `get_current_squad` still reads `account.squad_id` fresh per
+  request; switching team = updating that one column. ~40 squad-scoped endpoints + `owned_*`
+  guards unchanged.
+- **Endpoints:** `teams` router — `GET /api/teams` (list, active flagged, player counts),
+  `POST` (create + activate), `POST /{id}/activate`, `DELETE /{id}` (refuses last team, re-points
+  active, shares the extracted `delete_squad_data` helper with T1.4 clear-data).
+- **Frontend:** header **team pill + switcher sheet** on both homes (parity); add-a-team drops
+  into squad management to name it; remove-team confirm modal; Settings "Teams" list. **Caches
+  reset + refetch on switch/add/remove** (season + tournament).
+- **Tests:** `tests/integration/test_teams.py` (list/activate/delete/IDOR/last-team), e2e
+  `test_multi_team_pill_add_and_switch` (parity via shared render). All green.
+- **Wider visibility (2026-07-22):** team pill now also on the **landing** + **squad-management**
+  screens (shared render); switching from squad reloads it; rename/first-setup re-render the pill.
+  Prominent one-time **"multiple teams is live" landing banner** (`gaffer_multiteam_landing_seen`,
+  separate key from the small pill hint). SW v45.
+- **Deferred:** co-coach (T3.2), export/transfer a team to another coach.
+
+**T1.2 ⚡ Signed-out → marketing site.** ✅ **SHIPPED (live).** Unauthenticated visitors on
+`app.keepthingslevel.com` get a link back to `keepthingslevel.com` from the login screen.
+
+**T1.3 Settings screen + account self-service.** ✅ **DONE (2026-07-22).** Settings
+screen shipped (landing header, auth-on only): account email shown, multi-team teaser,
+danger zone. Update-email with re-verify-to-new-address + old-address "reclaim your squad"
+notice (`session_epoch` sign-out-all-devices) shipped.
+- **Invite a friend** — ✅ **SHIPPED (2026-07-22).** Self-service `POST /auth/invite-a-friend`
+  (authed, non-admin variant of admin `create_invite`; same one-time `InviteDB` token, attributed
+  to the inviter in the note). Settings "Invite a friend" section mints a link with native
+  share-sheet + copy fallback. Tests: integration (auth-gated, redeemable, single-use) + e2e. *(growth loop)*
+
+**T1.4 ⚡ Clear squad & data (destructive).** ✅ **SHIPPED (2026-07-20).**
+`/auth/account/clear-data` behind a type-to-confirm "DELETE" modal; backs the Privacy
+Policy / Terms self-service delete promise.
+
+**T1.5 Fix touch drag-and-drop in tinker mode.** ✅ **SHIPPED (built 2026-07-20, on `main`).**
+Root cause: the coin swap used the HTML5 Drag-and-Drop API, which never fires from touch on
+iOS Safari / Android Chrome. Rewrote it to **Pointer Events** (`pointerdown`/`move`/`up` +
+`setPointerCapture`, 6px drag threshold, `elementFromPoint` hit-test, `data-slot-index`/
+`data-pos-key` on coins) so mouse **and** touch both work; added `touch-action:none` on
+draggable coins so a finger-drag swaps instead of scrolling. Tap-to-open-swap-picker fallback
+and long-press-to-score gesture preserved. Shared `pitch.js` path → both flows. *(Touch gesture
+isn't covered by the e2e picker path — needs a real-device check.)*
+
+**Plan-quality flags (pre-kick-off warnings).** ✅ **SHIPPED (built 2026-08-07, on `main`).**
+An audit found the engine already generated `plan.warnings` (incl. hard `VIOLATION:` strings),
+persisted them to `RotationPlanDB.warnings_json` and returned them from the API — and the
+frontend assigned them to `state.matchData.warnings` in three places and **never read them
+back**. Every warning was invisible to the coach. Meanwhile nothing checked position
+preferences or bench streaks at all. Now:
+- `validator.soft_warnings()` — a new, deliberately separate concern from `validate()`'s hard
+  constraints. Three checks: **out of position** (player used in a type they didn't pick,
+  aggregated per player+position), **long bench spell** (`MAX_BENCH_STREAK = 2`, so 3+
+  consecutive slots flags), **game-time gap**. Wired into both `generate_rotation` and
+  `adjust_rotation`.
+- **The game-time gap is slider-aware, in threshold *and* tone.** Audit finding: neither the new
+  flag nor the pre-existing hard `_check_playing_time_equality` read the fairness slider at all —
+  and realised spread *saturates at 2 slots from about fv=30 upward*, so a flat threshold of 2 was
+  effectively binary (silent on equal, always-on for competitive). Now
+  `slot_spread_tolerance(fairness_value, total_slots)`: equal → 1, competitive → 2, max
+  competitive → 3 on an 8-slot match, scaled down for a 4-slot 9v9. Over tolerance → "Uneven game
+  time" warning. Within tolerance but ≥ `MIN_NOTABLE_SPREAD` → "Expected game-time gap", rendered
+  in a quiet grey `.review-warning-info` variant ("Competitive plan — how the time falls"), because
+  a gap the coach deliberately chose should be stated as a consequence, not an alarm. The other two
+  checks stay slider-blind on purpose. `fairness_value` added to the match API response.
+- `preferred_positions` added to the plan response's player dicts so the review screen can
+  mark cells without a second `/squad/players` round-trip.
+- Frontend `planFlags()` / `planFlagLines()` / `renderPlanFlags()` in `pitch.js` — a loud amber
+  banner on the review screen (season **and** each tournament review card) plus dashed-amber
+  `.chip-offpref` outlines on the offending grid cells, and a richer post-tinker toast.
+  Out-of-position lines cap at 5 (`MAX_OFF_PREF_LINES`); bench + game-time lines always show
+  in full, since those are the ones that make a plan unfair.
+- **Copy deliberately avoids "violation"** — competitive is a legitimate choice and the coach
+  may well have meant it; the flags say *look at this*, not *you broke a rule*. The
+  `VIOLATION:` prefix stays internal to the engine and is never rendered.
+- Competitive mode is **unchanged** — still selectable, still just the light-hearted slider
+  quip up front. SW→v48. 12 new unit tests (`tests/unit/algorithm/test_soft_warnings.py`).
+- **Accepted as soft (owner decision 2026-11-24 — not a bug to fix):** `_assign_outfield_positions.pool_for`'s last-resort fallback
+  (`return p if p else unassigned`) drops the *hard* `def_restricted` rule, so a squeezed
+  squad can put a DEF-restricted player at CB. The validator catches it after the fact. Fixing
+  the fallback itself is a separate engine change.
+
+### Engine quality fixes — ✅ SHIPPED (built 2026-09-13, on `main`)
+
+From a coach testing an 11-player 5-a-side squad — the plan kept putting children
+who hadn't picked GK in goal, and left others sitting out 4 slots in a row.
+
+- **Volunteers keep goal** (`gk_selector.py`). The per-keeper budget `floor(fair_share/2)`
+  rounds an 11-player squad's 3-slot fair share down to ONE goal period, so three willing
+  keepers could only staff three of four quarters and the fourth fell to an emergency-tier
+  player. A willing keeper may now take one period over budget, but only to keep a
+  non-volunteer out of goal, only within fair share + 1 slot, and never past half the match
+  in goal. Separately the "don't repeat last period's keeper" preference was applied across
+  the whole pool, outranking tier — it now applies within a tier only.
+- **Goal periods are spread** (`_spread_gk_quarters`). A keeper holding two of four periods
+  has spent their whole fair share in goal, so Q1+Q4 benched them through the entire middle
+  of the match. Periods are permuted (never reassigned) so each keeper's pattern alternates;
+  tier priority is kept as a tiebreak.
+- **Selection knows who's been sitting.** `_bench_streaks` existed but was never called.
+  It now breaks ties *below* playing time (equal game time → longest sitter goes on), so no
+  total moves — the rejected version ranked streak above time and wrecked the spread.
+- **Run-breaker objective + guard.** It counted *how many* players were on long runs, so
+  shortening a 5-run to a 3 scored as no progress; it now weighs the overshoot. Its
+  "don't widen position variety" guard froze variety even on All-rounder, which made keepers
+  the hardest players to move — it now respects the coach's rotation-intensity cap.
+
+Measured over 150–200 plans: 8/9/10/11-player 5v5 and 12-player 7v7 all come out clean
+(11-player was 81.5% with a >2 run); the reporting coach's own squad went from 85% of plans
+with a 4-or-5-slot run to 5.5%, worst case 3–4. Playing-time spread is unchanged (1 slot)
+in every shape. Remaining gap: ~36% of that squad's plans still have a **3**-slot run,
+mostly a keeper whose goal period sits at one end — needs 3-way swaps, deferred.
+
+**Keeper exemption (coach-requested).** A keeper who is in goal for *every* slot —
+"Rotate keeper?" off, or a squad too small to cover goal while they rest — plays more than
+everyone else by design, so they're excluded from the *most-used* side of the game-time gap.
+The fewest-used side is untouched: a child genuinely short of minutes is still named, and the
+gap is quoted against the outfield. Mirrored in `validator._always_in_goal` (domain rule) and
+`pitch.js` `alwaysInGoal` (the banner) — keep the two in step.
+
+**Banner trimmed (coach-requested).** "Too much info." Slot ranges dropped from the bench line
+(the grid below already shows which periods), bench players grouped one line per streak length
+rather than one per player, out-of-position lines capped at 3 (worst first) with a "+N more"
+summary. The wording of each line is unchanged otherwise.
+
+**Plan-flag tone.** A generated plan now shows its flags in the quiet info tone
+("Worth knowing before kick-off"); the ⚠ banner and the FA dropout line return once the
+coach has tinkered (`state.planTinkered` / `matchData.tinkered`). The engine's best effort
+shouldn't shout at the coach; a manual edit that costs a child minutes should.
+
+
+---
+
+## Tier 2 shipped items
+
+**FA-sourced equal-playing-time messaging.** ✅ **On `main` (built 2026-08-07).** *Marketing pages don't auto-deploy — confirm `keepthingslevel.com/why-equal-playing-time` is live by content.* First
+slice of T2.2's content work, on the marketing site + in-app. All figures verified on FA-owned
+domains; non-FA research deliberately excluded.
+- **New page `marketing/why-equal-playing-time.html`** holds the full argument (dropout data,
+  position rotation, how much time is "equal", EPPP, sources list). Article JSON-LD, own canonical/
+  OG, added to `sitemap.xml` (priority 0.8) + `llms.txt`, linked from nav and footer as **"Why it
+  matters"**. Named for the search term rather than "Why Level", which would have collided with
+  the existing `<h2>Why Level</h2>` in `about.html`. **This page is the intended base for the T2.2
+  SEO cornerstone** — expand it there rather than starting a new one.
+- `marketing/index.html` deliberately stays a **product page, not an essay**: it keeps only the
+  compact **trust strip** under the hero CTA (9 in 10 / 52%→26% / #1, each linking its FA source)
+  and a one-line `.why-teaser` pointing at the new page. Footer carries the Respect + Grassroots
+  Code line **with the explicit "independent tool, not an FA product, not endorsed by or
+  affiliated with The FA" disclaimer — keep that sentence.** New CSS: `.trust-strip`, `.reasons`,
+  `.prose blockquote`, `.why-teaser`, `.sources`.
+- **Copy fact to preserve:** it is **four** of the FA's five dropout reasons that are decided by
+  the adult holding the team sheet (1 playing time, 2 winning, 4 fun, 5 adult behaviour) — only
+  "other activities are more interesting" is outside a coach's hands. **Level addresses 1 and 2.**
+- In-app: standing `.fairness-fa-note` under the fairness slider (season **and** tournament),
+  a `.form-hint` under the player position picker, and a `.review-warning-why` footnote under the
+  warning-tone banner only (not the info tone, not the stacked tournament cards).
+- **Accuracy note for future copy:** the U6–U11 / U12–U16 equal-time split is **not an FA
+  mandate** — the source introduces it as "some clubs have adopted the following policy". Say
+  "a policy many clubs adopt, set out in FA county guidance". Sources + the excluded-stats list
+  are in the `reference_fa_equal_playing_time_sources` memory.
+
+**Bench-run breaking in the engine.** ✅ **SHIPPED (built 2026-08-08, on `main`).** The plan
+flags shipped above could report a child sitting 3+ slots running; the engine had no notion of
+consecutive sit-outs (the existing `must_play` is *cross-match* — players who sat out a whole
+previous tournament match — not within-match). New `_break_bench_runs()` pass in
+`rotation_engine.py`, run after `balance_skills`.
+- **It only makes compensating swaps** — A takes B's slot in one period, B takes A's in another —
+  so **every player's total playing time is provably unchanged**. That is the whole design: a
+  fairness tool must not buy shorter bench runs with unequal minutes. Pinned by
+  `tests/unit/algorithm/test_bench_runs.py`.
+- **A rejected approach is recorded in the code comments, deliberately.** Reordering the *selection*
+  to favour players on a run (the obvious fix) cut runs harder but pushed 9-player squads from
+  **14% → 79%** of plans with a >1 slot playing-time gap. Don't re-try it without re-measuring.
+- Respects the hard rules: `def_restricted`, position variety (so it can't override the coach's
+  rotation-intensity setting), and mid-period subs *no worse than it found them* — the sub cap is
+  soft, so demanding an unbreached plan disabled the pass on exactly the squeezed squads that
+  needed it.
+- **Measured over 200 seeds** (players tripping >2 in a row, before → after): 8 players 46% → 2% of
+  plans, 9 players 97% → 4%, 12-a-side 7v7 65.5% → 19.5%, 7 players 0% → 0%. Playing-time spread
+  identical to baseline in every case.
+- **Keeper alternation — FIXED (2026-08-08, same session).** The Q1/Q3 alternation existed only in
+  the **specialist** branch of `gk_selector`; the non-specialist branch gave a keeper consecutive
+  quarters until their budget ran out, so they sat the whole second half. Over 40 seeds at 10
+  players 5v5: a lone preferred keeper had a long bench run in **40/40** plans (`K1,K1,P7,P2`), and
+  with a keeper *plus* a backup — the common real shape — **both** children did (`K1,K1,K2,K2`),
+  each sitting an unbroken half. `_pick_gk_for_quarter` now takes `avoid=` (last quarter's keeper).
+  After: `K1,K2,K1,K2`, long runs **zero**; goal-period counts per keeper unchanged, so no playing
+  time moves. Tests in `test_gk_selector.py::TestNoSpecialistAlternates`.
+- **Remaining gap:** squads ≥11 at 5v5 still show runs
+  (11 players 81.5%, 13 players 100%) because each child plays only ~3 of 8 slots and avoiding a
+  3-run needs near-exact spacing. **Cornwall league rules cap a match-day squad at double the team
+  size (10 at 5v5, 14 at 7v7, 18 at 9v9), so those sizes are not legal squads anyway.**
+
+**T2.3 Colourway switcher + colourblind mode.** ✅ **SHIPPED (built 2026-07-20, on `main`).**
+First theming layer: `:root[data-theme="colourblind"]` in `style.css` re-maps the categorical
+(GK/DEF/MID/FWD) + player-state + status-badge tokens to an Okabe–Ito-based colourblind-safe
+palette; the Signal-Lime brand accent is kept. Player-status **badges** (`--badge-gk/gkpref/
+emergency/def`) were tokenised so themes re-map tokens, not selectors. Non-hue cues (🧤/↑/↓/⚽,
+position labels) preserved. New `theme.js` (persists `gaffer_theme`, no-flash `<head>` boot
+snippet), a **Colour theme** control in Settings (Level / Colourblind-friendly), `tokens.json`
+synced (v2.1.0, `colourway` + `badge` sections), SW→v38. *(Scope: Default + Colourblind-safe,
+per decision 2026-07-20; High-contrast deferred.)*
+
+**T2.4 Configurable max subs on tournament creation.** ✅ **SHIPPED (built 2026-07-20, on `main`).**
+`max_subs` (nullable) added to `TournamentDB` + denormalised onto `MatchDB`; threaded through
+`build_tournament_config` (overrides `mid_period_subs`) and every call site; size-aware selector
+(1..outfield-count, default = preset) on the tournament create/edit form; Alembic revision
+`a8d3e6f1c2b4`; unit + integration tests; SW→v37. **Behaviour note:** `mid_period_subs` is a
+**soft** cap — the engine still fields a full team and respects fair playing time, so in an
+equal-time tournament with a full bench it may still rotate everyone (it can't bench a child
+past their fair share to honour a low cap). A **hard** cap that overrides within-match fairness
+would be a larger engine change — deferred unless the coach wants it. Original scope below:
+
+Tournaments usually have no half-time,
+so the coach wants direct control over subs per match: a size-aware picker (1–4 subs at
+5v5, scaling up). The engine already has per-size limits (`GameConfig.mid_period_subs` /
+`break_subs`, enforced by `validator.py`) — this exposes them. Work: `max_subs` on
+`TournamentDB` (additive migration) threaded into `GameConfig`, size-aware selector on the
+tournament create/edit form, validator wiring; mirror the season⇄tournament setup form where
+shared. *(user request 2026-07-19. Smaller than T1.1 — good "otherwise" pick.)*
+
+
+---
+
+### UX polish
+Shipped (pushed 2026-07-20):
+- **"Rotate keeper?"** — renamed the "Share goalkeeper time" switch and moved its explanation
+  behind a click-to-reveal (?) info button (reusable `.info-btn`/`.field-info`), both flows.
+- **Manual mode promoted** — the availability screen's hidden "assign manually" link is now a
+  proper secondary button "Manually create plan" with an explainer modal (Level rotates fairly /
+  manual mode = you build lineups, still tracks goals + shows skill ratings).
+- **Generating-plan loading overlay** — spinner + "Generating game plan…" + a random,
+  positive/development-themed manager quote (rotates every 4s), on season + tournament generate.
+  Includes an Uncle Iroh line and a Roy Kent "WHISTLE!!!!" easter egg. New `frontend/quotes.js`.
+
+Built 2026-07-20 (now on `main`):
+- **Goal celebration** — see T2.1.
+- **"Check for updates" in Settings** — clears caches + updates the SW + reloads, so an
+  installed PWA (esp. Android, no easy refresh) can pull the latest version on demand
+  (`btn-check-updates` in `settings.js`).
+
+Shipped 2026-11-14 (SW v59):
+- **Whole-quarter swap on the review screen** — swap two periods' line-ups in one move.
+
+Shipped 2026-11-23 (SW v61, pending deploy):
+- **Fixed: new coaches had to re-enter their email / got "invalid" on first sign-in.** On a
+  first visit the service worker's `clients.claim()` fired `controllerchange`, and `index.html`
+  reloaded the page mid-form — wiping typed details, or aborting an in-flight redeem/verify after
+  the server had already used the one-time token. Now only reloads when a previous SW controlled
+  the page (a real update). e2e: `test_first_visit_service_worker_never_reloads_the_join_form`.
+- **Admin portal redesign** (on `staging` first — touches `backend/api`) — wide desktop layout, one search box filtering accounts *and* invites
+  as you type (every word must match; highlights), status chips, team names + roles per account,
+  invite type (coach / assistant + team), revoked vs expired, **Remove** a dead invite and **Clear
+  dead** in bulk (`DELETE /api/admin/invites/{id}`, `POST /api/admin/invites/clear-dead`;
+  live/redeemed invites refused). Inline account dump.
+
+Shipped 2026-10-03 (SW v56, straight to `main` at the owner's request — touched `backend/api`):
+- **Duplicate player names caught in the form.** The squad and temporary-player forms stay
+  open with what the coach typed and show the clash under the name field (no browser
+  `alert`). The rule is now case- and space-insensitive (`player_name_clash` in
+  `repositories.py`), applies to **renames** as well as adds (it never did before), and tells
+  the coach when the clash is a tournament guest. Renames only check a *changed* name, so
+  older squads holding "Sam" + "sam" can still edit either.
+- **Fixed: "+ Add temporary player" on the tournament player list** threw before opening
+  (referenced a removed `#guest-gk-status`); both buttons now share `openGuestForm`, and a
+  guest added there stays on that list instead of jumping to the lobby.
+- **"Add your assistant coach" landing card retires once tapped** (`gaffer_coach_teaser_seen`).
+- Tests: `tests/e2e/test_duplicate_names.py`, integration cases in `test_squad.py` /
+  `test_tournaments.py`, teaser check in `test_assistant_e2e.py`.
+
+### SEO technical foundations — ✅ SHIPPED (2026-07-18)
+`robots.txt`, `sitemap.xml`, `llms.txt`, JSON-LD (`Organization` + `SoftwareApplication`),
+canonical + OG/Twitter tags, 1200×630 `og-image.png`. ✅ Sitemap submitted to Google Search Console +
+Bing Webmaster Tools (2026-11-23).
+

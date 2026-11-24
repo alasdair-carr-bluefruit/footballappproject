@@ -50,11 +50,14 @@ Roadmap **T3.3**.
 owner + `teams` router + header pill switcher; wider pill visibility + landing callout 2026-07-22),
 T1.2 signed-out→marketing link ✅ (live), T1.3 Settings + account self-service ✅ (update-email
 2026-07-20, **invite-a-friend shipped 2026-07-22**), T1.4 clear-squad-&-data ✅ (2026-07-20).
-**Next up:** see the **▶ Next up** section of DEVELOPMENT_PLAN.md (2026-11-23: US-Neon cleanup,
-hard `def_restricted` fix, league daily-cap warning, MOTM/assists, SEO, then T3.2 P3). See DEVELOPMENT_PLAN.md
-(reprioritised 2026-07-18); the roadmap is ordered by value × effort × demand (Tiers 1–4), not by
-dependency phases.
-*(`docs/refactor/NEXT_STEPS.md` is the closed record of the 2026-07 refactor phase — historical, not a live tracker.)*
+**Next up:** the **▶ Next up** list in DEVELOPMENT_PLAN.md is the single ordered priority list
+(restructured 2026-11-24; shipped history moved to `docs/archive/CHANGELOG.md`).
+
+**Doc map:** `CLAUDE.md` (read first) · `DEVELOPMENT_PLAN.md` (the only roadmap) ·
+`docs/STAGING.md` (release process) · `docs/DEPLOY.md` (infra) · `docs/adr/` (decisions) ·
+`docs/ASSISTANT_COACH_PLAN.md` (T3.2, P3 pending) · `BRAND.md` + `assets/brand/tokens.json` ·
+`requirements.md` (original spec/FR numbers, not status) · `marketing/README.md` · `docs/youtube/` ·
+`docs/reference/` (league rules PDF) · `docs/archive/` (shipped plans + history — never treat as current).
 
 Completed phases:
 - v0.1: Core rotation algorithm (Python only)
@@ -119,12 +122,15 @@ football-app-project/
 ├── CLAUDE.md
 ├── BRAND.md              ← Brand guidelines (v1.4) — Level identity, Tinkering mode spec
 ├── requirements.md
-├── DEVELOPMENT_PLAN.md   ← Forward roadmap (Tiers 1–4) + ▶ Next up
+├── DEVELOPMENT_PLAN.md   ← The only roadmap: ▶ Next up, backlog, decisions, risks
 ├── docs/
-│   ├── refactor/NEXT_STEPS.md ← Refactor phase C record (historical, closed 2026-07)
-│   ├── ASSISTANT_COACH_PLAN.md / MULTI_TEAM_PLAN.md ← T3.2 / T1.1 designs (as built)
-│   ├── STAGING.md       ← Release process (staging → main)
-│   └── adr/              ← Architecture decision records
+│   ├── STAGING.md / DEPLOY.md ← Release process / infra setup
+│   ├── ASSISTANT_COACH_PLAN.md ← T3.2 design (P3 pending)
+│   ├── adr/              ← Architecture decision records
+│   ├── youtube/          ← Tutorial strategy (README) + scripts
+│   ├── reference/        ← External sources (league rules PDF)
+│   └── archive/          ← Shipped plans, CHANGELOG.md, old refactor/feedback docs
+├── marketing/            ← Static site keepthingslevel.com (+ blog/ guides), Cloudflare Pages
 ├── pyproject.toml
 ├── main.py               ← FastAPI app entry point
 │

@@ -3,7 +3,7 @@
 Auth is magic-link only. Sign-up = redeem a one-time invite (which also captures
 the email and logs the coach straight in). Returning login on a new device =
 request a link to that email, then verify it. Every path issues the *same* signed
-session cookie against the same AccountDB (V1_MULTIUSER_PLAN.md §2).
+session cookie against the same AccountDB (docs/archive/V1_MULTIUSER_PLAN.md §2).
 """
 from __future__ import annotations
 

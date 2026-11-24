@@ -7,6 +7,9 @@ Static site for the apex domain, **separate from the app** (which lives on
 marketing/
 ├── index.html        ← landing (hero, features, video, early-access form)
 ├── about.html        ← founder / about page
+├── why-equal-playing-time.html ← FA-sourced "why it matters" page
+├── blog/             ← Guides hub + FutureFit guides (see SEO below)
+├── googlea5b7e2fe9f4cb0ab.html, BingSiteAuth.xml ← search-console verification (keep)
 ├── style.css         ← Level brand styles
 ├── main.js           ← early-access form submit + explainer-video swap
 ├── robots.txt        ← allows all crawlers; points to the sitemap
@@ -23,8 +26,8 @@ marketing/
   homepage also has `Organization` + `SoftwareApplication` JSON-LD.
 - **Share image:** `assets/brand/og-image.png` (1200×630). Source is
   `assets/brand/og-image.svg` — re-export to PNG if you edit the source.
-- After deploy, submit `https://keepthingslevel.com/sitemap.xml` to Google Search
-  Console and Bing Webmaster Tools.
+- `sitemap.xml` is registered in Google Search Console (Domain property, verified via
+  Cloudflare DNS) and Bing Webmaster Tools (2026-11-23). Add new pages to it.
 - Guides live in `marketing/blog/` as plain HTML (served at `/blog/<slug>`, extensionless).
   Each has Article + BreadcrumbList + FAQPage JSON-LD (FAQ JSON-LD mirrors the visible
   "Quick answers" section — keep them identical). Add each new post to `sitemap.xml`,
@@ -48,8 +51,7 @@ emails the request to you via Resend.
   `https://keepthingslevel.com` + `www`). If you host the site anywhere else first
   (e.g. a `*.pages.dev` preview), add that origin to `MARKETING_ORIGINS` or the
   form will be blocked cross-origin.
-- ⚠️ The endpoint ships with the app — **deploy the app first** (it's on
-  `feat/multi-user`) or the form will 404 until then.
+- The endpoint ships with the app (`main`, live).
 
 ## Deploy to Cloudflare Pages (recommended — your DNS is already there)
 Two options:

@@ -3,7 +3,7 @@
 > Introduced 2026-09-11, at ~8 live coaches. Before this, every push to `main`
 > went straight to production. That was fine with one user; it isn't now.
 >
-> Canonical doc for how changes reach live. `docs/Deploy Guide.md` is the
+> Canonical doc for how changes reach live. `docs/archive/deploy-legacy-render.md` is the
 > **legacy single-user** Render setup and does not describe this.
 
 ---

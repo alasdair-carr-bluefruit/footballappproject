@@ -4,7 +4,7 @@
 
 ## Context
 
-Two competing futures were drafted: `V1_MULTIUSER_PLAN.md` (evolve in place) and
+Two competing futures were drafted: `docs/archive/V1_MULTIUSER_PLAN.md` (evolve in place) and
 `V2_Requirements.md`/`V2_UI_Requirements.md` (full rebuild: React, UUID/RLS Postgres
 schema, local-first sync engine, ads/subscriptions). A 2026-07 audit found the backend
 well-layered (pure-Python algorithm, one-function tenancy seam in

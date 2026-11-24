@@ -1,6 +1,6 @@
 // Entry point — registers every screen's DOM listeners by importing each
 // module (side-effect imports; each module wires up its own event handlers
-// at load time). See docs/refactor/app-js-dependency-map.md for the module
+// at load time). See docs/archive/refactor/app-js-dependency-map.md for the module
 // boundaries and the dependency graph these imports form.
 //
 // Load order matters: state.js must resolve first (everything depends on

@@ -175,9 +175,8 @@ curl -X POST https://app.keepthingslevel.com/api/admin/accounts/1/impersonate -H
 
 ## 7. Rollout & branch
 
-- Stand up the app on `feat/multi-user`, smoke-test, then **merge the branch to
-  `main`** and point Railway at `main` (auto-deploy on push). Merging before or
-  after standing up the deploy both work — the flag makes `main` safe either way.
+- Railway production builds from `main` (auto-deploy on push); Railway staging builds
+  from `staging`. Risky changes go via `staging` first — see `docs/STAGING.md`.
 - Send invites to a couple of coaches, confirm they can onboard, then widen.
 - Leave the old Render instances running until you're confident, then retire them.
 

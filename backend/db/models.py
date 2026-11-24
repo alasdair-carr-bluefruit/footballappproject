@@ -20,7 +20,7 @@ class SquadDB(SQLModel, table=True):
 # ── Multi-user identity (v1.1) ──────────────────────────────────────────────────
 # An AccountDB row is the identity; a squad belongs to exactly one account (the
 # link lives here, not on SquadDB, so multi-squad-per-account later is additive).
-# Auth is magic-link only: no passwords/PINs are ever stored. See V1_MULTIUSER_PLAN.md.
+# Auth is magic-link only: no passwords/PINs are ever stored. See docs/archive/V1_MULTIUSER_PLAN.md.
 class AccountDB(SQLModel, table=True):
     __tablename__ = "accounts"  # type: ignore[assignment]
 
