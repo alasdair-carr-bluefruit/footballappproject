@@ -109,9 +109,8 @@ first, then value × effort. Details for each are in the tier sections further d
 
 1. **Close the US Neon loose end** (infra list above) — a copy of coach data still sits in
    the US, which privacy policy §6 no longer allows. Manual, ~30 min, highest-priority non-code item.
-2. ⚡ **Make `def_restricted` truly hard** — `rotation_engine._assign_outfield_positions.pool_for`
-   still falls back to `unassigned` (including DEF-restricted players) when the eligible pool is
-   empty. Small engine fix + unit test; via `staging`.
+2. ~~Make `def_restricted` truly hard~~ — **dropped (owner, 2026-11-24).** The last-resort
+   fallback is acceptable: the coach already sees an "out of position" warning, so it stays soft.
 3. **League daily playing-time cap in tournaments** (Cornwall rules section below) — a coach can
    currently breach a league rule without being told. Start as a warning on the tournament
    review screen (age group → cap), not an engine constraint.
@@ -214,7 +213,7 @@ preferences or bench streaks at all. Now:
   `VIOLATION:` prefix stays internal to the engine and is never rendered.
 - Competitive mode is **unchanged** — still selectable, still just the light-hearted slider
   quip up front. SW→v48. 12 new unit tests (`tests/unit/algorithm/test_soft_warnings.py`).
-- **Known, not fixed (still true 2026-11-23 — see ▶ Next up #2):** `_assign_outfield_positions.pool_for`'s last-resort fallback
+- **Accepted as soft (owner decision 2026-11-24 — not a bug to fix):** `_assign_outfield_positions.pool_for`'s last-resort fallback
   (`return p if p else unassigned`) drops the *hard* `def_restricted` rule, so a squeezed
   squad can put a DEF-restricted player at CB. The validator catches it after the fact. Fixing
   the fallback itself is a separate engine change.

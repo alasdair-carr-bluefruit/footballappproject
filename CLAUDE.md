@@ -208,10 +208,11 @@ football-app-project/
   but this is best-effort, not a hard guarantee: when the preferred pool for a
   slot empties, the position assigner falls back to any eligible player rather
   than leave a position unfilled (`_assign_outfield_positions` → `pool_for`).
-  DEF restriction (`def_restricted`) and GK specialist status are meant to be hard —
-  but **known gap:** `pool_for`'s last resort (`return p if p else unassigned`) can still
-  place a DEF-restricted player at DEF in a squeezed squad (the validator flags it).
-  Fixing it is ▶ Next up #2 in DEVELOPMENT_PLAN.md.
+  GK specialist status is hard. DEF restriction (`def_restricted`) is strongly avoided
+  but, like position picks, **soft by design (owner decision 2026-11-24):** in a squeezed
+  squad `pool_for`'s last resort (`return p if p else unassigned`) can place a
+  DEF-restricted player at DEF rather than leave a hole, and the coach sees it as an
+  "out of position" plan warning. Don't "fix" this into a hard rule.
 - `def_restricted` and `gk_status` are derived from position selections in the UI
 
 ### Shirt numbers

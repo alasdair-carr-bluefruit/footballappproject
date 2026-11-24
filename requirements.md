@@ -59,7 +59,7 @@ Position names are derived from formation shape, not hardcoded:
 
 ### 3.2 Position Rules
 - Each lineup: 1 GK + outfield players per formation
-- DEF-restricted players never assigned to DEF
+- DEF-restricted players are kept out of DEF wherever possible; in a squeezed squad the engine may use one there as a last resort rather than leave a gap, and flags it as "out of position"
 - Each player: max 2 different position types per match
 - `preferred_positions` is **best-effort (soft)** — strongly preferred, but when the preferred pool for a
   slot is empty the engine uses any eligible player rather than leave the position unfilled (flagged
