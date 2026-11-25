@@ -95,7 +95,7 @@ first, then value × effort. Details for each are in the tier sections further d
 4. **T2.1 Man of the Match + assists** — owner: low priority (2026-11-24).
 5. ~~**T2.2 SEO cornerstone**~~ — on-site content built 2026-11-23 (4 guides + hub); sitemaps submitted to Google + Bing; remaining: outreach.
 6. **What's new + first-run walkthrough (owner, 2026-11-25)** — usability.
-   - **What's new — built 2026-11-25 (`frontend/whats-new.js`, SW v71; `?whatsnew=reset` re-shows it).** Full-screen, skippable
+   - **What's new — LIVE on `main` 2026-11-25 (`frontend/whats-new.js`, SW v72, 6 slides incl. multiple teams; `?whatsnew=reset` re-shows it).** Full-screen, skippable
      carousel: one slide per feature, each with a small looping animation, what it does, a
      plain-English **Why** (coach reasons only — never tech), and where to find it. Opens by
      default on the next visit for every set-up coach (assistants skip head-only slides); brand-new

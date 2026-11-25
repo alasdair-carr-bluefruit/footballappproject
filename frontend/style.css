@@ -2437,6 +2437,27 @@ html, body {
   95%, 100% { transform: translateX(0); }
 }
 
+/* Multiple teams: the team pill flips between two teams. */
+.wn-teams { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.wn-team-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 14px; border-radius: 20px;
+  background: var(--matchday); color: var(--on-accent);
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+}
+.wn-team-pill .wn-team { display: inline-block; min-width: 50px; text-align: center; }
+.wn-team-pill { position: relative; }
+.wn-team-b { position: absolute; left: 14px; }
+.wn-team-a { animation: wn-team-a 4s infinite; }
+.wn-team-b { animation: wn-team-b 4s infinite; }
+.wn-team-list { display: flex; gap: 6px; font-size: 12px; }
+.wn-team-list span { padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,0.08); color: var(--text-light); }
+.wn-team-list span:nth-child(2) { animation: wn-team-pick 4s infinite; }
+.wn-team-add { color: var(--matchday) !important; border: 1px dashed color-mix(in srgb, var(--matchday) 60%, transparent); background: transparent !important; }
+@keyframes wn-team-a { 0%, 40% { opacity: 1; } 48%, 88% { opacity: 0; } 96%, 100% { opacity: 1; } }
+@keyframes wn-team-b { 0%, 40% { opacity: 0; } 48%, 88% { opacity: 1; } 96%, 100% { opacity: 0; } }
+@keyframes wn-team-pick { 0%, 25% { background: rgba(255,255,255,0.08); } 32%, 48% { background: color-mix(in srgb, var(--matchday) 40%, transparent); } 56%, 100% { background: rgba(255,255,255,0.08); } }
+
 /* Rested: untick, pick "Rested", time owed appears. */
 .wn-rested { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .wn-row {
@@ -2497,8 +2518,8 @@ html, body {
 .settings-whats-new { margin-bottom: 16px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .wn-plan, .wn-check, .wn-chips, .wn-chip, .wn-owed, .wn-hurt, .wn-on, .wn-pill-copy, .has-news { animation: none; }
-  .wn-hurt { display: none; }
+  .wn-team-a, .wn-team-b, .wn-team-list span, .wn-plan, .wn-check, .wn-chips, .wn-chip, .wn-owed, .wn-hurt, .wn-on, .wn-pill-copy, .has-news { animation: none; }
+  .wn-hurt, .wn-team-b { display: none; }
   .wn-chip-rested { background: var(--chalk); color: var(--on-accent); }
 }
 

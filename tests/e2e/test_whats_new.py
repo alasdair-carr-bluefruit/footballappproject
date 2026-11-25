@@ -29,7 +29,7 @@ def test_skip_lights_up_settings_until_viewed(auth_server, page: Page):
     _sign_in(page, auth_server, _returning_coach(auth_server, "wn-skip@example.com"))
     overlay = page.locator("#whats-new")
     expect(overlay).to_be_visible()
-    expect(page.locator("#wn-count")).to_have_text("1 of 5")
+    expect(page.locator("#wn-count")).to_have_text("1 of 6")
     expect(page.locator("#wn-why")).not_to_be_empty()
     expect(page.locator("#btn-wn-back")).to_be_hidden()
 
@@ -55,9 +55,9 @@ def test_skip_lights_up_settings_until_viewed(auth_server, page: Page):
 
 def test_finishing_clears_it_for_good(auth_server, page: Page):
     _sign_in(page, auth_server, _returning_coach(auth_server, "wn-done@example.com"))
-    for _ in range(4):
+    for _ in range(5):
         page.click("#btn-wn-next")
-    expect(page.locator("#wn-count")).to_have_text("5 of 5")
+    expect(page.locator("#wn-count")).to_have_text("6 of 6")
     expect(page.locator("#btn-wn-skip")).to_be_hidden()
     expect(page.locator("#btn-wn-next")).to_have_text("Got it")
     page.click("#btn-wn-next")

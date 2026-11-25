@@ -31,6 +31,16 @@ const SLIDES = [
     </div>`,
   },
   {
+    title: "Add your other teams",
+    body: "Coach more than one side? Add each team and switch between them from the team name at the top.",
+    why: "Lots of coaches run two teams, or help with a brother's or sister's. One sign-in, and each team's players and matches stay separate.",
+    where: "Tap your team name → Add a team",
+    demo: `<div class="wn-teams">
+      <span class="wn-team-pill"><span class="wn-team wn-team-a">Owls</span><span class="wn-team wn-team-b">Hawks</span> ▾</span>
+      <span class="wn-team-list"><span>Owls</span><span>Hawks</span><span class="wn-team-add">+ Add a team</span></span>
+    </div>`,
+  },
+  {
     title: "Rested or unavailable?",
     body: "Untick a player and say why. Rested players are owed time in later matches. Ill or away players aren't.",
     why: "Resting a player is your choice, so the app makes sure they catch up later. A child who's ill shouldn't count against anyone.",
