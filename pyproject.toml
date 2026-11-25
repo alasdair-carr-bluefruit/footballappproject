@@ -48,6 +48,7 @@ markers = [
     "integration: tests that hit DB or FastAPI test client",
     "bdd: Gherkin BDD scenarios via pytest-bdd",
     "e2e: Playwright browser smoke tests against a live server",
+    "show_whats_new: e2e test that wants the What's new carousel (not pre-dismissed)",
 ]
 bdd_features_base_dir = "tests/bdd/features"
 

@@ -19,5 +19,6 @@ import "./tournament.js";
 import "./screens.js";
 import "./teams.js";
 import "./settings.js";
+import "./whats-new.js";
 // auth.js LAST — it owns the boot sequence (runs the auth gate, then bootApp()).
 import "./auth.js";

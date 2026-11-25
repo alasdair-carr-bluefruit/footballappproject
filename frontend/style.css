@@ -2374,6 +2374,130 @@ html, body {
 }
 .feature-intro-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
 
+/* ── What's new carousel (whats-new.js) ── */
+.wn-skip {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: var(--text-light);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 14px;
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+.feature-intro.whats-new { align-items: flex-start; padding-top: calc(72px + env(safe-area-inset-top, 0px)); }
+.whats-new .wn-why { min-height: 4.4em; }
+.wn-kicker {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--matchday);
+}
+.wn-demo { min-height: 116px; display: flex; align-items: center; justify-content: center; width: 100%; }
+.whats-new h2 { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.wn-why { margin: 0; font-size: 14px; line-height: 1.45; color: var(--text-dim); text-wrap: pretty; }
+.wn-why b { color: var(--text-light); }
+.wn-where { margin: 0; font-size: 12px; color: var(--matchday); font-family: var(--font-display); }
+.wn-dots { display: flex; gap: 6px; }
+.wn-dots span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.2); }
+.wn-dots span.active { background: var(--matchday); }
+.wn-actions { width: 100%; display: flex; gap: 10px; }
+.wn-actions .btn { flex: 1; margin: 0; }
+.wn-actions [hidden] { display: none; }
+
+.demo-coin {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--chalk); color: var(--on-accent);
+  font-size: 12px; font-weight: 700;
+}
+.demo-coin-alt { background: var(--matchday); }
+
+/* Assistant coaches: a plan card passes between two coaches. */
+.wn-coaches { position: relative; width: 220px; display: flex; justify-content: space-between; align-items: center; }
+.wn-plan {
+  position: absolute; left: 52px; top: 50%;
+  padding: 6px 10px; border-radius: 6px; margin-top: -15px;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
+  font-size: 12px; font-weight: 700; color: var(--text-light);
+  animation: wn-pass 3.6s ease-in-out infinite;
+}
+@keyframes wn-pass {
+  0%, 15% { transform: translateX(0); }
+  45%, 65% { transform: translateX(64px); }
+  95%, 100% { transform: translateX(0); }
+}
+
+/* Rested: untick, pick "Rested", time owed appears. */
+.wn-rested { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.wn-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.06);
+}
+.wn-check { width: 16px; height: 16px; border-radius: 3px; border: 2px solid var(--matchday); animation: wn-untick 4s infinite; }
+.wn-name { font-weight: 600; color: var(--text-light); margin-right: 4px; }
+.wn-chips { display: inline-flex; gap: 4px; animation: wn-fade-in 4s infinite; }
+.wn-chip { padding: 3px 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: 600; color: var(--text-dim); }
+.wn-chip:first-child { animation: wn-chip-off 4s infinite; }
+.wn-chip-rested { animation: wn-chip-on 4s infinite; }
+.wn-owed { font-size: 12px; font-weight: 700; color: var(--amber); font-family: var(--font-display); animation: wn-owed 4s infinite; }
+@keyframes wn-untick { 0%, 15% { background: var(--matchday); } 20%, 100% { background: transparent; } }
+@keyframes wn-fade-in { 0%, 18% { opacity: 0; } 26%, 100% { opacity: 1; } }
+@keyframes wn-chip-off { 0%, 40% { background: var(--chalk); color: var(--on-accent); } 48%, 100% { background: transparent; color: var(--text-dim); } }
+@keyframes wn-chip-on { 0%, 40% { background: transparent; color: var(--text-dim); } 48%, 100% { background: var(--chalk); color: var(--on-accent); } }
+@keyframes wn-owed { 0%, 55% { opacity: 0; transform: translateY(4px); } 65%, 100% { opacity: 1; transform: none; } }
+
+/* Injury: the tapped player goes off, a sub takes the same spot. */
+.wn-pitch { display: flex; gap: 14px; padding: 18px 22px; border-radius: 10px; background: var(--pitch-green, #2E5E3A); }
+.wn-swap { display: grid; }
+.wn-swap > * { grid-area: 1 / 1; }
+.wn-hurt { animation: wn-hurt 4s infinite; }
+.wn-on { animation: wn-on 4s infinite; }
+@keyframes wn-hurt {
+  0%, 10% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,255,255,0.6); transform: scale(1); }
+  20% { box-shadow: 0 0 0 10px rgba(255,255,255,0); transform: scale(0.92); }
+  30% { opacity: 1; transform: scale(1); }
+  42%, 88% { opacity: 0; transform: scale(0.7); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes wn-on {
+  0%, 42% { opacity: 0; transform: scale(0.7); }
+  52%, 86% { opacity: 1; transform: scale(1); }
+  96%, 100% { opacity: 0; transform: scale(0.7); }
+}
+
+/* Remembered settings: last match's format carries over. */
+.wn-cards { display: flex; align-items: center; gap: 10px; }
+.wn-card {
+  display: flex; flex-direction: column; gap: 6px; align-items: center;
+  padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.06); min-width: 110px;
+}
+.wn-card small { font-size: 11px; color: var(--text-dim); }
+.wn-pill { padding: 4px 10px; border-radius: 20px; background: color-mix(in srgb, var(--matchday) 20%, transparent); color: var(--text-light); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.wn-pill-copy { animation: wn-copy 3.6s infinite; }
+.wn-arrow { color: var(--matchday); font-weight: 700; }
+@keyframes wn-copy { 0%, 30% { opacity: 0; transform: translateX(-24px); } 45%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* Settings: lit up after What's new was skipped, until it's been looked at. */
+.has-news { position: relative; border-color: var(--matchday) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--matchday) 45%, transparent); animation: wn-glow 2s ease-in-out infinite; }
+.has-news::after {
+  content: ""; position: absolute; top: -4px; right: -4px;
+  width: 10px; height: 10px; border-radius: 50%; background: var(--matchday);
+}
+@keyframes wn-glow { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--matchday) 15%, transparent); } }
+.settings-whats-new { margin-bottom: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wn-plan, .wn-check, .wn-chips, .wn-chip, .wn-owed, .wn-hurt, .wn-on, .wn-pill-copy, .has-news { animation: none; }
+  .wn-hurt { display: none; }
+  .wn-chip-rested { background: var(--chalk); color: var(--on-accent); }
+}
+
 /* DEF → LB CB RB: one chip splits into three, on a loop. */
 .chip-demo { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; }
 .chip-demo-row { display: grid; place-items: center; height: 36px; }

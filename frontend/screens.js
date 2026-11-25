@@ -9,6 +9,7 @@ import { loadTournamentHome } from "./tournament.js";
 import { withSaveToast, showToast, showFieldError, clearFieldError, sameName, duplicateNameMessage } from "./toast.js";
 import { renderTeamPill, renderTeamPills } from "./teams.js";
 import { openSettings } from "./settings.js";
+import { maybeShowWhatsNew, markWhatsNewSeen } from "./whats-new.js";
 
 // ── First-launch tutorial ─────────────────────────────────────────────────────
 // Check server first — if a team name exists the DB already has data (e.g. a
@@ -21,6 +22,7 @@ export async function bootApp() {
     refreshTeams().then(() => renderTeamPills()).catch(() => {});
     api.getTeamInfo().then(info => { if (info) state.teamInfo = info; renderTeamPills(); }).catch(() => {});
     showScreen("screen-landing");
+    maybeShowWhatsNew();
     return;
   }
   maybeDismissSquadTip();  // players-exist check, now post-auth
@@ -36,6 +38,7 @@ export async function bootApp() {
       // Team already configured on server — skip tutorial regardless of localStorage
       localStorage.setItem("gaffer_onboarded", "1");
       showScreen("screen-landing");
+      maybeShowWhatsNew();  // returning, set-up coach
       return;
     }
   } catch (_) { /* offline or first boot — fall through */ }
@@ -75,6 +78,7 @@ document.getElementById("btn-tutorial-start").addEventListener("click", async ()
   await withSaveToast(() => api.updateTeamInfo({ team_name: name, team_logo: logo }));
   state.teamInfo = { team_name: name, team_logo: logo };
   localStorage.setItem("gaffer_onboarded", "1");
+  markWhatsNewSeen();  // brand new — nothing is "new" to them yet
   renderTeamPills();  // reflect the just-named team on the landing pill
   // Straight on to the squad with the first Add Player form open (back from the
   // squad lands on the home screen as usual).

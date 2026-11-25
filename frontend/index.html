@@ -313,6 +313,8 @@
     </header>
 
     <div class="settings-wrap">
+      <button type="button" class="btn btn-secondary btn-full settings-whats-new" id="btn-settings-whats-new">✨ What's new</button>
+
       <!-- Teams (multi-team) — pinned to the top, always expanded -->
       <section class="settings-section">
         <h3 class="settings-heading">Teams<span class="beta-badge">Beta</span></h3>
@@ -1004,6 +1006,23 @@
   </div>
 
   <!-- ── Modal: Delete Player confirmation ────────────────────────────────── -->
+  <div class="feature-intro whats-new" id="whats-new" role="dialog" aria-modal="true" aria-labelledby="wn-title" hidden>
+    <button type="button" class="wn-skip" id="btn-wn-skip">Skip</button>
+    <div class="feature-intro-inner">
+      <span class="wn-kicker">What's new · <span id="wn-count"></span></span>
+      <div class="wn-demo" id="wn-demo" aria-hidden="true"></div>
+      <h2 id="wn-title"></h2>
+      <p class="feature-intro-lead" id="wn-body"></p>
+      <p class="wn-why"><b>Why:</b> <span id="wn-why"></span></p>
+      <p class="wn-where" id="wn-where"></p>
+      <div class="wn-dots" id="wn-dots"></div>
+      <div class="wn-actions">
+        <button type="button" class="btn btn-secondary" id="btn-wn-back">Back</button>
+        <button type="button" class="btn btn-primary" id="btn-wn-next">Next</button>
+      </div>
+    </div>
+  </div>
+
   <div class="feature-intro" id="granular-overlay" role="dialog" aria-modal="true" aria-labelledby="granular-intro-title" hidden>
     <div class="feature-intro-inner">
       <span class="beta-tag beta-tag-lg">Beta</span>

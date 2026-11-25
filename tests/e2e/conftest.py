@@ -110,6 +110,29 @@ def auth_server(tmp_path_factory):
             proc.kill()
 
 
+def _whats_new_seen_script() -> str:
+    """Init script marking the current "What's new" as seen (version read from the
+    module, so bumping it never silently blocks the suite behind the carousel)."""
+    import re
+    src = (REPO_ROOT / "frontend" / "whats-new.js").read_text()
+    version = re.search(r'WHATS_NEW_VERSION = "([^"]+)"', src).group(1)
+    return (
+        "try { localStorage.setItem('gaffer_whats_new', "
+        f"JSON.stringify({{v: '{version}', status: 'done'}})); }} catch (_) {{}}"
+    )
+
+
+WHATS_NEW_SEEN = _whats_new_seen_script()
+
+
+@pytest.fixture(autouse=True)
+def _whats_new_already_seen(request):
+    """Returning coaches get the What's new carousel on boot; keep it out of every
+    browser test except those marked `show_whats_new`."""
+    if "page" in request.fixturenames and not request.node.get_closest_marker("show_whats_new"):
+        request.getfixturevalue("page").add_init_script(WHATS_NEW_SEEN)
+
+
 @pytest.fixture
 def browser_context_args(browser_context_args):
     """Block service workers so a stale SW cache never masks a real change."""

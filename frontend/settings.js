@@ -6,6 +6,7 @@ import { state, isAssistant } from "./state.js";
 import { showScreen } from "./pitch.js";
 import { showToast } from "./toast.js";
 import { renderSettingsTeams, afterTeamAccessChange } from "./teams.js";
+import { openWhatsNew, syncWhatsNewGlow } from "./whats-new.js";
 
 // ── Open / populate ─────────────────────────────────────────────────────────────
 export async function openSettings({ focus } = {}) {
@@ -32,12 +33,17 @@ export async function openSettings({ focus } = {}) {
   // Multi-team list (also sets the "Current team" name from the active row).
   renderSettingsTeams();
   renderAssistantsSection();
+  syncWhatsNewGlow();
   if (focus === "assistants") {
     const section = document.getElementById("settings-assistants");
     section.open = true;
     section.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
+
+document.getElementById("btn-settings-whats-new").addEventListener("click", () => {
+  openWhatsNew({ fromSettings: true });
+});
 
 function hide(id) { const el = document.getElementById(id); if (el) el.hidden = true; }
 

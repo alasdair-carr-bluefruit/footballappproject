@@ -94,7 +94,19 @@ first, then value × effort. Details for each are in the tier sections further d
 3. ~~League daily playing-time cap in tournaments~~ — **dropped (owner, 2026-11-24).**
 4. **T2.1 Man of the Match + assists** — owner: low priority (2026-11-24).
 5. ~~**T2.2 SEO cornerstone**~~ — on-site content built 2026-11-23 (4 guides + hub); sitemaps submitted to Google + Bing; remaining: outreach.
-6. **In-app "New feature" banners + mini tutorials (owner idea, 2026-11-25)** — usability. A
+6. **What's new + first-run walkthrough (owner, 2026-11-25)** — usability.
+   - **What's new — built 2026-11-25 (`frontend/whats-new.js`, SW v69).** Full-screen, skippable
+     carousel: one slide per feature, each with a small looping animation, what it does, a
+     plain-English **Why** (coach reasons only — never tech), and where to find it. Opens by
+     default on the next visit for every set-up coach (assistants skip head-only slides); brand-new
+     coaches never see it. Skip → toast "Check out what's new any time in ⚙ Settings" + the
+     Settings button and its "✨ What's new" entry glow until viewed. To announce a batch: add
+     slides at the top of `SLIDES` and bump `WHATS_NEW_VERSION`. Seen-state is per device
+     (localStorage) — move to the account if coaches complain about seeing it twice.
+   - **Next: a first-run walkthrough for new coaches** on the same full-screen + animation
+     pattern: what Level does and the reasoning behind each decision (equal time, rotating
+     positions, the keeper rule, Tinker, rested vs unavailable) in words a coach would use.
+   - Original idea, kept for reference: A
    dismissible "New" banner (per account, remembered server-side so it follows the coach across
    devices) that opens a short full-screen explainer: the why, plus a simple animation of what
    changes (e.g. DEF chip → LB/CB/RB). First building block shipped with detailed positions: the

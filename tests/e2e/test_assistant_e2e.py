@@ -9,6 +9,8 @@ import httpx
 import pytest
 from playwright.sync_api import Page, expect
 
+from tests.e2e.conftest import WHATS_NEW_SEEN
+
 pytestmark = pytest.mark.e2e
 
 ADMIN_HEADERS = {"X-Admin-Key": "e2e-admin"}
@@ -60,6 +62,7 @@ def _head_page(browser, base: str, cookies: dict) -> Page:
     ctx.add_cookies([{"name": k, "value": v, "url": base} for k, v in cookies.items()])
     page = ctx.new_page()
     page.add_init_script("localStorage.setItem('gaffer_multiteam_seen', '1')")
+    page.add_init_script(WHATS_NEW_SEEN)
     page.on("dialog", lambda d: d.accept())
     page.goto(base + "/")
     expect(page.locator("#screen-landing")).to_be_visible()
