@@ -109,6 +109,18 @@ export function maybeShowWhatsNew() {
   else syncWhatsNewGlow();
 }
 
+// ?whatsnew=reset — forget this device's seen-state (for testing the first-visit
+// and skip paths again). Harmless anywhere: it only brings the carousel back.
+try {
+  const params = new URLSearchParams(location.search);
+  if (params.get("whatsnew") === "reset") {
+    localStorage.removeItem(KEY);
+    params.delete("whatsnew");
+    const qs = params.toString();
+    history.replaceState({}, "", location.pathname + (qs ? `?${qs}` : "") + location.hash);
+  }
+} catch (_) { /* storage blocked */ }
+
 let index = 0;
 let openedFromSettings = false;
 const el = id => document.getElementById(id);

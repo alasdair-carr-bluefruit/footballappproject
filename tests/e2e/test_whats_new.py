@@ -66,3 +66,8 @@ def test_finishing_clears_it_for_good(auth_server, page: Page):
     page.reload()
     expect(page.locator("#screen-landing")).to_be_visible()
     expect(page.locator("#whats-new")).to_be_hidden()
+
+    # ?whatsnew=reset brings it back (for re-testing), and tidies the URL.
+    page.goto(auth_server + "/?whatsnew=reset")
+    expect(page.locator("#whats-new")).to_be_visible()
+    assert "whatsnew" not in page.url
