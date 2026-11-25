@@ -2318,11 +2318,100 @@ html, body {
 }
 
 .granular-row {
-  padding: 10px 16px;
+  padding: 12px 16px;
+  margin: 0;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  font-size: 14px;
+  cursor: pointer;
 }
-.granular-row small { display: block; }
+.granular-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.granular-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--text-light); }
+.granular-sub { font-size: 12px; line-height: 1.35; color: var(--text-dim); }
+.beta-tag {
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--matchday) 18%, transparent);
+  color: var(--matchday);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.beta-tag-lg { font-size: 12px; padding: 3px 10px; }
+
+/* ── Full-screen "new feature" intro (first used: detailed positions) ── */
+.feature-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--pitch-green-d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+.feature-intro-inner {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+.feature-intro-inner h2 { margin: 0; font-size: 24px; }
+.feature-intro-lead { margin: 0; font-size: 16px; color: var(--text-light); text-wrap: balance; }
+.feature-intro-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.feature-intro-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+/* DEF → LB CB RB: one chip splits into three, on a loop. */
+.chip-demo { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; }
+.chip-demo-row { display: grid; place-items: center; height: 36px; }
+.chip-demo-row > * { grid-area: 1 / 1; }
+.demo-split { display: flex; gap: 8px; }
+.demo-chip {
+  display: inline-block;
+  min-width: 48px;
+  padding: 7px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--pos-mid);
+  background: color-mix(in srgb, var(--pos-mid) 20%, transparent);
+  color: var(--pos-mid-fg);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.demo-chip.pos-def { border-color: var(--pos-def); background: color-mix(in srgb, var(--pos-def) 20%, transparent); color: var(--pos-def-fg); }
+.demo-chip.pos-fwd { border-color: var(--pos-fwd); background: color-mix(in srgb, var(--pos-fwd) 20%, transparent); color: var(--pos-fwd-fg); }
+.demo-band { animation: demo-band 4s ease-in-out infinite; animation-delay: var(--demo-delay, 0s); }
+.demo-split .demo-chip { opacity: 0; animation: demo-pick 4s ease-out infinite; }
+.demo-split .demo-chip:nth-child(1) { animation-delay: calc(var(--demo-delay, 0s) + 0s); }
+.demo-split .demo-chip:nth-child(2) { animation-delay: calc(var(--demo-delay, 0s) + 0.1s); }
+.demo-split .demo-chip:nth-child(3) { animation-delay: calc(var(--demo-delay, 0s) + 0.2s); }
+@keyframes demo-band {
+  0%, 30% { opacity: 1; transform: scale(1); }
+  40%, 88% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes demo-pick {
+  0%, 36% { opacity: 0; transform: scale(0.6); }
+  46%, 82% { opacity: 1; transform: scale(1); }
+  92%, 100% { opacity: 0; transform: scale(0.6); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-band { display: none; }
+  .demo-band, .demo-split .demo-chip { animation: none; opacity: 1; transform: none; }
+}
 .position-checkboxes-granular { flex-direction: column; gap: 6px; }
 .position-checkboxes-granular .pos-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .position-checkboxes-granular .pos-check .pos-label { padding: 7px 12px; min-width: 44px; text-align: center; }

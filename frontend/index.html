@@ -652,7 +652,10 @@
       <button class="btn btn-secondary btn-sm" id="btn-save-team-info">Save</button>
     </div>
     <label class="switch-row granular-row" id="granular-row">
-      <span>Detailed positions <small class="form-hint">LB, CB, RB, LW… instead of DEF / MID / ATT</small></span>
+      <span class="granular-text">
+        <span class="granular-title">Detailed positions <span class="beta-tag">Beta</span></span>
+        <span class="granular-sub">LB, CB, LW… instead of DEF / MID / ATT</span>
+      </span>
       <span class="switch">
         <input type="checkbox" id="input-granular" />
         <span class="switch-slider"></span>
@@ -1001,13 +1004,29 @@
   </div>
 
   <!-- ── Modal: Delete Player confirmation ────────────────────────────────── -->
-  <div class="swap-overlay" id="granular-overlay" hidden>
-    <div class="swap-panel">
-      <h3 class="swap-title">Turn on detailed positions?</h3>
-      <p class="reinstate-info">You'll need to set each player's positions (LB, CB, RB, LW…) — edit each player in your squad. Until you do, their DEF / MID / ATT picks still count for every position in that line. Each detailed position counts separately when the plan rotates players (LW and RW are two positions). You can switch back any time — nothing is lost.</p>
-      <div class="player-action-buttons">
+  <div class="feature-intro" id="granular-overlay" role="dialog" aria-modal="true" aria-labelledby="granular-intro-title" hidden>
+    <div class="feature-intro-inner">
+      <span class="beta-tag beta-tag-lg">Beta</span>
+      <h2 id="granular-intro-title">Detailed positions</h2>
+      <div class="chip-demo" aria-hidden="true">
+        <div class="chip-demo-row" style="--demo-delay:0s">
+          <span class="demo-chip demo-band pos-def">DEF</span>
+          <span class="demo-split"><span class="demo-chip pos-def">LB</span><span class="demo-chip pos-def">CB</span><span class="demo-chip pos-def">RB</span></span>
+        </div>
+        <div class="chip-demo-row" style="--demo-delay:0.25s">
+          <span class="demo-chip demo-band pos-fwd">ATT</span>
+          <span class="demo-split"><span class="demo-chip pos-fwd">LW</span><span class="demo-chip pos-fwd">CF</span><span class="demo-chip pos-fwd">RW</span></span>
+        </div>
+      </div>
+      <p class="feature-intro-lead">Pick exact positions instead of DEF / MID / ATT.</p>
+      <ul class="feature-intro-points">
+        <li>Made mainly for <b>9v9</b>, where left and right matter.</li>
+        <li>Then edit each player to set their positions.</li>
+        <li>Switch off any time. Nothing is lost.</li>
+      </ul>
+      <div class="feature-intro-actions">
         <button class="btn btn-primary btn-full" id="btn-granular-confirm">Turn on</button>
-        <button class="btn btn-secondary btn-full" id="btn-granular-cancel">Cancel</button>
+        <button class="btn btn-secondary btn-full" id="btn-granular-cancel">Not now</button>
       </div>
     </div>
   </div>

@@ -69,7 +69,7 @@ slot put), one LIVE marker, Next starts the next period once its clock has run, 
 settings per team ✓ · keep 6v6 · stats in minutes · shirt numbers fine as-is · **never:** parent
 view, 11v11, league cap warnings · MoM/assists low priority.
 
-**Granular positions — built 2026-11-24, on `staging` (SW v65), not yet on `main`.** "Detailed
+**Granular positions — built 2026-11-24, on `staging` (SW v66), not yet on `main`.** "Detailed
 positions" switch on the squad page (`squads.granular_positions`, migration `c4f1a8e2d7b3`); turning
 it on asks first. Picks become GK · LB/CB/RB · LM/CM/CAM/RM · LW/CF/RW (CB2→CB, CM2→CM, CF2→CF).
 **Reversible by design (owner wanted coaches to try it):** picks are stored as given and the toggle
@@ -94,7 +94,14 @@ first, then value × effort. Details for each are in the tier sections further d
 3. ~~League daily playing-time cap in tournaments~~ — **dropped (owner, 2026-11-24).**
 4. **T2.1 Man of the Match + assists** — owner: low priority (2026-11-24).
 5. ~~**T2.2 SEO cornerstone**~~ — on-site content built 2026-11-23 (4 guides + hub); sitemaps submitted to Google + Bing; remaining: outreach.
-6. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
+6. **In-app "New feature" banners + mini tutorials (owner idea, 2026-11-25)** — usability. A
+   dismissible "New" banner (per account, remembered server-side so it follows the coach across
+   devices) that opens a short full-screen explainer: the why, plus a simple animation of what
+   changes (e.g. DEF chip → LB/CB/RB). First building block shipped with detailed positions: the
+   `.feature-intro` full-screen pop-up + `.chip-demo` animation (`index.html` `#granular-overlay`,
+   reduced-motion safe). Next: a small registry (`id`, title, steps, min app version), a
+   "seen" list on `AccountDB`, the banner on home, and reuse for onboarding / Tinker / Rested.
+7. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
    which a coach asks for first. Open question for the owner: should assistants be able to *run*
    (not edit) any match on matchday? Today only the plan owner or head coach can.
 
