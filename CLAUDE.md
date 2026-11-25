@@ -55,7 +55,7 @@ T1.2 signed-out→marketing link ✅ (live), T1.3 Settings + account self-servic
 
 **Doc map:** `CLAUDE.md` (read first) · `DEVELOPMENT_PLAN.md` (the only roadmap) ·
 `docs/STAGING.md` (release process) · `docs/DEPLOY.md` (infra) · `docs/adr/` (decisions) ·
-`docs/ASSISTANT_COACH_PLAN.md` (T3.2, P3 pending) · `BRAND.md` + `assets/brand/tokens.json` ·
+`docs/ASSISTANT_COACH_PLAN.md` (T3.2, P3 pending) · `docs/WALKTHROUGH_PLAN.md` (new-coach tour, next) · `BRAND.md` + `assets/brand/tokens.json` ·
 `requirements.md` (original spec/FR numbers, not status) · `marketing/README.md` · `docs/youtube/` ·
 `docs/reference/` (league rules PDF) · `docs/archive/` (shipped plans + history — never treat as current).
 

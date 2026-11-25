@@ -103,9 +103,9 @@ first, then value × effort. Details for each are in the tier sections further d
      Settings button and its "✨ What's new" entry glow until viewed. To announce a batch: add
      slides at the top of `SLIDES` and bump `WHATS_NEW_VERSION`. Seen-state is per device
      (localStorage) — move to the account if coaches complain about seeing it twice.
-   - **Next: a first-run walkthrough for new coaches** on the same full-screen + animation
-     pattern: what Level does and the reasoning behind each decision (equal time, rotating
-     positions, the keeper rule, Tinker, rested vs unavailable) in words a coach would use.
+   - **Next: first-run walkthrough + first-use intros — full plan in `docs/WALKTHROUGH_PLAN.md`**
+     (welcome tour for new head coaches, 1–3 card intros the first time each screen is used,
+     assistant welcome, seen-state on the account, phased P1–P3, owner questions in §8).
    - Original idea, kept for reference: A
    dismissible "New" banner (per account, remembered server-side so it follows the coach across
    devices) that opens a short full-screen explainer: the why, plus a simple animation of what
