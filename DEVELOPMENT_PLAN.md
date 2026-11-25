@@ -103,19 +103,16 @@ first, then value × effort. Details for each are in the tier sections further d
      Settings button and its "✨ What's new" entry glow until viewed. To announce a batch: add
      slides at the top of `SLIDES` and bump `WHATS_NEW_VERSION`. Seen-state is per device
      (localStorage) — move to the account if coaches complain about seeing it twice.
-   - **Next: first-run walkthrough + first-use intros — full plan in `docs/WALKTHROUGH_PLAN.md`**
-     (welcome tour for new head coaches, 1–3 card intros the first time each screen is used,
-     assistant welcome, seen-state on the account, phased P1–P3, owner questions in §8).
-   - Original idea, kept for reference: A
-   dismissible "New" banner (per account, remembered server-side so it follows the coach across
-   devices) that opens a short full-screen explainer: the why, plus a simple animation of what
-   changes (e.g. DEF chip → LB/CB/RB). First building block shipped with detailed positions: the
-   `.feature-intro` full-screen pop-up + `.chip-demo` animation (`index.html` `#granular-overlay`,
-   reduced-motion safe). **Owner 2026-11-25:** if it works well, show an intro like this the
-   **first time a coach uses any feature** — and it must **always be skippable** (a Skip in the
-   corner on every step, never a forced walkthrough). Next: a small registry (`id`, title, steps,
-   min app version), a "seen" list on `AccountDB`, the banner on home, and first-use triggers
-   for Tinker, Rested, live match, tournaments, share.
+   - **First-run walkthrough + first-use intros — BUILT 2026-11-25 locally (P1–P3 in one go), uncommitted;
+     ships via `staging` (migration).** Plan: `docs/WALKTHROUGH_PLAN.md`; copy from the owner-edited review doc.
+     `frontend/intro.js` = the shared carousel (What's new now uses it too); `frontend/intros.js` =
+     the cards + seen-state. 4-card welcome tour before the team-name screen; assistant welcome
+     (3 cards) instead of What's new for new assistants; first-use intros for squad, new
+     match/tournament, who's coming (rested), plan review, Tinker, live match, tournament lobby.
+     Seen-state on `AccountDB.intros_seen` (migration `d2a7f4c9e1b6`), backfilled once in `/me` for
+     existing coaches from their data. Settings: "Replay the welcome tour" + "Show tips on new
+     screens". SW v74. Remaining: What's new seen-state is still per device (could move to
+     `intros_seen` as `whats-new:<version>`).
 7. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
    which a coach asks for first. Open question for the owner: should assistants be able to *run*
    (not edit) any match on matchday? Today only the plan owner or head coach can.

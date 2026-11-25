@@ -7,6 +7,7 @@ import { showToast } from "./toast.js";
 import { exportSpreadsheet } from "./share.js";
 import { showGenerating, hideGenerating } from "./quotes.js";
 import { renderTeamPill } from "./teams.js";
+import { maybeIntro } from "./intros.js";
 
 // ── Home screen ───────────────────────────────────────────────────────────────
 async function loadHome() {
@@ -124,6 +125,7 @@ document.getElementById("btn-go-new-match").addEventListener("click", async () =
   const last = matches.reduce((a, m) => (!a || m.id > a.id ? m : a), null);
   applyMatchSettings(last);
   showScreen("screen-new-match");
+  maybeIntro("first-setup");
 });
 
 // Fill the setup form's match settings (not date/opponent/venue) from an
@@ -235,6 +237,7 @@ document.getElementById("btn-select-players").addEventListener("click", async ()
   });
 
   showScreen("screen-match-squad");
+  maybeIntro("first-rested");  // season only: tournaments have no "rested"
 });
 
 // Not coming → why? Unavailable (ill, away) owes nothing later; Rested (the

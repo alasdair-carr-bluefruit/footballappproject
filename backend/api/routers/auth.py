@@ -37,6 +37,7 @@ from backend.db.models import (
     SquadDB,
 )
 from backend.db.repositories import delete_squad_data, get_or_create_squad
+from backend.services import intros
 from backend.settings import (
     INVITE_TTL_DAYS,
     LOGIN_TOKEN_TTL_MINUTES,
@@ -76,6 +77,7 @@ def _account_public(account: AccountDB, session: Session) -> dict:
         "role": membership.role if membership else HEAD,  # role on the ACTIVE team
         "seen_tutorial": bool(account.seen_tutorial),
         "notify_plans": bool(account.notify_plans),
+        "intros_seen": intros.read_seen(account),
     }
 
 
@@ -134,6 +136,7 @@ def redeem_invite(
         status="active",
         created_at=now_iso(),
         last_login_at=now_iso(),
+        intros_seen="{}",  # brand new: nothing to backfill, every intro still to come
     )
     session.add(account)
     session.commit()  # assign account.id so we can record the membership
@@ -494,4 +497,37 @@ def me(request: Request, session: Session = Depends(get_session)) -> dict:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if (session_epoch_from(cookie) or 0) != account.session_epoch:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    if intros.needs_backfill(account):
+        intros.backfill(session, account)
+        session.commit()
+        session.refresh(account)
     return _account_public(account, session)
+
+
+@router.post("/intros/{intro_id}")
+def mark_intro_seen(
+    intro_id: str,
+    session: Session = Depends(get_session),
+    account: AccountDB = Depends(get_current_account),
+) -> dict:
+    """Remember that this coach has seen an intro (welcome tour, first-use card), on
+    any device. Idempotent. Own account only, so no team capability is involved."""
+    if not intros.mark(account, intro_id):
+        raise HTTPException(status_code=422, detail="Unknown intro")
+    session.add(account)
+    session.commit()
+    return {"intros_seen": intros.read_seen(account)}
+
+
+@router.delete("/intros/{intro_id}")
+def unmark_intro_seen(
+    intro_id: str,
+    session: Session = Depends(get_session),
+    account: AccountDB = Depends(get_current_account),
+) -> dict:
+    """Forget one intro (e.g. turning tips back on clears `__tips_off`)."""
+    if not intros.mark(account, intro_id, on=False):
+        raise HTTPException(status_code=422, detail="Unknown intro")
+    session.add(account)
+    session.commit()
+    return {"intros_seen": intros.read_seen(account)}

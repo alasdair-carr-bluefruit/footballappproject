@@ -10,6 +10,7 @@ import { withSaveToast, showToast, showFieldError, clearFieldError, sameName, du
 import { renderTeamPill, renderTeamPills } from "./teams.js";
 import { openSettings } from "./settings.js";
 import { maybeShowWhatsNew, markWhatsNewSeen } from "./whats-new.js";
+import { maybeWelcomeTour, maybeAssistantWelcome, maybeIntro } from "./intros.js";
 
 // ── First-launch tutorial ─────────────────────────────────────────────────────
 // Check server first — if a team name exists the DB already has data (e.g. a
@@ -22,7 +23,9 @@ export async function bootApp() {
     refreshTeams().then(() => renderTeamPills()).catch(() => {});
     api.getTeamInfo().then(info => { if (info) state.teamInfo = info; renderTeamPills(); }).catch(() => {});
     showScreen("screen-landing");
-    maybeShowWhatsNew();
+    // A new assistant gets their own welcome instead of "what's new" (nothing is new to them).
+    if (await maybeAssistantWelcome()) markWhatsNewSeen();
+    else maybeShowWhatsNew();
     return;
   }
   maybeDismissSquadTip();  // players-exist check, now post-auth
@@ -45,6 +48,8 @@ export async function bootApp() {
 
   if (!localStorage.getItem("gaffer_onboarded")) {
     showScreen("screen-tutorial");
+    // Brand-new head coach: the welcome tour first, over the team-name form it leads to.
+    if (await maybeWelcomeTour()) document.getElementById("tutorial-team-name").focus();
   } else {
     showScreen("screen-landing");
   }
@@ -293,6 +298,7 @@ function openPlayerForm(player = null) {
   document.getElementById("btn-save-add-another").hidden = !!player;
 
   document.getElementById("input-name").focus();
+  maybeIntro("first-squad");
 }
 
 // ── Position picks: DEF/MID/ATT, or LB/CB/RB… when the team uses detailed positions.

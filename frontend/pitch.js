@@ -4,6 +4,7 @@ import { loadHome } from "./season.js";
 import { loadTournamentLobby } from "./tournament.js";
 import { showToast, withSaveToast } from "./toast.js";
 import { renderReviewMark } from "./plan-owner.js";
+import { maybeIntro } from "./intros.js";
 import { BRAND, chalkAlpha, matchdayAlpha } from "./brand.js";
 
 // NOTE on circular imports: pitch.js needs to navigate back into season.js
@@ -1186,6 +1187,7 @@ function enterReviewView(data) {
   reviewSwapSel = null;  // clear any stale swap selection from a previous visit
   showScreen("screen-review");
   renderReview();
+  if (!state.matchStarted) maybeIntro("first-review");
 }
 
 // Landing for a reopened FINISHED match: the Full Time result card. loadMatchData
@@ -1716,7 +1718,9 @@ async function doStartMatch() {
     state.newPeriodHintSlot = null; // clear any dismissed-hint state from a previous match
     beginMatchTimer();
     render();
-    showGoalTip();
+    // First live match: the intro first, then the goal tip (its 6s timer would
+    // otherwise run out behind the intro).
+    maybeIntro("first-live").then(showGoalTip);
   } catch (err) {
     // Someone else started it first → the lost-control handler is already
     // switching this device to the live view; no alert on top of that.
@@ -2004,6 +2008,7 @@ document.getElementById("btn-adjust").addEventListener("click", () => {
   btn.textContent = state.editMode ? "Done" : "Tinker";
   render();
   if (finishing) showToast("Sorted. Plan updated.");
+  else maybeIntro("first-tinker");
 });
 
 // Explicit, following-only recalculation. Local edits never touch other slots;

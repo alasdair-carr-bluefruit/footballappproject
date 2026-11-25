@@ -7,6 +7,7 @@ import { showScreen } from "./pitch.js";
 import { showToast } from "./toast.js";
 import { renderSettingsTeams, afterTeamAccessChange } from "./teams.js";
 import { openWhatsNew, syncWhatsNewGlow } from "./whats-new.js";
+import { replayWelcome, tipsOn, setTipsOn } from "./intros.js";
 
 // ── Open / populate ─────────────────────────────────────────────────────────────
 export async function openSettings({ focus } = {}) {
@@ -34,6 +35,8 @@ export async function openSettings({ focus } = {}) {
   renderSettingsTeams();
   renderAssistantsSection();
   syncWhatsNewGlow();
+  document.getElementById("settings-show-tips").checked = tipsOn();
+  hide("tips-msg");
   if (focus === "assistants") {
     const section = document.getElementById("settings-assistants");
     section.open = true;
@@ -43,6 +46,19 @@ export async function openSettings({ focus } = {}) {
 
 document.getElementById("btn-settings-whats-new").addEventListener("click", () => {
   openWhatsNew({ fromSettings: true });
+});
+document.getElementById("btn-settings-replay-tour").addEventListener("click", () => replayWelcome());
+
+// First-use intros on/off — saved on toggle; snaps back if the save fails.
+document.getElementById("settings-show-tips").addEventListener("change", async (e) => {
+  const on = e.target.checked;
+  hide("tips-msg");
+  try {
+    await setTipsOn(on);
+  } catch (err) {
+    e.target.checked = !on;
+    showMsg("tips-msg", (err && err.message) || "Couldn't save that — please try again.");
+  }
 });
 
 function hide(id) { const el = document.getElementById(id); if (el) el.hidden = true; }

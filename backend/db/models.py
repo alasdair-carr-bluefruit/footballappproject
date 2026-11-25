@@ -38,6 +38,10 @@ class AccountDB(SQLModel, table=True):
     session_epoch: int = 0  # bump to invalidate all issued sessions ("sign out everywhere")
     # Email me when a coach on my team makes a plan / hands me one (Settings toggle).
     notify_plans: int = 1
+    # Walkthrough / first-use intros already seen: JSON map {intro_id: ISO date}.
+    # "" = an account from before intros existed — /me backfills it once from the
+    # coach's data so nobody is shown intros for things they already use.
+    intros_seen: str = ""
 
 
 # A one-time invite token — only coaches sent a /join?token=… link can create a

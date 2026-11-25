@@ -111,26 +111,55 @@ def auth_server(tmp_path_factory):
 
 
 def _whats_new_seen_script() -> str:
-    """Init script marking the current "What's new" as seen (version read from the
-    module, so bumping it never silently blocks the suite behind the carousel)."""
+    """Init script marking the current "What's new" and every walkthrough intro
+    (welcome tour, assistant welcome, first-use intros) as seen. The version and
+    intro ids are read from the modules, so adding one never silently blocks the
+    suite behind a carousel."""
     import re
     src = (REPO_ROOT / "frontend" / "whats-new.js").read_text()
     version = re.search(r'WHATS_NEW_VERSION = "([^"]+)"', src).group(1)
     return (
         "try { localStorage.setItem('gaffer_whats_new', "
-        f"JSON.stringify({{v: '{version}', status: 'done'}})); }} catch (_) {{}}"
+        f"JSON.stringify({{v: '{version}', status: 'done'}})); }} catch (_) {{}}\n"
+        + _intros_seen_script()
     )
 
 
+def _intro_ids() -> list[str]:
+    import re
+    src = (REPO_ROOT / "frontend" / "intros.js").read_text()
+    line = re.search(r"export const INTRO_IDS = \[([^\]]*)\]", src).group(1)
+    return re.findall(r'"([^"]+)"', line)
+
+
+INTRO_IDS = _intro_ids()
+
+
+def _intros_seen_script() -> str:
+    import json
+    seen = json.dumps({i: "2026-01-01" for i in INTRO_IDS})
+    return f"try {{ localStorage.setItem('gaffer_intros', '{seen}'); }} catch (_) {{}}"
+
+
+# Pre-dismisses What's new AND every intro (add it to any extra browser context).
 WHATS_NEW_SEEN = _whats_new_seen_script()
 
 
 @pytest.fixture(autouse=True)
 def _whats_new_already_seen(request):
-    """Returning coaches get the What's new carousel on boot; keep it out of every
-    browser test except those marked `show_whats_new`."""
-    if "page" in request.fixturenames and not request.node.get_closest_marker("show_whats_new"):
-        request.getfixturevalue("page").add_init_script(WHATS_NEW_SEEN)
+    """Returning coaches get the What's new carousel on boot, and new ones the
+    walkthrough intros; keep them out of every browser test except those marked
+    `show_whats_new` / `show_intros` (which opt out of their own pre-dismiss)."""
+    if "page" not in request.fixturenames:
+        return
+    page = request.getfixturevalue("page")
+    if request.node.get_closest_marker("show_intros"):
+        if not request.node.get_closest_marker("show_whats_new"):
+            page.add_init_script(WHATS_NEW_SEEN.split("\n")[0])
+    elif not request.node.get_closest_marker("show_whats_new"):
+        page.add_init_script(WHATS_NEW_SEEN)
+    else:
+        page.add_init_script(_intros_seen_script())
 
 
 @pytest.fixture

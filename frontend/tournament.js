@@ -7,6 +7,7 @@ import { showToast, withSaveToast, showFieldError, clearFieldError, sameName, du
 import { exportSpreadsheet } from "./share.js";
 import { showGenerating, hideGenerating } from "./quotes.js";
 import { renderTeamPill } from "./teams.js";
+import { maybeIntro } from "./intros.js";
 
 // ── Tournament Home ───────────────────────────────────────────────────────────
 async function loadTournamentHome() {
@@ -99,6 +100,7 @@ document.getElementById("btn-new-tournament").addEventListener("click", async ()
     formationSelect.value = last.formation;
   }
   showScreen("screen-new-tournament");
+  maybeIntro("first-setup");  // same intro as a season's first New match
 });
 
 // ── New tournament form ────────────────────────────────────────────────────────
@@ -402,6 +404,7 @@ document.getElementById("btn-generate-all-matches").addEventListener("click", as
 async function loadTournamentLobby(id) {
   state.activeTournamentId = id;
   showScreen("screen-tournament-lobby");
+  maybeIntro("first-tournament");
 
   document.getElementById("lobby-match-list").innerHTML = "<li class='loading'>Loading…</li>";
   document.getElementById("add-match-panel").hidden = true;

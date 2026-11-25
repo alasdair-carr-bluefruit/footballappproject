@@ -81,6 +81,8 @@ export const api = {
   clearAccountData:   ()         => request("/auth/account/clear-data", { method: "POST" }),
   updateName:         (name)     => request("/auth/account/name", { method: "POST", body: { display_name: name } }),
   setPlanEmails:      (on)       => request("/auth/account/notifications", { method: "POST", body: { notify_plans: !!on } }),
+  markIntro:          (id)       => request(`/auth/intros/${encodeURIComponent(id)}`, { method: "POST" }),
+  unmarkIntro:        (id)       => request(`/auth/intros/${encodeURIComponent(id)}`, { method: "DELETE" }),
   inviteAFriend:      ()         => request("/auth/invite-a-friend", { method: "POST" }),
   reclaimSquad:       (token)    => request("/auth/account/reclaim", { method: "POST", body: { token }, suppressAuthRedirect: true }),
 

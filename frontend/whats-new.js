@@ -8,11 +8,11 @@
 // To announce a new batch: add slides at the top of SLIDES and bump the version.
 import { state, isAssistant } from "./state.js";
 import { showToast } from "./toast.js";
+import { showIntro, DEMOS } from "./intro.js";
 
 export const WHATS_NEW_VERSION = "2026-11";
 const KEY = "gaffer_whats_new";
 
-const coin = (label, cls = "") => `<span class="demo-coin ${cls}">${label}</span>`;
 const chipRow = (band, cls, picks, delay) => `
   <div class="chip-demo-row" style="--demo-delay:${delay}s">
     <span class="demo-chip demo-band pos-${cls}">${band}</span>
@@ -26,9 +26,7 @@ const SLIDES = [
     why: "Matchday is easier with two of you, and whoever is running the game can do it from their own phone.",
     where: "Settings → Assistant coaches",
     headOnly: true,
-    demo: `<div class="wn-coaches">
-      ${coin("You")}<span class="wn-plan">Plan</span>${coin("Co", "demo-coin-alt")}
-    </div>`,
+    demo: DEMOS.handover(),
   },
   {
     title: "Add your other teams",
@@ -45,24 +43,14 @@ const SLIDES = [
     body: "Untick a player and say why. Rested players are owed time in later matches. Ill or away players aren't.",
     why: "Resting a player is your choice, so the app makes sure they catch up later. A child who's ill shouldn't count against anyone.",
     where: "New match → pick players",
-    demo: `<div class="wn-rested">
-      <div class="wn-row">
-        <span class="wn-check"></span><span class="wn-name">Ava</span>
-        <span class="wn-chips"><span class="wn-chip">Unavailable</span><span class="wn-chip wn-chip-rested">Rested</span></span>
-      </div>
-      <span class="wn-owed">10′ owed next match</span>
-    </div>`,
+    demo: DEMOS.rested,
   },
   {
     title: "Tap a player mid-match",
     body: "Record a goal, or an injury. For an injury you pick who comes on, and nobody else moves.",
     why: "Injuries happen mid-game. Re-planning the whole team would confuse the kids, so only the injured child changes.",
     where: "Live match → tap a player",
-    demo: `<div class="wn-pitch">
-      ${coin("Ben")}
-      <span class="wn-swap">${coin("Cal", "wn-hurt")}${coin("Eve", "wn-on demo-coin-alt")}</span>
-      ${coin("Dan")}
-    </div>`,
+    demo: DEMOS.injury,
   },
   {
     title: "Detailed positions",
@@ -78,11 +66,7 @@ const SLIDES = [
     body: "A new match or tournament starts with the same format and options as your last one.",
     why: "Most teams play the same format every week. Fewer taps before kick-off.",
     where: "New match / New tournament",
-    demo: `<div class="wn-cards">
-      <div class="wn-card"><small>Last match</small><span class="wn-pill">7v7 · 4 × 12.5′</span></div>
-      <span class="wn-arrow">→</span>
-      <div class="wn-card"><small>New match</small><span class="wn-pill wn-pill-copy">7v7 · 4 × 12.5′</span></div>
-    </div>`,
+    demo: DEMOS.remembers(),
   },
 ];
 
@@ -131,55 +115,15 @@ try {
   }
 } catch (_) { /* storage blocked */ }
 
-let index = 0;
-let openedFromSettings = false;
-const el = id => document.getElementById(id);
-
 export function openWhatsNew({ fromSettings = false } = {}) {
-  openedFromSettings = fromSettings;
-  index = 0;
-  el("wn-dots").innerHTML = slides().map(() => "<span></span>").join("");
-  render();
-  el("whats-new").hidden = false;
-  el("btn-wn-next").focus();
+  showIntro(slides(), { kicker: "What's new" }).then(result => {
+    if (result === "busy") return;
+    if (result === "done" || fromSettings) {
+      writeStatus("done");
+    } else {
+      writeStatus("dismissed");
+      showToast("Check out what's new any time in ⚙ Settings.");
+    }
+    syncWhatsNewGlow();
+  });
 }
-
-function render() {
-  const all = slides();
-  const s = all[index];
-  el("wn-demo").innerHTML = s.demo;  // fresh nodes → the animation restarts per slide
-  el("wn-title").innerHTML = s.title + (s.beta ? ' <span class="beta-tag">Beta</span>' : "");
-  el("wn-body").textContent = s.body;
-  el("wn-why").textContent = s.why;
-  el("wn-where").textContent = s.where;
-  el("wn-count").textContent = `${index + 1} of ${all.length}`;
-  [...el("wn-dots").children].forEach((d, i) => d.classList.toggle("active", i === index));
-  el("btn-wn-back").hidden = index === 0;
-  const last = index === all.length - 1;
-  el("btn-wn-next").textContent = last ? "Got it" : "Next";
-  el("btn-wn-skip").hidden = last;
-}
-
-function close(finished) {
-  el("whats-new").hidden = true;
-  if (finished || openedFromSettings) {
-    writeStatus("done");
-  } else {
-    writeStatus("dismissed");
-    showToast("Check out what's new any time in ⚙ Settings.");
-  }
-  syncWhatsNewGlow();
-}
-
-el("btn-wn-next").addEventListener("click", () => {
-  if (index === slides().length - 1) { close(true); return; }
-  index += 1;
-  render();
-});
-el("btn-wn-back").addEventListener("click", () => {
-  if (index > 0) { index -= 1; render(); }
-});
-el("btn-wn-skip").addEventListener("click", () => close(false));
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && !el("whats-new").hidden) close(false);
-});

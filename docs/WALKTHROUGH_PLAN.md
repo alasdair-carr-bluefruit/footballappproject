@@ -1,6 +1,11 @@
 # First-run walkthrough + first-use intros — build plan
 
-> Status: **planned 2026-11-25, not started.** Owner decisions taken (§8). **Card copy lives in
+> Status: **BUILT 2026-11-25 (P1–P3 together), local — ships via `staging`.** Deviations from this plan: the
+> overlay keeps its `#whats-new` id (tests and CSS use it); "spell" became **"stint"** (owner);
+> card 2's FA line was reworded to what the verified source says; tournaments got an extra first
+> card on *why* tournament mode exists (owner); the rested intro shows the first time the season
+> "who's coming" screen opens (owner: belongs with the first match). Previously:
+> planned 2026-11-25. Owner decisions taken (§8). **Card copy lives in
 > the review doc https://claude.ai/artifact/WpTUxx7F7tdZzz7yxnRBKo** — build from the owner's
 > edited version of it, not from the drafts below. Roadmap item 6 in `DEVELOPMENT_PLAN.md`.
 > Builds on the shipped What's new carousel (`frontend/whats-new.js`, `.feature-intro`
