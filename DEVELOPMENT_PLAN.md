@@ -69,7 +69,7 @@ slot put), one LIVE marker, Next starts the next period once its clock has run, 
 settings per team ✓ · keep 6v6 · stats in minutes · shirt numbers fine as-is · **never:** parent
 view, 11v11, league cap warnings · MoM/assists low priority.
 
-**Granular positions — built 2026-11-24, on `staging` (SW v66), not yet on `main`.** "Detailed
+**Granular positions — built 2026-11-24, on `staging` (SW v67), not yet on `main`.** "Detailed
 positions" switch on the squad page (`squads.granular_positions`, migration `c4f1a8e2d7b3`); turning
 it on asks first. Picks become GK · LB/CB/RB · LM/CM/CAM/RM · LW/CF/RW (CB2→CB, CM2→CM, CF2→CF).
 **Reversible by design (owner wanted coaches to try it):** picks are stored as given and the toggle
@@ -99,8 +99,11 @@ first, then value × effort. Details for each are in the tier sections further d
    devices) that opens a short full-screen explainer: the why, plus a simple animation of what
    changes (e.g. DEF chip → LB/CB/RB). First building block shipped with detailed positions: the
    `.feature-intro` full-screen pop-up + `.chip-demo` animation (`index.html` `#granular-overlay`,
-   reduced-motion safe). Next: a small registry (`id`, title, steps, min app version), a
-   "seen" list on `AccountDB`, the banner on home, and reuse for onboarding / Tinker / Rested.
+   reduced-motion safe). **Owner 2026-11-25:** if it works well, show an intro like this the
+   **first time a coach uses any feature** — and it must **always be skippable** (a Skip in the
+   corner on every step, never a forced walkthrough). Next: a small registry (`id`, title, steps,
+   min app version), a "seen" list on `AccountDB`, the banner on home, and first-use triggers
+   for Tinker, Rested, live match, tournaments, share.
 7. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
    which a coach asks for first. Open question for the owner: should assistants be able to *run*
    (not edit) any match on matchday? Today only the plan owner or head coach can.
