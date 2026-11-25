@@ -1,6 +1,8 @@
 # First-run walkthrough + first-use intros — build plan
 
-> Status: **planned 2026-11-25, not started.** Roadmap item 6 in `DEVELOPMENT_PLAN.md`.
+> Status: **planned 2026-11-25, not started.** Owner decisions taken (§8). **Card copy lives in
+> the review doc https://claude.ai/artifact/WpTUxx7F7tdZzz7yxnRBKo** — build from the owner's
+> edited version of it, not from the drafts below. Roadmap item 6 in `DEVELOPMENT_PLAN.md`.
 > Builds on the shipped What's new carousel (`frontend/whats-new.js`, `.feature-intro`
 > styles, `.demo-*` / `.wn-*` animations). Read that file first.
 
@@ -23,8 +25,8 @@
 3. **Coach language.** "Every child gets the same time on the pitch", not "equal-time
    constraint". Never say *violation*, *algorithm*, *slot*, *database*. Say *spell* or
    *half of a quarter* rather than *slot*.
-4. **Only verified FA claims** (see memory `reference_fa_equal_playing_time_sources`). If a card
-   cites the FA, link the FA page in a small "Source" line; otherwise make no statistical claim.
+4. **Only verified FA claims** (see memory `reference_fa_equal_playing_time_sources`), and **no
+   source links on cards** (owner). No statistics on cards.
 5. **Skippable, replayable, switch-off-able.** Skip on every card; "Replay the tour" in
    Settings; a "Show tips" switch in Settings turns all first-use intros off.
 6. **Accessible.** `role="dialog"`, focus on the primary button, Esc = Skip, demos
@@ -37,17 +39,12 @@
 button is **"Set up my team →"**, which lands on the team-name screen. Skipping lands there too.
 Assistants get Part C instead.
 
-| # | Title | Animation idea | What (1 line) | Why (coach rationale) |
-|---|---|---|---|---|
-| 1 | Fair time, done for you | 8 bars of uneven height level out to the same height | Level plans who plays when, so every child gets the same time on the pitch. | The FA recommends equal playing time at grassroots, and lack of game time is the top reason children give for stopping playing. *(Source: FA / Cornwall FA equal playing time — verified links in memory.)* |
-| 2 | Everyone tries positions | One coin moves DEF → MID → ATT across Q1–Q3 | Children rotate through the positions you've said they can play. | The FA discourages fixing children into one position before 12 — the tallest at eight may be average at fourteen. |
-| 3 | Subs halfway through each quarter | A timeline: Q1 start / mid, coins swapping at the mid marker | Changes happen at the start and halfway through each quarter. | Nobody sits out a whole quarter, and bench spells stay short. |
-| 4 | Your keeper | Keeper coin in goal, then swapping out while a backup goes in | You choose who can go in goal; a keeper-only child shares time like everyone else. | Without sharing, a keeper-only child would play every minute while others wait. |
-| 5 | Even line-ups | Two scales tipping, then balancing | Skill ratings keep each line-up evenly matched — they're private to you. | Every spell is a fair contest, so no group of kids gets stuck in the "weak" team. Assistants never see ratings. |
-| 6 | You're still the coach | A dashed "tinker" coin swaps places with another | Change anything with Tinker; Level re-balances what's left. | The plan is a starting point, not a rule — you know your players. |
+**4 cards (owner, 2026-11-25):** 1) Fair time, done for you · 2) Everyone tries positions ·
+3) Even line-ups · 4) You're still the coach. "Subs halfway" and "Your keeper" were cut from the
+tour (the keeper point lives in the first-squad intro instead). Full wording + animation notes:
+the review doc linked at the top. No FA source links on cards.
 
-Copy is a first draft for the owner to edit. Cards 3–5 describe current engine behaviour
-(mid-period subs, `share_gk`, skill balancer) — check them against `CLAUDE.md` before shipping.
+Card 3 describes the skill balancer — check it against `CLAUDE.md` before shipping.
 
 ## 4. Part B — first-use intros (1–3 cards each, shown once)
 
@@ -91,7 +88,7 @@ functions (coin row, chip split, bar chart, timeline, scales) so new cards are a
 Reuse the existing `#whats-new` overlay markup (rename to `#intro-overlay`) so there's one
 dialog.
 
-**Seen-state on the account (recommended).** New coaches often set up on a laptop and run
+**Seen-state on the account (owner: yes, 2026-11-25).** New coaches often set up on a laptop and run
 matches on a phone — a tour that re-appears per device would grate. Add
 `AccountDB.intros_seen` (JSON text, default `"{}"`, map `id → ISO date`) via an Alembic
 migration, return it from `GET /api/auth/me`, and add `POST /api/auth/intros/{intro_id}`
@@ -137,9 +134,10 @@ never flashes twice while the POST is in flight. Optionally move What's new onto
 
 Each phase: bump the SW cache, update `DEVELOPMENT_PLAN.md`, purge Cloudflare after the deploy.
 
-## 8. Questions for the owner before P1
+## 8. Owner decisions (2026-11-25)
 
-1. Is six cards right for the welcome tour, or fewer (say 4: fair time, positions, keeper, Tinker)?
-2. OK to store "seen" on the account (needs a small database change, via staging) rather than per phone?
-3. Should the FA cards show a small "Source: The FA" link?
-4. Card copy: happy for me to draft all cards in full for you to edit in one go before building?
+1. Welcome tour = **4 cards** (fair time, positions, even line-ups, you're still the coach).
+2. "Seen" is **remembered on the coach's account** (migration, via staging).
+3. **No "Source: The FA" links.**
+4. All card copy drafted in the review doc (link at top) — owner reviewing; its "For you to
+   decide" checklist must be settled before P1 copy is final.
