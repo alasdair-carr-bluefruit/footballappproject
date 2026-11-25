@@ -69,7 +69,7 @@ slot put), one LIVE marker, Next starts the next period once its clock has run, 
 settings per team ✓ · keep 6v6 · stats in minutes · shirt numbers fine as-is · **never:** parent
 view, 11v11, league cap warnings · MoM/assists low priority.
 
-**Granular positions — built 2026-11-24, on `staging` (SW v68), not yet on `main`.** "Detailed
+**Granular positions — built 2026-11-24, on `main` 2026-11-25 (SW v68).** "Detailed
 positions" switch on the squad page (`squads.granular_positions`, migration `c4f1a8e2d7b3`); turning
 it on asks first. Picks become GK · LB/CB/RB · LM/CM/CAM/RM · LW/CF/RW (CB2→CB, CM2→CM, CF2→CF).
 **Reversible by design (owner wanted coaches to try it):** picks are stored as given and the toggle
