@@ -2327,10 +2327,10 @@ html, body {
 .granular-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--text-light); }
 .granular-sub { font-size: 12px; line-height: 1.35; color: var(--text-dim); }
 .beta-tag {
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--matchday) 18%, transparent);
-  color: var(--matchday);
+  background: var(--matchday);   /* Signal Lime, same as the primary button */
+  color: var(--on-accent);
   font-family: var(--font-display);
   font-size: 10px;
   font-weight: 700;

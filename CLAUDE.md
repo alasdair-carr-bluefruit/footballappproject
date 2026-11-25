@@ -352,7 +352,9 @@ GameConfig
 - No PRs unless explicitly requested — merge `staging` → `main` locally and push
 - After any production deploy that touches frontend assets: bump `CACHE` in
   `frontend/sw.js` **and** purge the Cloudflare cache (it serves stale `.js` for
-  ~4h; incognito won't help)
+  ~4h; incognito won't help). Since 2026-11-25 `main.py` sends `Cache-Control: no-cache`
+  on every non-API response (`revalidate_app_shell`), which should end the stale-file
+  problem; keep purging until a deploy or two confirms it.
 
 ---
 

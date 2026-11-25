@@ -62,6 +62,18 @@ else:
     )
 
 @app.middleware("http")
+async def revalidate_app_shell(request, call_next):
+    """App files (index.html, *.js, style.css, sw.js) must be revalidated on every
+    load. With no Cache-Control the browser and Cloudflare guessed freshness, so a
+    deploy could pair new HTML with old CSS/JS for hours (new screens rendering
+    unstyled, buttons doing nothing). `no-cache` still allows a cheap 304 via ETag."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/") and "cache-control" not in response.headers:
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+@app.middleware("http")
 async def server_timing(request, call_next):
     """Report DB time / query count / new connections per API request in a
     `Server-Timing` header — the evidence for any "this feels slow" report."""
