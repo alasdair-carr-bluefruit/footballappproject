@@ -3998,61 +3998,6 @@ input[aria-invalid="true"] { border-color: var(--danger-soft); box-shadow: 0 0 0
 
 /* One-time landing announcement that multi-team is live. Dark card + lime accent
    so it reads as distinct from the lime assistant-coach teaser lower on the screen. */
-.multiteam-callout {
-  display: flex;
-  align-items: stretch;
-  width: 100%;
-  margin: 0 0 14px;
-  border-radius: 14px;
-  position: relative;
-  z-index: 1;
-  overflow: hidden;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--matchday) 22%, var(--pitch-deep)), var(--pitch-deep));
-  border: 1px solid color-mix(in srgb, var(--matchday) 55%, transparent);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
-}
-.multiteam-callout-main {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 13px 6px 13px 14px;
-  background: none;
-  border: none;
-  color: var(--chalk);
-  text-align: left;
-  cursor: pointer;
-}
-.multiteam-callout-main:active { transform: scale(0.99); }
-.multiteam-callout-icon { flex: 0 0 auto; font-size: 22px; line-height: 1; }
-.multiteam-callout-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.multiteam-callout-titlerow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.multiteam-callout-titlerow strong { font-size: 15px; font-weight: 800; color: var(--matchday); }
-.multiteam-callout-badge {
-  background: var(--amber);
-  color: var(--slate);
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  border-radius: 999px;
-  padding: 2px 7px;
-}
-.multiteam-callout-text small { font-size: 12.5px; line-height: 1.45; color: rgba(255, 255, 255, 0.82); }
-.multiteam-callout-x {
-  flex: 0 0 auto;
-  align-self: flex-start;
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 10px 12px;
-}
-.multiteam-callout-x:active { color: var(--chalk); }
 
 /* "Beta" tag next to the multi-team UI (switcher sheet + Settings heading). */
 .beta-badge {
@@ -4071,50 +4016,6 @@ input[aria-invalid="true"] { border-color: var(--danger-soft); box-shadow: 0 0 0
 }
 
 /* One-time "new feature" callout anchored under the header team pill. */
-.team-pill-callout {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 60;
-  width: 240px;
-  background: var(--toast-bg);
-  color: var(--chalk);
-  border: 1px solid var(--matchday);
-  border-radius: 12px;
-  padding: 12px 14px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-  text-align: left;
-}
-.team-pill-callout::before {
-  content: "";
-  position: absolute;
-  top: -7px;
-  right: 22px;
-  width: 12px;
-  height: 12px;
-  background: var(--toast-bg);
-  border-left: 1px solid var(--matchday);
-  border-top: 1px solid var(--matchday);
-  transform: rotate(45deg);
-}
-.team-pill-callout-title {
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--matchday);
-  margin: 0 0 4px;
-}
-.team-pill-callout-body { font-size: 13px; line-height: 1.45; margin: 0 0 10px; color: var(--chalk); }
-.team-pill-callout-dismiss {
-  background: var(--matchday);
-  color: var(--on-accent);
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
 .team-pill {
   display: inline-flex;
   align-items: center;

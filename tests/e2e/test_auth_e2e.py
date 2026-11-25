@@ -104,10 +104,6 @@ def test_multi_team_pill_add_and_switch(auth_server, page: Page):
     # (not just the two home screens) — same shared render.
     expect(page.locator("#screen-landing")).to_be_visible()
     expect(page.locator("#team-pill-landing .team-pill")).to_contain_text("First FC")
-    # The one-time "multi-team is live" banner shows on landing and dismisses.
-    expect(page.locator("#multiteam-callout")).to_be_visible()
-    page.click("#btn-multiteam-callout-dismiss")
-    expect(page.locator("#multiteam-callout")).to_be_hidden()
     page.click("#btn-squad-management")
     expect(page.locator("#screen-squad")).to_be_visible()
     expect(page.locator("#team-pill-squad .team-pill")).to_contain_text("First FC")
