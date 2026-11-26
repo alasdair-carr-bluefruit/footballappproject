@@ -199,6 +199,34 @@ freely, **never imply endorsement without consent**), County-FA listings, commun
 participation, founder safeguarding credibility. *(SEO technical foundations ✅ shipped.)*
 
 
+**T2.5 Weekly "Coaching notes" article (owner idea, 2026-11-26).** One new topical post a week on
+`keepthingslevel.com/blog/` to build Google + AI-answer reputation (ChatGPT/Perplexity/Google AI
+Overviews cite pages that answer a coach's question directly and cite sources).
+- **Quality over cadence:** Google's helpful-content system demotes thin, samey posts. Each post must
+  answer one real coach question, cite FA-owned sources where it makes a claim, and include something
+  only the owner can add (a sideline story, a welfare-team view). If a week has nothing worth saying,
+  skip it; fortnightly done well beats weekly done thin.
+- **Workflow:** keep a topic backlog tied to the season calendar (pre-season squad planning, first
+  match nerves, half-term tournaments, winter cancellations + owed time, parents on the touchline,
+  end-of-season awards, FutureFit changes). Claude drafts from the post template (Article +
+  FAQPage JSON-LD, sitemap + `llms.txt` entry, "Coaching notes" hub card); the owner adds the
+  personal bit and approves; push to `main` publishes.
+- **Measure:** Search Console impressions/clicks per post after 4–8 weeks; drop topics that never get impressions.
+- Every post ends with a soft link to the app and the Help page, and gets shared in the communities below.
+
+**T2.6 Community presence as Keep Things Level (owner idea, 2026-11-26).** Grassroots coach groups on
+Facebook, Instagram and Reddit (e.g. r/bootroom), as the brand account, to bring in coaches.
+- **Lead with help, not the link:** answer playing-time / rotation / tricky-parent questions; link a
+  Coaching notes post when it genuinely answers the question; mention the app only when asked or when
+  it is the answer, and always say "I built this". Most groups ban self-promotion, so read each
+  group's rules and ask admins before posting about Level.
+- **Instagram:** short clips of the share image, the plan grid and Tinker; one coaching tip per post
+  that links back to a Coaching notes article.
+- **Positive grassroots coaches** (owner suggestions: Coach Jonny / Football Fun Factory, Kev Weir):
+  engage with and share their content, cite them in articles where relevant, and approach them about
+  trying Level. **Never imply they endorse or use Level without their written OK** (same rule as the FA).
+- **Track:** add "how did you hear about Level?" to the early-access form so we know which channel works.
+
 ### Bigger bets
 
 **T3.1 Match-day engine features.**
@@ -232,12 +260,27 @@ capability-based guards in `deps.py` plus a deny-by-default route-coverage test.
 - **P3 comments + proposals (planned):** `PlanCommentDB`, `PlanProposalDB`. The head coach accepts, tinkers or rejects.
 - Head-coach transfer deferred. Goes via `staging` (migrations/auth/deps).
 
-**T3.4 Funding / club & County FA licensing (long term, owner 2026-11-26).** Today the owner
-covers running costs personally; the Help page (item 8) asks for tips ("buy me a coffee") and
-sponsors, plus coach feedback. Long-term ideal: clubs or County FAs pay so their coaches can use
-Level. Not a profit play, just to cover costs and spread the word. Would need: an org/club entity
-above squads (club admin sees its teams), bulk invites, and a simple billing route. Public copy
-must never imply FA endorsement before there is one.
+**T3.4 Club view + funding (long term, owner 2026-11-26).** Today the owner covers running costs
+personally; the Help page asks for Ko-fi tips and sponsors, plus coach feedback. Not a profit play,
+just to cover costs and spread the word. The long-term route is clubs (or County FAs) paying so
+their coaches use Level, and the thing a club would pay for is a **club view**.
+- **Who:** a club role above teams: youth chairman, club welfare officer, (maybe) secretary or age-group
+  coordinator. Head coaches still run their own teams.
+- **What they see:** every team at the club and every player's playing time across the season. The
+  welfare angle is the selling point: spot a child who's consistently getting little time, or a team
+  that has drifted off equal time, before a parent complains. Read-only by default.
+- **Price idea:** owner floated **£100 one-off per club**. Worth considering a yearly fee
+  (~£100 a season) instead, because hosting is a yearly cost and clubs budget by season; a one-off
+  doesn't cover year two. Decide before the first club conversation.
+- **Build:** `ClubDB` + `ClubMembershipDB` (role `club_admin` | `welfare`), `SquadDB.club_id`;
+  club-level capabilities in `deps.py` (the route-coverage test extends naturally); a club dashboard
+  (teams list, cross-team playing-time table, flags); bulk invites for the club's coaches; a simple
+  billing route (Stripe payment link / invoice to start, no in-app billing).
+- **Before building — open questions:** do club officers see **skill ratings** (assistants don't)?
+  Data protection: the club becomes a controller for its players' data, so the privacy policy and a
+  short club agreement need updating. Does a coach have to agree to join the club, or can a club
+  claim a team? Goes via `staging` (migrations, auth, deps).
+- Public copy must never imply FA endorsement before there is one.
 
 **T3.3 Export revisit.** An `.xlsx` export already exists (season: `GET /api/matches/export/season.xlsx`,
 plus tournament stats export buttons — `services/spreadsheet_export.py`). Remaining: revisit it against
