@@ -141,7 +141,7 @@ h2 { font-size: clamp(26px, 4vw, 36px); margin: 0 0 14px; letter-spacing: -0.3px
 .footer { border-top: 1px solid var(--hairline); padding: 34px 0; margin-top: 20px; }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
 .footer .brand span { font-size: 16px; }
-.footer-links { display: flex; gap: 20px; }
+.footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px; }
 .footer-links a { color: var(--muted); text-decoration: none; font-size: 14px; }
 .footer-links a:hover { color: var(--signal-lime); }
 .footer .fine { color: var(--muted); font-size: 13px; width: 100%; text-align: center; margin-top: 6px; }
@@ -243,3 +243,46 @@ h2 { font-size: clamp(26px, 4vw, 36px); margin: 0 0 14px; letter-spacing: -0.3px
 .post-card .eyebrow { margin: 0 0 10px; color: var(--muted); font-size: 11px; letter-spacing: 1.5px; opacity: .75; }
 .post-card h2 { font-size: 20px; line-height: 1.3; margin: 0 0 10px; color: var(--signal-lime); font-weight: 700; }
 .post-card p { color: var(--muted); margin: 0; font-size: 15px; line-height: 1.55; opacity: .85; }
+
+/* ── Help page (2026-11-26) ─────────────────────────────────────────────── */
+.help-sub { color: var(--muted); max-width: 560px; margin: 10px auto 0; }
+.help-jump { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
+.help-jump a { font-family: var(--mono); font-size: 13px; text-decoration: none; color: var(--signal-lime);
+  border: 1px solid rgba(164,204,70,.4); border-radius: 999px; padding: 6px 14px; }
+.help-jump a:hover { background: rgba(164,204,70,.12); }
+.prose .help-h2 { font-family: var(--mono); color: var(--signal-lime); font-size: 1.5rem; margin: 40px 0 6px;
+  padding-bottom: 8px; border-bottom: 2px solid var(--signal-lime); scroll-margin-top: 80px; }
+.help-lead { color: var(--muted); }
+.prose ol.help-steps { list-style: none; counter-reset: step; padding: 0; margin: 18px 0 10px; }
+.help-steps li { counter-increment: step; position: relative; padding: 14px 16px 14px 62px; margin-bottom: 10px;
+  background: var(--ghost-green); border: 1px solid var(--hairline); border-radius: 12px; color: var(--muted); }
+.help-steps li::before { content: counter(step); position: absolute; left: 16px; top: 14px;
+  width: 32px; height: 32px; border-radius: 50%; background: var(--signal-lime); color: var(--studio-green);
+  font-family: var(--mono); font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.help-steps .step-title { display: block; color: var(--chalk); font-size: 1.05rem; margin-bottom: 2px; }
+.help-steps em, .faq em { color: var(--chalk); font-style: normal; font-weight: 600; }
+.prose .faq-group { font-family: var(--mono); font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--signal-lime); margin: 28px 0 10px; }
+.prose .faq-group + .faq { margin-top: 0; }
+.help-steps ~ .faq, .faq-group ~ .faq { background: var(--ghost-green); border: 1px solid var(--hairline);
+  border-radius: 12px; padding: 0; margin-bottom: 8px; }
+.faq-group ~ .faq summary { list-style: none; padding: 14px 44px 14px 16px; position: relative; color: var(--chalk); }
+.faq-group ~ .faq summary::-webkit-details-marker { display: none; }
+.faq-group ~ .faq summary::after { content: "+"; position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+  font-family: var(--mono); font-size: 20px; color: var(--signal-lime); }
+.faq-group ~ .faq[open] summary::after { content: "–"; }
+.faq-group ~ .faq[open] { border-color: rgba(164,204,70,.45); }
+.faq-group ~ .faq summary:hover { color: var(--signal-lime); }
+.faq-group ~ .faq p { margin: 0; padding: 0 16px 16px; }
+#support { scroll-margin-top: 80px; }
+/* Four text links (incl. Help) must stay on one row on small phones. */
+@media (max-width: 400px) {
+  .nav-inner { column-gap: 14px; padding-left: 16px; padding-right: 16px; }
+  .nav-links a:not(.btn) { font-size: 13px; }
+}
+.support-more { margin-top: 18px; border-top: 1px solid var(--hairline); padding-top: 12px; }
+.support-more summary { cursor: pointer; font-family: var(--mono); font-size: 14px; color: var(--signal-lime); list-style: none; }
+.support-more summary::-webkit-details-marker { display: none; }
+.support-more summary::after { content: " +"; }
+.support-more[open] summary::after { content: " –"; }
+.support-more p { font-size: 15px; color: var(--muted); margin: 10px 0 0; }

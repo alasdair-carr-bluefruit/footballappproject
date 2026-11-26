@@ -124,7 +124,7 @@ first, then value × effort. Details for each are in the tier sections further d
    - Settings "Help & FAQ" button shows **Coming soon** (disabled) until the page below is live.
    - Marketing nav/footers/breadcrumbs: "Guides" → **"Coaching notes"** (owner: "Guides" read like help). SEO titles keep "guides".
 8. **Help section on the marketing site (owner, 2026-11-26).** Draft ready at `docs/drafts/help.html`
-   (8-step getting started + 14 FAQs, FAQPage JSON-LD) — kept OFF the site because pushes to `main`
+   (8-step getting started + 15 FAQs incl. "How come Level is free?", a "Keep Level free" tip/sponsor/feedback box, FAQPage JSON-LD; owner approved copy 2026-11-26; tip button → `ko-fi.com/keepthingslevel`). **Built locally 2026-11-26, awaiting owner test + push:** moved to `marketing/help.html`, Help in every top nav + footer (phone nav tightened ≤400px so it stays one row; footers wrap), grouped/carded FAQs + numbered steps + jump links, sitemap + llms.txt, app Settings button is now a link, SW v77) — kept OFF the site because pushes to `main`
    publish `marketing/`. To ship: owner reviews the copy → move to `marketing/help.html` → add "Help"
    to nav/footers, `sitemap.xml`, `llms.txt` → turn the app's Settings button into a link to
    `https://keepthingslevel.com/help` (`#settings-help-link`) and bump SW. Verify by content, not status
@@ -231,6 +231,13 @@ capability-based guards in `deps.py` plus a deny-by-default route-coverage test.
   against a client that sends no device id, so a deploy can't strand a live match.
 - **P3 comments + proposals (planned):** `PlanCommentDB`, `PlanProposalDB`. The head coach accepts, tinkers or rejects.
 - Head-coach transfer deferred. Goes via `staging` (migrations/auth/deps).
+
+**T3.4 Funding / club & County FA licensing (long term, owner 2026-11-26).** Today the owner
+covers running costs personally; the Help page (item 8) asks for tips ("buy me a coffee") and
+sponsors, plus coach feedback. Long-term ideal: clubs or County FAs pay so their coaches can use
+Level. Not a profit play, just to cover costs and spread the word. Would need: an org/club entity
+above squads (club admin sees its teams), bulk invites, and a simple billing route. Public copy
+must never imply FA endorsement before there is one.
 
 **T3.3 Export revisit.** An `.xlsx` export already exists (season: `GET /api/matches/export/season.xlsx`,
 plus tournament stats export buttons — `services/spreadsheet_export.py`). Remaining: revisit it against

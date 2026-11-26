@@ -2524,9 +2524,7 @@ html, body {
 }
 @keyframes wn-glow { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--matchday) 15%, transparent); } }
 .settings-whats-new { margin-bottom: 10px; }
-.settings-help { margin-bottom: 16px; }
-.settings-help:disabled { opacity: 0.6; cursor: default; }
-.settings-help .beta-badge { margin-left: 8px; vertical-align: middle; }
+.settings-help { display: block; text-align: center; text-decoration: none; margin-bottom: 16px; }
 .make-head-warning {
   margin: 8px 0 12px; padding: 10px 12px; border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
