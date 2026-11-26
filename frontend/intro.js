@@ -76,6 +76,17 @@ export const chip = (label, pos = "mid", cls = "") => `<span class="demo-chip po
 // Two things in one place: the first fades out as the second fades in (end state = b).
 export const crossfade = (a, b, cls = "") => `<span class="in-stack ${cls}"><span class="in-xa">${a}</span><span class="in-xb">${b}</span></span>`;
 
+// A mini pitch with a formation on it: "the plan" without a word on it.
+const FORMATION_ICON = `<svg class="wn-formation" viewBox="0 0 36 48" aria-hidden="true">
+  <rect x="1" y="1" width="34" height="46" rx="3" class="wn-f-pitch"/>
+  <line x1="1" y1="24" x2="35" y2="24" class="wn-f-line"/>
+  <circle cx="18" cy="24" r="5" class="wn-f-line" fill="none"/>
+  <circle cx="18" cy="42" r="2.6" class="wn-f-gk"/>
+  <circle cx="11" cy="35" r="2.6"/><circle cx="25" cy="35" r="2.6"/>
+  <circle cx="8" cy="23" r="2.6"/><circle cx="18" cy="21" r="2.6"/><circle cx="28" cy="23" r="2.6"/>
+  <circle cx="18" cy="9" r="2.6"/>
+</svg>`;
+
 export const DEMOS = {
   rested: `<div class="wn-rested">
       <div class="wn-row">
@@ -89,8 +100,11 @@ export const DEMOS = {
       <span class="wn-arrow">→</span>
       <div class="wn-card"><small>${to}</small><span class="wn-pill wn-pill-copy">7v7 · 4 × 12.5′</span></div>
     </div>`,
-  handover: (from = "You", to = "Co") => `<div class="wn-coaches">
-      ${coin(from)}<span class="wn-plan">Plan</span>${coin(to, "demo-coin-alt")}
+  // Coach and Assistant chips; a little team sheet (a 7v7 2-3-1) passes between them.
+  handover: (from = "Coach", to = "Assistant") => `<div class="wn-coaches">
+      <span class="wn-role">${from}</span>
+      <span class="wn-track">${FORMATION_ICON}</span>
+      <span class="wn-role wn-role-alt">${to}</span>
     </div>`,
   injury: `<div class="wn-pitch">
       ${coin("Ben")}

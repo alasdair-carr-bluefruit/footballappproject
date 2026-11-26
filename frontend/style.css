@@ -2422,19 +2422,27 @@ html, body {
 }
 .demo-coin-alt { background: var(--matchday); }
 
-/* Assistant coaches: a plan card passes between two coaches. */
-.wn-coaches { position: relative; width: 220px; display: flex; justify-content: space-between; align-items: center; }
-.wn-plan {
-  position: absolute; left: 52px; top: 50%;
-  padding: 6px 10px; border-radius: 6px; margin-top: -15px;
-  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
-  font-size: 12px; font-weight: 700; color: var(--text-light);
+/* Assistant coaches: a little team sheet passes from the Coach chip to the Assistant chip. */
+.wn-coaches { width: 260px; display: flex; align-items: center; gap: 8px; }
+.wn-role {
+  flex: none; padding: 6px 12px; border-radius: 999px;
+  background: var(--chalk); color: var(--on-accent);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+}
+.wn-role-alt { background: var(--matchday); }
+.wn-track { position: relative; flex: 1; height: 48px; }
+.wn-formation {
+  position: absolute; left: 0; top: 0; width: 36px; height: 48px;
+  fill: var(--chalk);
   animation: wn-pass 3.6s ease-in-out infinite;
 }
+.wn-f-pitch { fill: var(--pitch-green-l); stroke: color-mix(in srgb, var(--chalk) 45%, transparent); stroke-width: 1; }
+.wn-f-line { stroke: color-mix(in srgb, var(--chalk) 35%, transparent); stroke-width: 1; }
+.wn-f-gk { fill: var(--matchday); }
 @keyframes wn-pass {
-  0%, 15% { transform: translateX(0); }
-  45%, 65% { transform: translateX(64px); }
-  95%, 100% { transform: translateX(0); }
+  0%, 15% { left: 0; }
+  45%, 65% { left: calc(100% - 36px); }
+  95%, 100% { left: 0; }
 }
 
 /* Multiple teams: the team pill flips between two teams. */
@@ -2515,7 +2523,8 @@ html, body {
   width: 10px; height: 10px; border-radius: 50%; background: var(--matchday);
 }
 @keyframes wn-glow { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--matchday) 15%, transparent); } }
-.settings-whats-new { margin-bottom: 16px; }
+.settings-whats-new { margin-bottom: 10px; }
+.settings-help { display: block; text-align: center; text-decoration: none; margin-bottom: 16px; }
 .settings-intros { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
 .wn-where[hidden], .wn-dots[hidden], .wn-count[hidden] { display: none; }
 
@@ -2669,7 +2678,7 @@ html, body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wn-team-a, .wn-team-b, .wn-team-list span, .wn-plan, .wn-check, .wn-chips, .wn-chip, .wn-owed, .wn-hurt, .wn-on, .wn-pill-copy, .has-news { animation: none; }
+  .wn-team-a, .wn-team-b, .wn-team-list span, .wn-formation, .wn-check, .wn-chips, .wn-chip, .wn-owed, .wn-hurt, .wn-on, .wn-pill-copy, .has-news { animation: none; }
   .wn-hurt, .wn-team-b { display: none; }
   .wn-chip-rested { background: var(--chalk); color: var(--on-accent); }
 }
@@ -4328,6 +4337,8 @@ body:not(.role-assistant) .assistant-only { display: none !important; }
 }
 .assistant-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .assistant-row-name small { display: block; color: var(--text-dim); }
+.assistant-row { flex-wrap: wrap; }
+.assistant-row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .auth-link-btn {
   display: block;
   margin: 12px auto 0;

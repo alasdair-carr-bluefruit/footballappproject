@@ -204,7 +204,28 @@ async function renderAssistantsSection() {
         btn.disabled = false;
       }
     });
-    li.append(name, btn);
+    // A team has one head coach, so this is a swap: you stay on as their assistant.
+    const promote = document.createElement("button");
+    promote.type = "button";
+    promote.className = "btn btn-secondary btn-sm";
+    promote.textContent = "Make head coach";
+    promote.addEventListener("click", async () => {
+      const who = r.display_name || r.email;
+      if (!confirm(`Make ${who} head coach of ${teamName}?\n\nA team has one head coach, so you'll become an assistant. ${who} will manage the squad, the team and every plan. You keep the plans you made.`)) return;
+      promote.disabled = true;
+      try {
+        await api.makeAssistantHead(r.account_id);
+        showToast(`${who} is now head coach.`);
+        setTimeout(() => location.reload(), 900);  // your role changed: reload the app as an assistant
+      } catch (err) {
+        showToast((err && err.message) || "Couldn't change head coach — try again.");
+        promote.disabled = false;
+      }
+    });
+    const actions = document.createElement("span");
+    actions.className = "assistant-row-actions";
+    actions.append(promote, btn);
+    li.append(name, actions);
     list.appendChild(li);
   });
 }

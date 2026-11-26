@@ -95,6 +95,7 @@ export const api = {
   getAssistants:        ()      => request("/teams/assistants"),
   createAssistantInvite:()      => request("/teams/assistant-invite", { method: "POST" }),
   removeAssistant:      (accId) => request(`/teams/assistants/${accId}`, { method: "DELETE" }),
+  makeAssistantHead:    (accId) => request(`/teams/assistants/${accId}/make-head`, { method: "POST" }),
   leaveTeam:            (id)    => request(`/teams/${id}/leave`,  { method: "POST" }),
   previewAssistInvite:  (token) => request("/teams/assist-preview", { method: "POST", body: { token }, suppressAuthRedirect: true }),
   joinAsAssistant:      (token) => request("/teams/join",       { method: "POST", body: { token } }),

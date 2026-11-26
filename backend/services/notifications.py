@@ -71,3 +71,23 @@ def plan_handed_over(
             "You can now set it up, tinker with it and run the match from it.",
         ],
     )
+
+
+def team_handed_over(
+    background: BackgroundTasks, squad: SquadDB, old_head: AccountDB | None,
+    new_head: AccountDB | None,
+) -> None:
+    """Tell an assistant they're now the team's head coach."""
+    if new_head is None or (old_head is not None and old_head.id == new_head.id):
+        return
+    name = (old_head.display_name if old_head else "") or "The head coach"
+    _queue(
+        background, new_head,
+        subject=f"You're now head coach of {_team(squad)}",
+        heading="You're the head coach now",
+        paragraphs=[
+            f"{name} has made you head coach of {_team(squad)}.",
+            "You can now manage the squad, change any plan and invite assistant coaches. "
+            f"{name} stays on as an assistant.",
+        ],
+    )

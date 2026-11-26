@@ -16,7 +16,7 @@ hides the switcher.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
@@ -35,6 +35,7 @@ from backend.db.memberships import (
 )
 from backend.db.models import AccountDB, InviteDB, PlayerDB, SquadDB, SquadMembershipDB
 from backend.db.repositories import delete_squad_data
+from backend.services import notifications
 from backend.settings import INVITE_TTL_DAYS, app_base_url
 
 router = APIRouter()
@@ -310,6 +311,36 @@ def remove_assistant(
     return {"ok": True}
 
 
+@router.post("/assistants/{account_id}/make-head")
+def make_assistant_head(
+    account_id: int,
+    background: BackgroundTasks,
+    session: Session = Depends(get_session),
+    squad: SquadDB = Depends(require("manage_team")),
+    account: AccountDB = Depends(get_current_account),
+) -> dict:
+    """The head coach hands the active team to one of its assistants. A team has one
+    head, so it's a swap: the assistant becomes head coach (squad, team, assistants)
+    and the caller stays on as an assistant. Plans keep their creator, so each coach
+    can still change the plans they made; the new head can change all of them."""
+    target = get_membership(session, squad.id, account_id)  # type: ignore[arg-type]
+    if target is None or target.role != ASSISTANT:
+        raise HTTPException(status_code=404, detail="Assistant not found")
+    new_head = session.get(AccountDB, account_id)
+    if new_head is None or new_head.status != "active":
+        raise HTTPException(status_code=409, detail="That coach's account isn't active")
+    mine = get_membership(session, squad.id, account.id)  # type: ignore[arg-type]
+    if mine is None or mine.role != HEAD:  # require() already checked; belt and braces
+        raise HTTPException(status_code=403, detail="Only the head coach can do this")
+    mine.role = ASSISTANT
+    target.role = HEAD
+    squad.account_id = account_id
+    session.add_all([mine, target, squad])
+    session.commit()
+    notifications.team_handed_over(background, squad, account, new_head)
+    return {"ok": True, "head_account_id": account_id}
+
+
 @router.post("/{squad_id}/leave")
 def leave_team(
     squad_id: int,
@@ -317,7 +348,7 @@ def leave_team(
     account: AccountDB = Depends(get_current_account),
 ) -> dict:
     """An assistant leaves a team they help with. The head coach can't leave their
-    own team (remove it, or — later — hand it over)."""
+    own team (remove it, or make an assistant head coach first)."""
     owned_squad(squad_id, account, session)
     membership = get_membership(session, squad_id, account.id)  # type: ignore[arg-type]
     if membership is None or membership.role != ASSISTANT:

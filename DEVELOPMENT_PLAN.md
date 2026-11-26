@@ -103,7 +103,7 @@ first, then value × effort. Details for each are in the tier sections further d
      Settings button and its "✨ What's new" entry glow until viewed. To announce a batch: add
      slides at the top of `SLIDES` and bump `WHATS_NEW_VERSION`. Seen-state is per device
      (localStorage) — move to the account if coaches complain about seeing it twice.
-   - **First-run walkthrough + first-use intros — BUILT 2026-11-25 locally (P1–P3 in one go), uncommitted;
+   - **First-run walkthrough + first-use intros — on `staging` (e6c8410) 2026-11-25, awaiting owner test;
      ships via `staging` (migration).** Plan: `docs/WALKTHROUGH_PLAN.md`; copy from the owner-edited review doc.
      `frontend/intro.js` = the shared carousel (What's new now uses it too); `frontend/intros.js` =
      the cards + seen-state. 4-card welcome tour before the team-name screen; assistant welcome
@@ -113,7 +113,14 @@ first, then value × effort. Details for each are in the tier sections further d
      existing coaches from their data. Settings: "Replay the welcome tour" + "Show tips on new
      screens". SW v74. Remaining: What's new seen-state is still per device (could move to
      `intros_seen` as `whats-new:<version>`).
-7. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
+7. **Owner feedback batch (2026-11-26) — built, with the walkthrough on `staging`:**
+   - Assistant-coaches animation: Coach / Assistant chips passing a mini formation (was a "Plan" box). SW v75.
+   - **Make an assistant head coach** — `POST /api/teams/assistants/{id}/make-head` (`manage_team`).
+     One head per team, so it's a swap: the old head stays on as an assistant and can then leave.
+     Plans keep their creator. The new head gets an email. Settings → Assistant coaches → "Make head coach".
+   - **Help & FAQ** — Settings link to new `marketing/help.html` (getting started + FAQ, FAQPage JSON-LD,
+     in sitemap/llms.txt/footers). ⚠ Marketing site doesn't auto-deploy — publish it by hand.
+8. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
    which a coach asks for first. Open question for the owner: should assistants be able to *run*
    (not edit) any match on matchday? Today only the plan owner or head coach can.
 

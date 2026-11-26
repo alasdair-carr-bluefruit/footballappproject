@@ -772,3 +772,46 @@ def test_server_clock_follows_the_controlling_device(live):
     a.put(f"/api/matches/{mid}/timer", json={"running": True, "elapsed_ms": 185_000},
           headers=_dev("asst-phone"))
     assert clock()["running"] is True and 185_000 <= clock()["elapsed_ms"] < 190_000
+
+
+# ── Making an assistant head coach ──────────────────────────────────────────────
+def _id_of(session, email: str) -> int:
+    from sqlmodel import select
+
+    from backend.db.models import AccountDB
+    return session.exec(select(AccountDB).where(AccountDB.email == email)).one().id
+
+
+def test_head_makes_an_assistant_head_coach_and_stays_on_as_assistant(team, notices, session):
+    a, h, sid, mid = team["asst"], team["head"], team["squad_id"], team["match_id"]
+    a_mid = a.post("/api/matches/", json={"date": "2026-11-15"}).json()["id"]
+    head_id = _id_of(session, "head@example.com")
+
+    resp = h.post(f"/api/teams/assistants/{_asst_id(team)}/make-head")
+    assert resp.status_code == 200, resp.text
+    assert notices[0][:2] == ("asst@example.com", "You're now head coach of Tigers")
+
+    # Roles swapped; still exactly one head, and both still on the team.
+    assert _me(a)["role"] == "head" and _me(h)["role"] == "assistant"
+    assert _me(h)["squad_id"] == sid
+    assert [r["account_id"] for r in a.get("/api/teams/assistants").json()] == [head_id]
+    assert h.get("/api/teams/assistants").status_code == 403
+    # The new head runs the team; the old head keeps the plans they made.
+    assert a.post("/api/squad/players", json={"name": "Gus", "gk_status": "can_play"}).status_code == 201
+    assert a.post(f"/api/matches/{mid}/rotation", json={}).status_code == 200
+    assert h.post(f"/api/matches/{mid}/rotation", json={}).status_code == 200
+    assert h.post(f"/api/matches/{a_mid}/start").status_code == 403
+    assert h.post("/api/squad/players", json={"name": "Hal", "gk_status": "can_play"}).status_code == 403
+    # The old head can now leave; the new head can't.
+    assert a.post(f"/api/teams/{sid}/leave").status_code == 409
+    assert h.post(f"/api/teams/{sid}/leave").status_code == 200
+
+
+def test_only_the_head_can_make_someone_head_and_only_an_assistant(clients, team, session):
+    a, h = team["asst"], team["head"]
+    assert a.post(f"/api/teams/assistants/{_id_of(session, 'asst@example.com')}/make-head").status_code == 403
+    stranger = clients()
+    _redeem(stranger, "stranger@example.com")
+    assert h.post(f"/api/teams/assistants/{_id_of(session, 'stranger@example.com')}/make-head").status_code == 404
+    assert h.post(f"/api/teams/assistants/{_id_of(session, 'head@example.com')}/make-head").status_code == 404
+    assert _me(h)["role"] == "head"

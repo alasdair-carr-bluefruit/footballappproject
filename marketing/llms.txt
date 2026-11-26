@@ -45,6 +45,7 @@ time, at least 50%, for U8 and above; at U7 (3v3) everyone plays with no substit
 - Home: https://keepthingslevel.com/
 - About (founder story — a parent, coach, referee and former Designated
   Safeguarding Lead): https://keepthingslevel.com/about.html
+- Help & FAQ (getting started, common questions): https://keepthingslevel.com/help
 - Privacy Policy: https://app.keepthingslevel.com/privacy.html
 - Safeguarding & Children's Data Statement: https://app.keepthingslevel.com/safeguarding.html
 - Terms of Service: https://app.keepthingslevel.com/terms.html

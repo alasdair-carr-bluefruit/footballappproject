@@ -63,7 +63,7 @@ const assistantWelcome = team => [
     title: "You can see everything",
     body: `The plans, match reports and season stats for ${team}.`,
     why: "You'll know the plan before you get to the pitch.",
-    demo: DEMOS.handover("Head", "You"),
+    demo: DEMOS.handover("Coach", "You"),
   },
   {
     title: "Plan and run your own",
