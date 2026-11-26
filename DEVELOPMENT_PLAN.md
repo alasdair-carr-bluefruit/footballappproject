@@ -5,9 +5,12 @@
 > big decisions in `docs/adr/`; assistant-coach design in `docs/ASSISTANT_COACH_PLAN.md`.
 > Restructured 2026-11-24 (was 522 lines of mostly history).
 
-**State (2026-11-24):** everything through v1.1 multi-user, multi-team (T1.1) and assistant
-coaches P1–P2 (T3.2) is live on `app.keepthingslevel.com` for ~8 coaches. 583 tests collected.
-FA FutureFit guides are live on `keepthingslevel.com/blog/`.
+**State (2026-11-26):** everything through v1.1 multi-user, multi-team (T1.1), assistant
+coaches P1–P2 (T3.2), What's new, the new-coach walkthrough and "make an assistant head coach"
+is live on `app.keepthingslevel.com` for ~8 coaches (SW v76, `main` = `staging` at `8413c25`).
+637 tests collected. FA FutureFit articles are live on `keepthingslevel.com/blog/`, labelled
+**"Coaching notes"** in the site nav (renamed from "Guides" 2026-11-26).
+**Pick up next:** ▶ Next up item 1 (US Neon, manual) → item 8 (Help page) → item 9.
 
 ## Lessons to keep (don't re-learn these)
 - **Bench-run breaking:** reordering *selection* to favour players on a run cut runs but pushed
@@ -34,7 +37,7 @@ Loose ends from moving the production database from Neon us-east-1 to London
 - [ ] ⚠️ **OVERDUE (was due ~2026-10-06) — Delete the old US Neon project** (both branches) once production has run cleanly
       on London for a week *and* staging has moved. Until then a copy of
       coach data remains in the US, which the privacy policy (§6) no longer allows for.
-- [x] **`staging` branch exists on GitHub** (pushed with T3.2, last updated 2026-11-16, level
+- [x] **`staging` branch exists on GitHub** (last used 2026-11-26 for the walkthrough; level
       with `main`). *Still worth a glance that Railway's staging environment builds from it.*
 - [x] **Measure after the move** — done 2026-09-29: `Server-Timing` shows ~16ms per query
       (was ~260ms) with 0 new connections per request (pooling works; distance was the cause).
@@ -82,7 +85,7 @@ player out of a pick. Tournament chips stay by line but keep detailed picks. Tes
 `tests/unit/algorithm/test_granular_positions.py`, `tests/integration/test_granular_positions_api.py`,
 `tests/e2e/test_granular_positions.py`.
 
-## ▶ Next up (recommendation, 2026-11-23)
+## ▶ Next up (recommendation, updated 2026-11-26)
 
 Tier 1 is done and T3.2 phases 1–2 are live, so the order below is by risk to live coaches
 first, then value × effort. Details for each are in the tier sections further down.
@@ -94,7 +97,7 @@ first, then value × effort. Details for each are in the tier sections further d
 3. ~~League daily playing-time cap in tournaments~~ — **dropped (owner, 2026-11-24).**
 4. **T2.1 Man of the Match + assists** — owner: low priority (2026-11-24).
 5. ~~**T2.2 SEO cornerstone**~~ — on-site content built 2026-11-23 (4 guides + hub); sitemaps submitted to Google + Bing; remaining: outreach.
-6. **What's new + first-run walkthrough (owner, 2026-11-25)** — usability.
+6. ~~**What's new + first-run walkthrough**~~ — **LIVE 2026-11-26.** Kept for reference:
    - **What's new — LIVE on `main` 2026-11-25 (`frontend/whats-new.js`, SW v72, 6 slides incl. multiple teams; `?whatsnew=reset` re-shows it).** Full-screen, skippable
      carousel: one slide per feature, each with a small looping animation, what it does, a
      plain-English **Why** (coach reasons only — never tech), and where to find it. Opens by
@@ -104,7 +107,7 @@ first, then value × effort. Details for each are in the tier sections further d
      slides at the top of `SLIDES` and bump `WHATS_NEW_VERSION`. Seen-state is per device
      (localStorage) — move to the account if coaches complain about seeing it twice.
    - **First-run walkthrough + first-use intros — LIVE on `main` 2026-11-26 (via `staging`, migration
-     `d2a7f4c9e1b6`).** Plan: `docs/WALKTHROUGH_PLAN.md`; copy from the owner-edited review doc.
+     `d2a7f4c9e1b6`).** Plan: `docs/archive/WALKTHROUGH_PLAN.md`; copy from the owner-edited review doc.
      `frontend/intro.js` = the shared carousel (What's new now uses it too); `frontend/intros.js` =
      the cards + seen-state. 4-card welcome tour before the team-name screen; assistant welcome
      (3 cards) instead of What's new for new assistants; first-use intros for squad, new
@@ -113,7 +116,7 @@ first, then value × effort. Details for each are in the tier sections further d
      existing coaches from their data. Settings: "Replay the welcome tour" + "Show tips on new
      screens". SW v74. Welcome card 2 copy ("FA guidance is to rotate positions, not pick by size") confirmed by owner 2026-11-26. Remaining: What's new seen-state is still per device (could move to
      `intros_seen` as `whats-new:<version>`).
-7. **Owner feedback batch (2026-11-26) — LIVE on `main` 2026-11-26:**
+7. ~~**Owner feedback batch**~~ — **LIVE on `main` 2026-11-26:**
    - Assistant-coaches animation: Coach / Assistant chips passing a mini formation (was a "Plan" box). SW v75.
    - **Make an assistant head coach** — `POST /api/teams/assistants/{id}/make-head` (`manage_team`).
      One head per team, so it's a swap: the old head stays on as an assistant and can then leave.

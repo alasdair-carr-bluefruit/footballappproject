@@ -369,3 +369,14 @@ Shipped 2026-10-03 (SW v56, straight to `main` at the owner's request — touche
 canonical + OG/Twitter tags, 1200×630 `og-image.png`. ✅ Sitemap submitted to Google Search Console +
 Bing Webmaster Tools (2026-11-23).
 
+
+## Shipped 2026-11-25 → 26
+
+- **What's new** carousel (SW v72) — per-feature slides with a looping demo + plain "why".
+- **New-coach walkthrough** (via `staging`, migration `d2a7f4c9e1b6`) — 4-card welcome tour,
+  assistant welcome, once-only first-use intros, seen-state on the account, Settings replay + tips switch.
+- **Make an assistant head coach** — role swap behind a "you'll no longer have full access" warning;
+  the new head is emailed.
+- Assistant-coaches demo: Coach / Assistant chips passing a mini formation (was a "Plan" box).
+- Settings "Help & FAQ" (Coming soon; draft page in `docs/drafts/help.html`).
+- Marketing: "Guides" → **"Coaching notes"** in nav/footers/breadcrumbs. SW v76.

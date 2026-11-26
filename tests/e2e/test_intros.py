@@ -1,4 +1,4 @@
-"""The new-coach walkthrough (docs/WALKTHROUGH_PLAN.md), auth on, in a real browser.
+"""The new-coach walkthrough (docs/archive/WALKTHROUGH_PLAN.md), auth on, in a real browser.
 
 A new head coach gets the 4-card welcome tour before naming their team (Skip or
 finish both land on the team-name screen); it's remembered on the account, so a

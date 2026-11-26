@@ -1,6 +1,6 @@
 # First-run walkthrough + first-use intros — build plan
 
-> Status: **BUILT 2026-11-25 (P1–P3 together), local — ships via `staging`.** Deviations from this plan: the
+> Status: **SHIPPED — live on `main` 2026-11-26** (archived; the code in `frontend/intro.js` / `intros.js` is the truth now). Deviations from this plan: the
 > overlay keeps its `#whats-new` id (tests and CSS use it); "spell" became **"stint"** (owner);
 > card 2's FA line was reworded to what the verified source says; tournaments got an extra first
 > card on *why* tournament mode exists (owner); the rested intro shows the first time the season

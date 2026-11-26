@@ -1,4 +1,4 @@
-// The new-coach walkthrough (docs/WALKTHROUGH_PLAN.md): a short welcome tour after
+// The new-coach walkthrough (docs/archive/WALKTHROUGH_PLAN.md): a short welcome tour after
 // "Create my team", an assistant welcome after joining a team, and a 1–3 card
 // intro the first time a coach reaches each screen. Copy is the owner-edited
 // review doc (link in the plan). Coach language only: "stint" = one half of a

@@ -41,6 +41,17 @@ also depend on `editable_match` / `editable_tournament`, and any that change a m
 enforced against a request with no `X-Device-Id`). All test-enforced. The match clock lives
 on the server. Frontend: `.editor-only` + `setPlanEditable()`, `plan-owner.js`.
 Plan: `docs/ASSISTANT_COACH_PLAN.md`.
+**Hand the team over (2026-11-26):** the head coach can make an assistant head coach
+(`POST /api/teams/assistants/{id}/make-head`). One head per team, so it's a role swap — the old
+head stays on as an assistant and keeps the plans they created; the UI shows a "you'll no longer
+have full access" warning first.
+
+**New-coach walkthrough — LIVE 2026-11-26:** welcome tour, assistant welcome and once-only
+first-use intros (`frontend/intro.js` carousel + `frontend/intros.js` cards). Seen-state is on
+the account (`AccountDB.intros_seen`, `/api/auth/intros/{id}`). A new screen that needs an
+intro: add it to `FIRST_USE` + `INTRO_IDS` (the e2e conftest pre-marks every id as seen).
+**Help page:** draft at `docs/drafts/help.html`, NOT published (▶ Next up item 8); the app's
+Settings "Help & FAQ" button says "Coming soon" until it is.
 
 Earlier: the **Refactor Phase (C.1–C.7)** and **Phase D.1 "Review the plan" screen**
 are done; D.2 (tinker undo/redo) was dropped, and D.3 (export revisit) is now Forward
@@ -55,7 +66,7 @@ T1.2 signed-out→marketing link ✅ (live), T1.3 Settings + account self-servic
 
 **Doc map:** `CLAUDE.md` (read first) · `DEVELOPMENT_PLAN.md` (the only roadmap) ·
 `docs/STAGING.md` (release process) · `docs/DEPLOY.md` (infra) · `docs/adr/` (decisions) ·
-`docs/ASSISTANT_COACH_PLAN.md` (T3.2, P3 pending) · `docs/WALKTHROUGH_PLAN.md` (new-coach tour, next) · `BRAND.md` + `assets/brand/tokens.json` ·
+`docs/ASSISTANT_COACH_PLAN.md` (T3.2, P3 pending) · `docs/drafts/` (unpublished pages, e.g. help) · `BRAND.md` + `assets/brand/tokens.json` ·
 `requirements.md` (original spec/FR numbers, not status) · `marketing/README.md` · `docs/youtube/` ·
 `docs/reference/` (league rules PDF) · `docs/archive/` (shipped plans + history — never treat as current).
 
@@ -94,7 +105,7 @@ Next significant work: see **Current Phase** above and DEVELOPMENT_PLAN.md (Tier
 
 ```bash
 pip install -e ".[dev]"
-pytest                    # all tests (~580, ~80s incl. the browser suite)
+pytest                    # all tests (~640, ~110s incl. the browser suite)
 pytest -m unit            # fast, no DB/server
 pytest -m bdd             # Gherkin BDD scenarios
 pytest -m integration     # DB + HTTP tests
@@ -130,7 +141,7 @@ football-app-project/
 │   ├── youtube/          ← Tutorial strategy (README) + scripts
 │   ├── reference/        ← External sources (league rules PDF)
 │   └── archive/          ← Shipped plans, CHANGELOG.md, old refactor/feedback docs
-├── marketing/            ← Static site keepthingslevel.com (+ blog/ guides), Cloudflare Pages
+├── marketing/            ← Static site keepthingslevel.com (+ blog/ = "Coaching notes"), Cloudflare Pages; auto-deploys from main
 ├── pyproject.toml
 ├── main.py               ← FastAPI app entry point
 │
@@ -168,6 +179,7 @@ football-app-project/
 │   ├── api.js            ← Fetch wrappers
 │   ├── toast.js          ← Toast notifications + withSaveToast retry helper (C.7)
 │   ├── plan-owner.js     ← "Plan by …" chip, head-coach hand-over picker, Reviewed ✓ mark
+│   ├── intro.js / intros.js / whats-new.js ← Shared intro carousel; walkthrough + first-use cards; What's new slides
 │   ├── auth.js           ← Auth gate: login / magic-link confirm / invite + assistant join
 │   ├── teams.js / settings.js ← Team pill + switcher; Settings (account, assistants, theme, updates)
 │   ├── plan-image.js / share.js ← Team-sheet PNG + match-report share image
