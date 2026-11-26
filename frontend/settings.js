@@ -209,19 +209,7 @@ async function renderAssistantsSection() {
     promote.type = "button";
     promote.className = "btn btn-secondary btn-sm";
     promote.textContent = "Make head coach";
-    promote.addEventListener("click", async () => {
-      const who = r.display_name || r.email;
-      if (!confirm(`Make ${who} head coach of ${teamName}?\n\nA team has one head coach, so you'll become an assistant. ${who} will manage the squad, the team and every plan. You keep the plans you made.`)) return;
-      promote.disabled = true;
-      try {
-        await api.makeAssistantHead(r.account_id);
-        showToast(`${who} is now head coach.`);
-        setTimeout(() => location.reload(), 900);  // your role changed: reload the app as an assistant
-      } catch (err) {
-        showToast((err && err.message) || "Couldn't change head coach — try again.");
-        promote.disabled = false;
-      }
-    });
+    promote.addEventListener("click", () => openMakeHead(r, teamName));
     const actions = document.createElement("span");
     actions.className = "assistant-row-actions";
     actions.append(promote, btn);
@@ -337,6 +325,43 @@ document.getElementById("btn-invite-share").addEventListener("click", async () =
   try {
     await navigator.share({ title: "Try Level", text: INVITE_SHARE_TEXT, url: link });
   } catch (_) { /* user dismissed the share sheet — no-op */ }
+});
+
+// ── Make an assistant head coach (warning pop-up) ─────────────────────────────────
+// A team has one head coach, so this is a swap and the caller loses full access.
+const makeHeadOverlay = document.getElementById("make-head-overlay");
+const makeHeadConfirm = document.getElementById("btn-make-head-confirm");
+let makeHeadTarget = null;
+
+function openMakeHead(assistant, teamName) {
+  makeHeadTarget = assistant;
+  const who = assistant.display_name || assistant.email;
+  makeHeadOverlay.querySelectorAll(".make-head-name").forEach(el => { el.textContent = who; });
+  document.getElementById("make-head-team").textContent = teamName;
+  makeHeadConfirm.disabled = false;
+  hide("make-head-msg");
+  makeHeadOverlay.hidden = false;
+  document.getElementById("btn-make-head-cancel").focus();  // the safe choice has focus
+}
+
+document.getElementById("btn-make-head-cancel").addEventListener("click", () => {
+  makeHeadOverlay.hidden = true;
+  makeHeadTarget = null;
+});
+
+makeHeadConfirm.addEventListener("click", async () => {
+  if (!makeHeadTarget) return;
+  const who = makeHeadTarget.display_name || makeHeadTarget.email;
+  makeHeadConfirm.disabled = true;
+  showMsg("make-head-msg", "Handing over…");
+  try {
+    await api.makeAssistantHead(makeHeadTarget.account_id);
+    showToast(`${who} is now head coach.`);
+    setTimeout(() => location.reload(), 900);  // your role changed: reload the app as an assistant
+  } catch (err) {
+    showMsg("make-head-msg", (err && err.message) || "Couldn't change head coach — try again.");
+    makeHeadConfirm.disabled = false;
+  }
 });
 
 // ── Clear squad & data (type-to-confirm) ──────────────────────────────────────────

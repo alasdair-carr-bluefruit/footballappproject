@@ -281,7 +281,8 @@
 
     <div class="settings-wrap">
       <button type="button" class="btn btn-secondary btn-full settings-whats-new" id="btn-settings-whats-new">✨ What's new</button>
-      <a class="btn btn-secondary btn-full settings-help" id="settings-help-link" href="https://keepthingslevel.com/help" target="_blank" rel="noopener">Help &amp; FAQ ↗</a>
+      <!-- Help & FAQ: points at keepthingslevel.com/help once the marketing site is published -->
+      <button type="button" class="btn btn-secondary btn-full settings-help" id="settings-help-link" disabled aria-disabled="true">Help &amp; FAQ<span class="beta-badge">Coming soon</span></button>
       <div class="settings-intros">
         <button type="button" class="btn btn-secondary btn-full" id="btn-settings-replay-tour">Replay the welcome tour</button>
         <label class="switch-row settings-switch">
@@ -429,6 +430,28 @@
       </details>
 
       <button type="button" class="btn btn-secondary btn-full" id="btn-settings-signout">Sign out</button>
+    </div>
+
+    <!-- Make an assistant head coach: warn that you lose full access -->
+    <div class="form-overlay" id="make-head-overlay" hidden>
+      <div class="form-card" role="alertdialog" aria-labelledby="make-head-title" aria-describedby="make-head-warning">
+        <h3 id="make-head-title">Make <span class="make-head-name"></span> head coach?</h3>
+        <div class="make-head-warning" id="make-head-warning">
+          <p><strong>⚠ You'll no longer have full access to <span id="make-head-team"></span>.</strong></p>
+          <p>A team has one head coach, so you'll become an assistant. You won't be able to:</p>
+          <ul>
+            <li>change the squad, skill ratings or team settings</li>
+            <li>change plans other coaches made</li>
+            <li>invite or remove assistant coaches</li>
+          </ul>
+          <p>You keep the plans you made. Only <span class="make-head-name"></span> can make you head coach again.</p>
+        </div>
+        <p class="settings-msg" id="make-head-msg" hidden></p>
+        <div class="form-actions">
+          <button class="btn btn-secondary" type="button" id="btn-make-head-cancel">Cancel</button>
+          <button class="btn btn-danger" type="button" id="btn-make-head-confirm">Yes, hand over</button>
+        </div>
+      </div>
     </div>
 
     <!-- Clear-data type-to-confirm modal -->

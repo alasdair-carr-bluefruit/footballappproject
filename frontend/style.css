@@ -2524,7 +2524,17 @@ html, body {
 }
 @keyframes wn-glow { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--matchday) 15%, transparent); } }
 .settings-whats-new { margin-bottom: 10px; }
-.settings-help { display: block; text-align: center; text-decoration: none; margin-bottom: 16px; }
+.settings-help { margin-bottom: 16px; }
+.settings-help:disabled { opacity: 0.6; cursor: default; }
+.settings-help .beta-badge { margin-left: 8px; vertical-align: middle; }
+.make-head-warning {
+  margin: 8px 0 12px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+.make-head-warning p { margin: 0 0 6px; }
+.make-head-warning ul { margin: 0 0 6px; padding-left: 20px; }
+.make-head-warning strong { color: var(--danger-soft); }
 .settings-intros { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
 .wn-where[hidden], .wn-dots[hidden], .wn-count[hidden] { display: none; }
 
