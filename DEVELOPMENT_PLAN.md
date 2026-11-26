@@ -103,8 +103,8 @@ first, then value × effort. Details for each are in the tier sections further d
      Settings button and its "✨ What's new" entry glow until viewed. To announce a batch: add
      slides at the top of `SLIDES` and bump `WHATS_NEW_VERSION`. Seen-state is per device
      (localStorage) — move to the account if coaches complain about seeing it twice.
-   - **First-run walkthrough + first-use intros — on `staging` (e6c8410) 2026-11-25, awaiting owner test;
-     ships via `staging` (migration).** Plan: `docs/WALKTHROUGH_PLAN.md`; copy from the owner-edited review doc.
+   - **First-run walkthrough + first-use intros — LIVE on `main` 2026-11-26 (via `staging`, migration
+     `d2a7f4c9e1b6`).** Plan: `docs/WALKTHROUGH_PLAN.md`; copy from the owner-edited review doc.
      `frontend/intro.js` = the shared carousel (What's new now uses it too); `frontend/intros.js` =
      the cards + seen-state. 4-card welcome tour before the team-name screen; assistant welcome
      (3 cards) instead of What's new for new assistants; first-use intros for squad, new
@@ -113,14 +113,21 @@ first, then value × effort. Details for each are in the tier sections further d
      existing coaches from their data. Settings: "Replay the welcome tour" + "Show tips on new
      screens". SW v74. Remaining: What's new seen-state is still per device (could move to
      `intros_seen` as `whats-new:<version>`).
-7. **Owner feedback batch (2026-11-26) — built, with the walkthrough on `staging`:**
+7. **Owner feedback batch (2026-11-26) — LIVE on `main` 2026-11-26:**
    - Assistant-coaches animation: Coach / Assistant chips passing a mini formation (was a "Plan" box). SW v75.
    - **Make an assistant head coach** — `POST /api/teams/assistants/{id}/make-head` (`manage_team`).
      One head per team, so it's a swap: the old head stays on as an assistant and can then leave.
-     Plans keep their creator. The new head gets an email. Settings → Assistant coaches → "Make head coach".
-   - **Help & FAQ** — Settings link to new `marketing/help.html` (getting started + FAQ, FAQPage JSON-LD,
-     in sitemap/llms.txt/footers). ⚠ Marketing site doesn't auto-deploy — publish it by hand.
-8. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
+     Plans keep their creator. The new head gets an email. Settings → Assistant coaches → "Make head coach",
+     behind a red "you'll no longer have full access" warning pop-up.
+   - Settings "Help & FAQ" button shows **Coming soon** (disabled) until the page below is live.
+   - Marketing nav/footers/breadcrumbs: "Guides" → **"Blog"** (owner: "Guides" read like help). SEO titles keep "guides".
+8. **Help section on the marketing site (owner, 2026-11-26).** Draft ready at `docs/drafts/help.html`
+   (8-step getting started + 14 FAQs, FAQPage JSON-LD) — kept OFF the site because pushes to `main`
+   publish `marketing/`. To ship: owner reviews the copy → move to `marketing/help.html` → add "Help"
+   to nav/footers, `sitemap.xml`, `llms.txt` → turn the app's Settings button into a link to
+   `https://keepthingslevel.com/help` (`#settings-help-link`) and bump SW. Verify by content, not status
+   code (Pages catch-all returns 200 for anything). Consider screenshots / short clips per step later.
+9. Then **T3.2 P3** (comments + proposals) or **T3.1** per-quarter formation in tinker, depending on
    which a coach asks for first. Open question for the owner: should assistants be able to *run*
    (not edit) any match on matchday? Today only the plan owner or head coach can.
 
