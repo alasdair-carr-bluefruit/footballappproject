@@ -209,7 +209,7 @@ h2 { font-size: clamp(26px, 4vw, 36px); margin: 0 0 14px; letter-spacing: -0.3px
   .brand { order: 0; flex-shrink: 0; }
   .nav-links { display: contents; }
   .nav-links .btn { order: 1; margin-left: auto; padding: 8px 14px; font-size: 14px; white-space: nowrap; }
-  .nav-links a:not(.btn) { order: 3; font-size: 14px; color: var(--muted); padding: 6px 0; }
+  .nav-links a:not(.btn) { order: 3; font-size: 14px; color: var(--muted); padding: 6px 0; white-space: nowrap; }
   section { padding: 48px 0; }
   .prose blockquote p { font-size: 0.96rem; }
 }

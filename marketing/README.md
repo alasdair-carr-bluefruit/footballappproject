@@ -8,7 +8,7 @@ marketing/
 ├── index.html        ← landing (hero, features, video, early-access form)
 ├── about.html        ← founder / about page
 ├── why-equal-playing-time.html ← FA-sourced "why it matters" page
-├── blog/             ← Blog hub + FutureFit guides (see SEO below)
+├── blog/             ← Coaching notes hub + FutureFit guides (see SEO below)
 ├── googlea5b7e2fe9f4cb0ab.html, BingSiteAuth.xml ← search-console verification (keep)
 ├── style.css         ← Level brand styles
 ├── main.js           ← early-access form submit + explainer-video swap

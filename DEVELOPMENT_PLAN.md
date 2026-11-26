@@ -111,7 +111,7 @@ first, then value × effort. Details for each are in the tier sections further d
      match/tournament, who's coming (rested), plan review, Tinker, live match, tournament lobby.
      Seen-state on `AccountDB.intros_seen` (migration `d2a7f4c9e1b6`), backfilled once in `/me` for
      existing coaches from their data. Settings: "Replay the welcome tour" + "Show tips on new
-     screens". SW v74. Remaining: What's new seen-state is still per device (could move to
+     screens". SW v74. Welcome card 2 copy ("FA guidance is to rotate positions, not pick by size") confirmed by owner 2026-11-26. Remaining: What's new seen-state is still per device (could move to
      `intros_seen` as `whats-new:<version>`).
 7. **Owner feedback batch (2026-11-26) — LIVE on `main` 2026-11-26:**
    - Assistant-coaches animation: Coach / Assistant chips passing a mini formation (was a "Plan" box). SW v75.
@@ -120,7 +120,7 @@ first, then value × effort. Details for each are in the tier sections further d
      Plans keep their creator. The new head gets an email. Settings → Assistant coaches → "Make head coach",
      behind a red "you'll no longer have full access" warning pop-up.
    - Settings "Help & FAQ" button shows **Coming soon** (disabled) until the page below is live.
-   - Marketing nav/footers/breadcrumbs: "Guides" → **"Blog"** (owner: "Guides" read like help). SEO titles keep "guides".
+   - Marketing nav/footers/breadcrumbs: "Guides" → **"Coaching notes"** (owner: "Guides" read like help). SEO titles keep "guides".
 8. **Help section on the marketing site (owner, 2026-11-26).** Draft ready at `docs/drafts/help.html`
    (8-step getting started + 14 FAQs, FAQPage JSON-LD) — kept OFF the site because pushes to `main`
    publish `marketing/`. To ship: owner reviews the copy → move to `marketing/help.html` → add "Help"
