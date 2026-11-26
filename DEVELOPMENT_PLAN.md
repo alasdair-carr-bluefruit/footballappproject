@@ -10,7 +10,7 @@ coaches P1–P2 (T3.2), What's new, the new-coach walkthrough and "make an assis
 is live on `app.keepthingslevel.com` for ~8 coaches (SW v76, `main` = `staging` at `8413c25`).
 637 tests collected. FA FutureFit articles are live on `keepthingslevel.com/blog/`, labelled
 **"Coaching notes"** in the site nav (renamed from "Guides" 2026-11-26).
-**Pick up next:** ▶ Next up item 1 (US Neon, manual) → item 8 (Help page) → item 9.
+**Pick up next:** ▶ Next up item 8 (Help page) → item 9.
 
 ## Lessons to keep (don't re-learn these)
 - **Bench-run breaking:** reordering *selection* to favour players on a run cut runs but pushed
@@ -31,10 +31,9 @@ is live on `app.keepthingslevel.com` for ~8 coaches (SW v76, `main` = `staging` 
 Loose ends from moving the production database from Neon us-east-1 to London
 (`aws-eu-west-2`) on 2026-09-29 (it was ~260ms per query from Railway Amsterdam).
 
-- [ ] **Create a `staging` branch in the London Neon project** (Branches → New branch,
+- [x] **Create a `staging` branch in the London Neon project** — done (owner, 2026-11-26; staging ran fine after the US project went) (Branches → New branch,
       from the production branch) and point Railway **staging**'s `DATABASE_URL` at it.
-      Staging still uses the old US project's `ep-old-union` branch.
-- [ ] ⚠️ **OVERDUE (was due ~2026-10-06) — Delete the old US Neon project** (both branches) once production has run cleanly
+- [x] **Done (owner, 2026-11-26) — Delete the old US Neon project** (both branches) once production has run cleanly
       on London for a week *and* staging has moved. Until then a copy of
       coach data remains in the US, which the privacy policy (§6) no longer allows for.
 - [x] **`staging` branch exists on GitHub** (last used 2026-11-26 for the walkthrough; level
@@ -90,8 +89,8 @@ player out of a pick. Tournament chips stay by line but keep detailed picks. Tes
 Tier 1 is done and T3.2 phases 1–2 are live, so the order below is by risk to live coaches
 first, then value × effort. Details for each are in the tier sections further down.
 
-1. **Close the US Neon loose end** (infra list above) — a copy of coach data still sits in
-   the US, which privacy policy §6 no longer allows. Manual, ~30 min, highest-priority non-code item.
+1. ~~**Close the US Neon loose end**~~ — **done (owner, 2026-11-26).** Optional 1-min check: the Neon
+   console lists only the London (`aws-eu-west-2`) project.
 2. ~~Make `def_restricted` truly hard~~ — **dropped (owner, 2026-11-24).** The last-resort
    fallback is acceptable: the coach already sees an "out of position" warning, so it stays soft.
 3. ~~League daily playing-time cap in tournaments~~ — **dropped (owner, 2026-11-24).**
